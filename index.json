@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "signed": {
+    "repository_id": "official",
+    "display_name": "MonitorBox Official",
+    "generated_at": "2026-09-01T13:43:29.185213Z",
+    "modules": []
+  },
+  "signature": {
+    "algorithm": "ed25519",
+    "identity": "official-ed25519-1",
+    "value": "n2SpZJcN6eom+yWM3naYjHwnGBDf9xJI/mhQTzq+uWsmvRA+/BOGGQwcMX1X+RlQcCibfr029MZxCsjR7VYODw=="
+  }
+}
