@@ -35,6 +35,14 @@ def load_private_key(value: str) -> Ed25519PrivateKey:
 
 def build(source_path: Path, output_path: Path, key: Ed25519PrivateKey, identity: str) -> None:
     source = json.loads(source_path.read_text(encoding="utf-8"))
+    if not isinstance(source, dict) or source.get("schema") != 1:
+        raise SystemExit("catalog source must use schema 1")
+    if source.get("repository_id") != "official":
+        raise SystemExit("catalog source repository_id must be official")
+    if source.get("display_name") != "MonitorBox Official":
+        raise SystemExit("catalog source display_name must be MonitorBox Official")
+    if not isinstance(source.get("modules"), list):
+        raise SystemExit("catalog source modules must be an array")
     modules = []
     seen = set()
     root = source_path.parent.resolve()
