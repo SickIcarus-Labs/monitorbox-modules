@@ -3,12 +3,12 @@
   "signed": {
     "repository_id": "official",
     "display_name": "MonitorBox Official",
-    "generated_at": "2026-09-01T13:50:17.106564Z",
+    "generated_at": "2026-09-01T13:54:13.322074Z",
     "modules": []
   },
   "signature": {
     "algorithm": "ed25519",
     "identity": "official-ed25519-1",
-    "value": "03GP5L79g1ofAzazKcuw2dn838db7st4f3R+PSPskHsjZnR8hrGpwygsAWBy5/42ZVv3/sZThotZHWKjgbgECw=="
+    "value": "4zXUseN4giE5D3aSCm8APl+ZoWkCGJH69ofR8mTSmoxxD/+QyahlIShVde74Upy+RcIpxQfhzl2iQhImUKsKDw=="
   }
 }
