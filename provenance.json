@@ -1,6 +1,6 @@
 {
-  "display_name": "MonitorBox Official",
-  "modules": [
+  "core_ref": "0f1c91e64b7772d757b484cedaec0b9df7cbf82b",
+  "releases": [
     {
       "manifest": {
         "build": 1,
@@ -20,7 +20,9 @@
         "state_schema": 1,
         "version": "1.0.0"
       },
-      "package": "com.sickicarus.monitorbox.http-1.0.0-build1.zip"
+      "package": "com.sickicarus.monitorbox.http-1.0.0-build1.zip",
+      "sha256": "bd949ae4d5413ee12cfb94b8418a488989913cf8cf45492be1e0d52926e4a58b",
+      "source_ref": "0f1c91e64b7772d757b484cedaec0b9df7cbf82b"
     },
     {
       "manifest": {
@@ -41,7 +43,9 @@
         "state_schema": 1,
         "version": "1.0.0"
       },
-      "package": "com.sickicarus.monitorbox.nut-1.0.0-build1.zip"
+      "package": "com.sickicarus.monitorbox.nut-1.0.0-build1.zip",
+      "sha256": "cca9b7279653731bb433829f5dad8e9ee7d87faec1c7ea1a82226e618a1cd486",
+      "source_ref": "0f1c91e64b7772d757b484cedaec0b9df7cbf82b"
     },
     {
       "manifest": {
@@ -62,28 +66,9 @@
         "state_schema": 1,
         "version": "1.0.0"
       },
-      "package": "com.sickicarus.monitorbox.portainer-1.0.0-build1.zip"
-    },
-    {
-      "manifest": {
-        "build": 2,
-        "dependencies": [],
-        "display_name": "Portainer Integration",
-        "entrypoints": {
-          "integration": "_mbmod_com_sickicarus_monitorbox_portainer_v1_0_0_b2_ce151bb053:PLUGIN"
-        },
-        "lifecycle_policy": "optional",
-        "module_id": "com.sickicarus.monitorbox.portainer",
-        "module_type": "integration",
-        "permissions": [],
-        "publisher_id": "com.sickicarus",
-        "requires_core": ">=2.2.2 <3.0.0",
-        "requires_runtime_api": ">=1 <2",
-        "schema": 1,
-        "state_schema": 1,
-        "version": "1.0.0"
-      },
-      "package": "com.sickicarus.monitorbox.portainer-1.0.0-build2.zip"
+      "package": "com.sickicarus.monitorbox.portainer-1.0.0-build1.zip",
+      "sha256": "62e0c845d545fbabf45c03c94ccabcf760b16e99310dd386b41709239a51b440",
+      "source_ref": "0f1c91e64b7772d757b484cedaec0b9df7cbf82b"
     },
     {
       "manifest": {
@@ -104,7 +89,9 @@
         "state_schema": 1,
         "version": "1.0.0"
       },
-      "package": "com.sickicarus.monitorbox.scrypted-1.0.0-build1.zip"
+      "package": "com.sickicarus.monitorbox.scrypted-1.0.0-build1.zip",
+      "sha256": "9f2a4327c6a1d1920bdf3d9fa248b9be58ed1e01044279af27326cc3368c4c82",
+      "source_ref": "0f1c91e64b7772d757b484cedaec0b9df7cbf82b"
     },
     {
       "manifest": {
@@ -125,49 +112,9 @@
         "state_schema": 1,
         "version": "1.0.0"
       },
-      "package": "com.sickicarus.monitorbox.snmp-1.0.0-build1.zip"
-    },
-    {
-      "manifest": {
-        "build": 2,
-        "dependencies": [],
-        "display_name": "MonitorBox UI",
-        "entrypoints": {
-          "webui": "_mbmod_com_sickicarus_monitorbox_ui_v1_0_0_b2_0f1c91e64b:install"
-        },
-        "lifecycle_policy": "required",
-        "module_id": "com.sickicarus.monitorbox.ui",
-        "module_type": "ui",
-        "permissions": [],
-        "publisher_id": "com.sickicarus",
-        "requires_core": ">=2.2.2 <3.0.0",
-        "requires_runtime_api": ">=1 <2",
-        "schema": 1,
-        "state_schema": 1,
-        "version": "1.0.0"
-      },
-      "package": "com.sickicarus.monitorbox.ui-1.0.0-build2.zip"
-    },
-    {
-      "manifest": {
-        "build": 3,
-        "dependencies": [],
-        "display_name": "MonitorBox UI",
-        "entrypoints": {
-          "webui": "_mbmod_com_sickicarus_monitorbox_ui_v1_0_0_b3_ce151bb053:install"
-        },
-        "lifecycle_policy": "required",
-        "module_id": "com.sickicarus.monitorbox.ui",
-        "module_type": "ui",
-        "permissions": [],
-        "publisher_id": "com.sickicarus",
-        "requires_core": ">=2.2.2 <3.0.0",
-        "requires_runtime_api": ">=1 <2",
-        "schema": 1,
-        "state_schema": 1,
-        "version": "1.0.0"
-      },
-      "package": "com.sickicarus.monitorbox.ui-1.0.0-build3.zip"
+      "package": "com.sickicarus.monitorbox.snmp-1.0.0-build1.zip",
+      "sha256": "3169980413abf57a0abd7d038b485dcd15034ac8f0436569e95a4af259a8bf2d",
+      "source_ref": "0f1c91e64b7772d757b484cedaec0b9df7cbf82b"
     },
     {
       "manifest": {
@@ -188,7 +135,9 @@
         "state_schema": 1,
         "version": "1.0.0"
       },
-      "package": "com.sickicarus.monitorbox.unifi-1.0.0-build1.zip"
+      "package": "com.sickicarus.monitorbox.unifi-1.0.0-build1.zip",
+      "sha256": "9fa8401e915d49789e71970cf109bfe1eecdc42925f0c6f903b2ea48eba58739",
+      "source_ref": "0f1c91e64b7772d757b484cedaec0b9df7cbf82b"
     },
     {
       "manifest": {
@@ -209,9 +158,79 @@
         "state_schema": 1,
         "version": "1.0.0"
       },
-      "package": "com.sickicarus.monitorbox.wol-1.0.0-build1.zip"
+      "package": "com.sickicarus.monitorbox.wol-1.0.0-build1.zip",
+      "sha256": "3433bacb35cb637be773adeaa62cb38282a0e59471649aad6dd105a7c8e451c9",
+      "source_ref": "0f1c91e64b7772d757b484cedaec0b9df7cbf82b"
+    },
+    {
+      "manifest": {
+        "build": 2,
+        "dependencies": [],
+        "display_name": "MonitorBox UI",
+        "entrypoints": {
+          "webui": "_mbmod_com_sickicarus_monitorbox_ui_v1_0_0_b2_0f1c91e64b:install"
+        },
+        "lifecycle_policy": "required",
+        "module_id": "com.sickicarus.monitorbox.ui",
+        "module_type": "ui",
+        "permissions": [],
+        "publisher_id": "com.sickicarus",
+        "requires_core": ">=2.2.2 <3.0.0",
+        "requires_runtime_api": ">=1 <2",
+        "schema": 1,
+        "state_schema": 1,
+        "version": "1.0.0"
+      },
+      "package": "com.sickicarus.monitorbox.ui-1.0.0-build2.zip",
+      "sha256": "c60c769a95b91f13d203f43efd8429a71fa33e9fb558dc08adb17f2fc699f4a8",
+      "source_ref": "0f1c91e64b7772d757b484cedaec0b9df7cbf82b"
+    },
+    {
+      "manifest": {
+        "build": 2,
+        "dependencies": [],
+        "display_name": "Portainer Integration",
+        "entrypoints": {
+          "integration": "_mbmod_com_sickicarus_monitorbox_portainer_v1_0_0_b2_ce151bb053:PLUGIN"
+        },
+        "lifecycle_policy": "optional",
+        "module_id": "com.sickicarus.monitorbox.portainer",
+        "module_type": "integration",
+        "permissions": [],
+        "publisher_id": "com.sickicarus",
+        "requires_core": ">=2.2.2 <3.0.0",
+        "requires_runtime_api": ">=1 <2",
+        "schema": 1,
+        "state_schema": 1,
+        "version": "1.0.0"
+      },
+      "package": "com.sickicarus.monitorbox.portainer-1.0.0-build2.zip",
+      "sha256": "71b2dcd83de17f9f7e990d86f96da745c7860de9090e73dfcb689c16a6f64cd7",
+      "source_ref": "ce151bb05302d6a16ea2a239a1bcf3ad380ec495"
+    },
+    {
+      "manifest": {
+        "build": 3,
+        "dependencies": [],
+        "display_name": "MonitorBox UI",
+        "entrypoints": {
+          "webui": "_mbmod_com_sickicarus_monitorbox_ui_v1_0_0_b3_ce151bb053:install"
+        },
+        "lifecycle_policy": "required",
+        "module_id": "com.sickicarus.monitorbox.ui",
+        "module_type": "ui",
+        "permissions": [],
+        "publisher_id": "com.sickicarus",
+        "requires_core": ">=2.2.2 <3.0.0",
+        "requires_runtime_api": ">=1 <2",
+        "schema": 1,
+        "state_schema": 1,
+        "version": "1.0.0"
+      },
+      "package": "com.sickicarus.monitorbox.ui-1.0.0-build3.zip",
+      "sha256": "78179083a5118e8cf27eaa53d6bd2097d60ed8f238e78079c121dfde51fa2146",
+      "source_ref": "ce151bb05302d6a16ea2a239a1bcf3ad380ec495"
     }
   ],
-  "repository_id": "official",
   "schema": 1
 }
