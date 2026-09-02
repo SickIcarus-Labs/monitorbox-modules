@@ -1,0 +1,61 @@
+name: Import verified first-party transfer
+
+on:
+  push:
+    branches:
+      - transfer/2.3-first-party-catalog
+    paths:
+      - ".github/workflows/import-first-party-transfer.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    env:
+      TRANSFER_URL: "https://sdmntprwestcentralus.oaiusercontent.com/files/00000000-a6a0-81fb-b204-cf252583c36e/raw?se=2026-09-02T14%3A58%3A30Z&sp=r&sv=2026-02-06&sr=b&scid=c20e35a4-be07-573f-9406-a836f469f501&skoid=b9a47e8b-72a2-4ed3-8028-a2a98c1a6142&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-09-01T23%3A35%3A26Z&ske=2026-09-02T23%3A35%3A26Z&sks=b&skv=2026-02-06&sig=L4BB0XXPa99CUAh9vEpJaL9VA69oLo4Hm/JzD9xxrS0%3D"
+      TRANSFER_SHA256: "b23046a9b0f7c919afc87679ff089f65b0171f8297cf0786514106ffc6454169"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download exact verified transfer artifact
+        run: |
+          curl --fail --location --silent --show-error "$TRANSFER_URL" -o /tmp/first-party-module-packages.zip
+          echo "$TRANSFER_SHA256  /tmp/first-party-module-packages.zip" | sha256sum --check --strict
+
+      - name: Verify inner package provenance
+        run: |
+          rm -rf /tmp/mbmods
+          mkdir -p /tmp/mbmods
+          unzip -q /tmp/first-party-module-packages.zip -d /tmp/mbmods
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          root = Path('/tmp/mbmods')
+          provenance = json.loads((root / 'provenance.json').read_text())
+          assert len(provenance['releases']) == 10
+          for release in provenance['releases']:
+              package = root / 'packages' / release['package']
+              actual = hashlib.sha256(package.read_bytes()).hexdigest()
+              assert actual == release['sha256'], (package.name, actual, release['sha256'])
+          catalog = json.loads((root / 'catalog.source.json').read_text())
+          bom = json.loads((root / 'bootstrap-bom.json').read_text())
+          assert len(catalog['modules']) == 10
+          assert len(bom['modules']) == 8
+          print('verified transfer: 10 releases; 8-module bootstrap BOM')
+          PY
+
+      - name: Commit exact verified bytes to transfer branch
+        run: |
+          rm -rf packages
+          mkdir -p packages
+          cp /tmp/mbmods/packages/*.zip packages/
+          cp /tmp/mbmods/catalog.source.json catalog.source.json
+          cp /tmp/mbmods/bootstrap-bom.json bootstrap-bom.json
+          cp /tmp/mbmods/provenance.json provenance.json
+          git add packages catalog.source.json bootstrap-bom.json provenance.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "catalog: stage verified first-party module artifacts"
+          git push origin HEAD:transfer/2.3-first-party-catalog
