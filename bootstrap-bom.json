@@ -1,0 +1,54 @@
+{
+  "core_ref": "0f1c91e64b7772d757b484cedaec0b9df7cbf82b",
+  "modules": [
+    {
+      "build": 1,
+      "module_id": "com.sickicarus.monitorbox.http",
+      "source_ref": "0f1c91e64b7772d757b484cedaec0b9df7cbf82b",
+      "version": "1.0.0"
+    },
+    {
+      "build": 1,
+      "module_id": "com.sickicarus.monitorbox.nut",
+      "source_ref": "0f1c91e64b7772d757b484cedaec0b9df7cbf82b",
+      "version": "1.0.0"
+    },
+    {
+      "build": 1,
+      "module_id": "com.sickicarus.monitorbox.portainer",
+      "source_ref": "0f1c91e64b7772d757b484cedaec0b9df7cbf82b",
+      "version": "1.0.0"
+    },
+    {
+      "build": 1,
+      "module_id": "com.sickicarus.monitorbox.scrypted",
+      "source_ref": "0f1c91e64b7772d757b484cedaec0b9df7cbf82b",
+      "version": "1.0.0"
+    },
+    {
+      "build": 1,
+      "module_id": "com.sickicarus.monitorbox.snmp",
+      "source_ref": "0f1c91e64b7772d757b484cedaec0b9df7cbf82b",
+      "version": "1.0.0"
+    },
+    {
+      "build": 2,
+      "module_id": "com.sickicarus.monitorbox.ui",
+      "source_ref": "0f1c91e64b7772d757b484cedaec0b9df7cbf82b",
+      "version": "1.0.0"
+    },
+    {
+      "build": 1,
+      "module_id": "com.sickicarus.monitorbox.unifi",
+      "source_ref": "0f1c91e64b7772d757b484cedaec0b9df7cbf82b",
+      "version": "1.0.0"
+    },
+    {
+      "build": 1,
+      "module_id": "com.sickicarus.monitorbox.wol",
+      "source_ref": "0f1c91e64b7772d757b484cedaec0b9df7cbf82b",
+      "version": "1.0.0"
+    }
+  ],
+  "schema": 1
+}
