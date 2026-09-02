@@ -10,12 +10,16 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: first-party-module-transfer
+  cancel-in-progress: true
+
 jobs:
   import:
     runs-on: ubuntu-latest
     env:
-      TRANSFER_URL: "https://sdmntprwestcentralus.oaiusercontent.com/files/00000000-a6a0-81fb-b204-cf252583c36e/raw?se=2026-09-02T14%3A58%3A30Z&sp=r&sv=2026-02-06&sr=b&scid=c20e35a4-be07-573f-9406-a836f469f501&skoid=b9a47e8b-72a2-4ed3-8028-a2a98c1a6142&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-09-01T23%3A35%3A26Z&ske=2026-09-02T23%3A35%3A26Z&sks=b&skv=2026-02-06&sig=L4BB0XXPa99CUAh9vEpJaL9VA69oLo4Hm/JzD9xxrS0%3D"
-      TRANSFER_SHA256: "b23046a9b0f7c919afc87679ff089f65b0171f8297cf0786514106ffc6454169"
+      TRANSFER_URL: "https://sdmntprwestus.oaiusercontent.com/files/00000000-a178-8230-ae44-c4d5cd70e782/raw?se=2026-09-02T15%3A30%3A34Z&sp=r&sv=2026-02-06&sr=b&scid=7815f056-d642-5557-bb1b-5f9e48ee8e5d&skoid=b9a47e8b-72a2-4ed3-8028-a2a98c1a6142&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-09-02T13%3A00%3A32Z&ske=2026-09-03T13%3A00%3A32Z&sks=b&skv=2026-02-06&sig=lmulewwCWQwEU645cN8vJwJJuA8jWt/uaqcybstsdYA%3D"
+      TRANSFER_SHA256: "e6bc7e4ce646dd0d2e539e8171b9f0f8cd197f4fbc88c2e6c880a58f67af6b67"
     steps:
       - uses: actions/checkout@v4
 
@@ -24,13 +28,13 @@ jobs:
           curl --fail --location --silent --show-error "$TRANSFER_URL" -o /tmp/first-party-module-packages.zip
           echo "$TRANSFER_SHA256  /tmp/first-party-module-packages.zip" | sha256sum --check --strict
 
-      - name: Verify inner package provenance
+      - name: Verify reproducible source-only package provenance
         run: |
           rm -rf /tmp/mbmods
           mkdir -p /tmp/mbmods
           unzip -q /tmp/first-party-module-packages.zip -d /tmp/mbmods
           python - <<'PY'
-          import hashlib, json
+          import hashlib, json, zipfile
           from pathlib import Path
           root = Path('/tmp/mbmods')
           provenance = json.loads((root / 'provenance.json').read_text())
@@ -39,11 +43,23 @@ jobs:
               package = root / 'packages' / release['package']
               actual = hashlib.sha256(package.read_bytes()).hexdigest()
               assert actual == release['sha256'], (package.name, actual, release['sha256'])
+              with zipfile.ZipFile(package) as archive:
+                  names = archive.namelist()
+                  assert not any(
+                      '__pycache__' in Path(name).parts or Path(name).suffix in {'.pyc', '.pyo'}
+                      for name in names
+                  ), package.name
           catalog = json.loads((root / 'catalog.source.json').read_text())
           bom = json.loads((root / 'bootstrap-bom.json').read_text())
           assert len(catalog['modules']) == 10
           assert len(bom['modules']) == 8
-          print('verified transfer: 10 releases; 8-module bootstrap BOM')
+          by_id = {}
+          for item in catalog['modules']:
+              manifest = item['manifest']
+              by_id.setdefault(manifest['module_id'], []).append(manifest['build'])
+          assert sorted(by_id['com.sickicarus.monitorbox.portainer']) == [1, 2]
+          assert sorted(by_id['com.sickicarus.monitorbox.ui']) == [2, 3]
+          print('verified reproducible transfer: 10 source-only releases; 8-module bootstrap BOM')
           PY
 
       - name: Commit exact verified bytes to transfer branch
@@ -57,5 +73,9 @@ jobs:
           git add packages catalog.source.json bootstrap-bom.json provenance.json
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "catalog: stage verified first-party module artifacts"
+          if git diff --cached --quiet; then
+            echo "Exact verified transfer bytes already staged."
+            exit 0
+          fi
+          git commit -m "catalog: stage reproducible first-party module artifacts"
           git push origin HEAD:transfer/2.3-first-party-catalog
