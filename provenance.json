@@ -21,7 +21,7 @@
         "version": "1.0.0"
       },
       "package": "com.sickicarus.monitorbox.http-1.0.0-build1.zip",
-      "sha256": "0a6025798f9665a25f0b7a3c60eddeeb6bf69bca56a65e4bc4f4953325aef8bb",
+      "sha256": "bd949ae4d5413ee12cfb94b8418a488989913cf8cf45492be1e0d52926e4a58b",
       "source_ref": "0f1c91e64b7772d757b484cedaec0b9df7cbf82b"
     },
     {
@@ -44,7 +44,7 @@
         "version": "1.0.0"
       },
       "package": "com.sickicarus.monitorbox.nut-1.0.0-build1.zip",
-      "sha256": "6f5b6d250ad3e6e505fd1b50b27e4c7378636abc99ffb66bd059a5dcd0bf73a1",
+      "sha256": "cca9b7279653731bb433829f5dad8e9ee7d87faec1c7ea1a82226e618a1cd486",
       "source_ref": "0f1c91e64b7772d757b484cedaec0b9df7cbf82b"
     },
     {
@@ -67,7 +67,7 @@
         "version": "1.0.0"
       },
       "package": "com.sickicarus.monitorbox.portainer-1.0.0-build1.zip",
-      "sha256": "cd882a2dec25c69e5b2800f15d49b87c8e2399611f1c2e6f5f006d7a37ca0c10",
+      "sha256": "62e0c845d545fbabf45c03c94ccabcf760b16e99310dd386b41709239a51b440",
       "source_ref": "0f1c91e64b7772d757b484cedaec0b9df7cbf82b"
     },
     {
@@ -90,7 +90,7 @@
         "version": "1.0.0"
       },
       "package": "com.sickicarus.monitorbox.scrypted-1.0.0-build1.zip",
-      "sha256": "7c6a9e05c597a9464c1c0bcd7fc4c8f2b975c7fab4566d542c48be928b27b793",
+      "sha256": "9f2a4327c6a1d1920bdf3d9fa248b9be58ed1e01044279af27326cc3368c4c82",
       "source_ref": "0f1c91e64b7772d757b484cedaec0b9df7cbf82b"
     },
     {
@@ -113,7 +113,7 @@
         "version": "1.0.0"
       },
       "package": "com.sickicarus.monitorbox.snmp-1.0.0-build1.zip",
-      "sha256": "33e4348843982195e2f6e4f8052e9c958d607c1697fc81ad2447105a5b499845",
+      "sha256": "3169980413abf57a0abd7d038b485dcd15034ac8f0436569e95a4af259a8bf2d",
       "source_ref": "0f1c91e64b7772d757b484cedaec0b9df7cbf82b"
     },
     {
@@ -136,7 +136,7 @@
         "version": "1.0.0"
       },
       "package": "com.sickicarus.monitorbox.unifi-1.0.0-build1.zip",
-      "sha256": "0220c280712b5faf24aa639516dd591d8d43329ef5b7d394ba27c36ecff57259",
+      "sha256": "9fa8401e915d49789e71970cf109bfe1eecdc42925f0c6f903b2ea48eba58739",
       "source_ref": "0f1c91e64b7772d757b484cedaec0b9df7cbf82b"
     },
     {
@@ -159,7 +159,7 @@
         "version": "1.0.0"
       },
       "package": "com.sickicarus.monitorbox.wol-1.0.0-build1.zip",
-      "sha256": "b03fefc03ff97cca192ed0e940c5e982b1414fa1b2850fe7907f4905a895eaef",
+      "sha256": "3433bacb35cb637be773adeaa62cb38282a0e59471649aad6dd105a7c8e451c9",
       "source_ref": "0f1c91e64b7772d757b484cedaec0b9df7cbf82b"
     },
     {
@@ -182,7 +182,7 @@
         "version": "1.0.0"
       },
       "package": "com.sickicarus.monitorbox.ui-1.0.0-build2.zip",
-      "sha256": "ddde1517a6e1bb56c5f05a968cc59e3cbf8f5b24fcd52bf80018a2ab94683cdc",
+      "sha256": "c60c769a95b91f13d203f43efd8429a71fa33e9fb558dc08adb17f2fc699f4a8",
       "source_ref": "0f1c91e64b7772d757b484cedaec0b9df7cbf82b"
     },
     {
@@ -205,7 +205,7 @@
         "version": "1.0.0"
       },
       "package": "com.sickicarus.monitorbox.portainer-1.0.0-build2.zip",
-      "sha256": "b513fd2e1d58233949744dcf22e42d26846adda17acf6873a4e98223feaeffae",
+      "sha256": "71b2dcd83de17f9f7e990d86f96da745c7860de9090e73dfcb689c16a6f64cd7",
       "source_ref": "ce151bb05302d6a16ea2a239a1bcf3ad380ec495"
     },
     {
@@ -228,7 +228,7 @@
         "version": "1.0.0"
       },
       "package": "com.sickicarus.monitorbox.ui-1.0.0-build3.zip",
-      "sha256": "4c0f3a410200dadf029cc128a3425633697c3f682db553d2f4594c172dc71c03",
+      "sha256": "78179083a5118e8cf27eaa53d6bd2097d60ed8f238e78079c121dfde51fa2146",
       "source_ref": "ce151bb05302d6a16ea2a239a1bcf3ad380ec495"
     }
   ],
