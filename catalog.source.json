@@ -2,5 +2,48 @@
   "schema": 1,
   "repository_id": "official",
   "display_name": "MonitorBox Official",
-  "modules": []
+  "modules": [
+    {
+      "manifest": {
+        "module_id": "com.sickicarus.monitorbox.ui",
+        "display_name": "MonitorBox UI",
+        "version": "1.0.0",
+        "build": 2,
+        "schema": 1,
+        "state_schema": 1,
+        "module_type": "ui",
+        "entrypoints": {
+          "webui": "monitorbox_ui_b2:install"
+        },
+        "requires_core": ">=2.2.2 <3.0.0",
+        "requires_runtime_api": ">=1 <2",
+        "dependencies": [],
+        "publisher_id": "com.sickicarus",
+        "permissions": [],
+        "lifecycle_policy": "required"
+      },
+      "package": "com.sickicarus.monitorbox.ui-1.0.0-build2.zip"
+    },
+    {
+      "manifest": {
+        "module_id": "com.sickicarus.monitorbox.ui",
+        "display_name": "MonitorBox UI",
+        "version": "1.0.0",
+        "build": 3,
+        "schema": 1,
+        "state_schema": 1,
+        "module_type": "ui",
+        "entrypoints": {
+          "webui": "monitorbox_ui_b3:install"
+        },
+        "requires_core": ">=2.2.2 <3.0.0",
+        "requires_runtime_api": ">=1 <2",
+        "dependencies": [],
+        "publisher_id": "com.sickicarus",
+        "permissions": [],
+        "lifecycle_policy": "required"
+      },
+      "package": "com.sickicarus.monitorbox.ui-1.0.0-build3.zip"
+    }
+  ]
 }
