@@ -1,0 +1,55 @@
+name: First-party module acceptance
+
+on:
+  pull_request:
+    paths:
+      - catalog.source.json
+      - tools/build_first_party_ui.py
+      - tools/accept_frozen_core.py
+      - tools/build_repository.py
+      - .github/workflows/first-party-acceptance.yml
+      - .github/workflows/publish.yml
+  push:
+    branches:
+      - 'publish/**'
+    paths:
+      - catalog.source.json
+      - tools/build_first_party_ui.py
+      - tools/accept_frozen_core.py
+      - tools/build_repository.py
+      - .github/workflows/first-party-acceptance.yml
+      - .github/workflows/publish.yml
+
+permissions:
+  contents: read
+
+jobs:
+  frozen-core:
+    runs-on: ubuntu-latest
+    env:
+      FROZEN_CORE_SHA: 0f1c91e64b7772d757b484cedaec0b9df7cbf82b
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Install frozen-Core runtime dependencies
+        run: python -m pip install --disable-pip-version-check aiohttp==3.11.16 cryptography==50.0.1
+      - name: Build reproducible certified UI packages
+        run: |
+          python tools/build_first_party_ui.py
+          sha256sum packages/com.sickicarus.monitorbox.ui-*.zip > /tmp/ui-packages.first
+          python tools/build_first_party_ui.py
+          sha256sum packages/com.sickicarus.monitorbox.ui-*.zip > /tmp/ui-packages.second
+          diff -u /tmp/ui-packages.first /tmp/ui-packages.second
+      - name: Fetch exact frozen MonitorBox Core
+        run: |
+          git init /tmp/monitorbox
+          git -C /tmp/monitorbox remote add origin https://github.com/SickIcarus-Labs/monitorbox.git
+          git -C /tmp/monitorbox fetch --depth=1 origin "$FROZEN_CORE_SHA"
+          git -C /tmp/monitorbox checkout --detach FETCH_HEAD
+          test "$(git -C /tmp/monitorbox rev-parse HEAD)" = "$FROZEN_CORE_SHA"
+      - name: Exercise signed acquisition, update, rollback, and restart
+        env:
+          PYTHONPATH: /tmp/monitorbox/src
+        run: python tools/accept_frozen_core.py
