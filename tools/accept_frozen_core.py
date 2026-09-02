@@ -16,31 +16,12 @@ from build_repository import build as build_repository
 from monitorbox.v2.module_management_runtime import ModuleManagementRuntime
 from monitorbox.v2.module_repository import RepositoryTrustRoot, TrustedModuleRepositoryClient
 from monitorbox.v2.plugin_api.module_management import RepositoryDefinition
-from monitorbox.v2.plugin_api.module_runtime import ModuleManifest, TestModuleSource
+from monitorbox.v2.plugin_api.module_runtime import TestModuleSource
 
 REPOSITORY_ID = "official"
 DISPLAY_NAME = "MonitorBox Official"
 SIGNATURE_IDENTITY = "acceptance-ephemeral-ed25519"
 EXPECTED_RELEASES = (2, 3)
-
-
-def _manifest(raw: dict) -> ModuleManifest:
-    return ModuleManifest(
-        module_id=raw["module_id"],
-        display_name=raw["display_name"],
-        version=raw["version"],
-        build=raw["build"],
-        module_type=raw["module_type"],
-        entrypoints=dict(raw["entrypoints"]),
-        requires_core=raw["requires_core"],
-        requires_runtime_api=raw["requires_runtime_api"],
-        schema=raw.get("schema", 1),
-        state_schema=raw.get("state_schema", 1),
-        dependencies=tuple(raw.get("dependencies", ())),
-        publisher_id=raw.get("publisher_id"),
-        permissions=tuple(raw.get("permissions", ())),
-        lifecycle_policy=raw.get("lifecycle_policy", "optional"),
-    )
 
 
 def _assert_package_shape(root: Path, source: dict) -> None:
@@ -80,9 +61,11 @@ def _assert_effective_build(runtime: ModuleManagementRuntime, build_number: int)
             f"expected effective build {build_number}, got {package.manifest.build}"
         )
     entrypoint = package.entrypoints["webui"]
-    if entrypoint.__module__ != f"monitorbox_ui_b{build_number}":
+    expected_module = f"monitorbox_ui_b{build_number}.application"
+    if entrypoint.__module__ != expected_module:
         raise AssertionError(
-            f"build {build_number} resolved through wrong Python module {entrypoint.__module__!r}"
+            f"build {build_number} resolved through wrong Python module {entrypoint.__module__!r}; "
+            f"expected {expected_module!r}"
         )
 
 
