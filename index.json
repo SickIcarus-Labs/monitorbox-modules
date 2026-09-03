@@ -3,8 +3,35 @@
   "signed": {
     "repository_id": "official",
     "display_name": "MonitorBox Official",
-    "generated_at": "2026-09-02T18:30:50.868218Z",
+    "generated_at": "2026-09-03T02:08:26.613365Z",
     "modules": [
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.portainer",
+          "display_name": "Portainer Integration",
+          "version": "1.0.0",
+          "build": 2,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "integration",
+          "entrypoints": {
+            "integration": "monitorbox_portainer_b2:PLUGIN"
+          },
+          "requires_core": ">=2.3.0 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "optional"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.portainer-1.0.0-build2.zip",
+          "filename": "com.sickicarus.monitorbox.portainer-1.0.0-build2.zip",
+          "sha256": "f68053ccb0f1c8c4bcd6b1c7ff8e0317a600a9dc5ff976b3641cc73d3ee1da5e",
+          "signature_identity": "official-ed25519-1",
+          "signature": "OOse9fpYOydBy0rR8r5WngQPQUIWZ8OQiAdmqup10Wf/IXF/kO1luZkzP3SmAUOIEiO1iSHaqHdsbGJNzCNZCA=="
+        }
+      },
       {
         "manifest": {
           "module_id": "com.sickicarus.monitorbox.ui",
@@ -64,6 +91,6 @@
   "signature": {
     "algorithm": "ed25519",
     "identity": "official-ed25519-1",
-    "value": "UrELcnRPFHogUJDxvnFElYZhcMgJ+38EeQJOLppqEW6OB+k4XZ2cEztl/7vy3ECM62vJuu5pX9Z+I8uwmuoLDg=="
+    "value": "pHNDHuOKk/nrk5cLDE8Z9U1A9kfOV/jUFQ0idu4EPhLzNfKEnwFikXifYaGPCN4GemTTOXMw2lYd5biTpXhDAw=="
   }
 }
