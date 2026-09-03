@@ -143,14 +143,11 @@ async def _accept(root: Path) -> None:
         disabled = restarted.manager.set_enabled(MODULE_ID, False)
         if disabled.enabled or disabled.lifecycle_state != "disabled":
             raise AssertionError("optional managed Portainer could not be disabled")
-        factory_registry = _provider_registry(restarted)
-        factory = factory_registry.require("portainer")
-        if factory_registry.module_id_for_plugin("portainer") != MODULE_ID:
-            raise AssertionError("disabled managed Portainer did not fall back to factory module identity")
-        if factory.runtime_executor is None:
-            raise AssertionError("factory Portainer fallback has no runtime executor")
-        if factory.runtime_executor.__class__.__module__ == IMPORT_PACKAGE:
-            raise AssertionError("disabled Portainer still executes managed package")
+        disabled_registry = _provider_registry(restarted)
+        if disabled_registry.get("portainer") is not None:
+            raise AssertionError(
+                "disabled managed Portainer leaked through to managed or bundled provider authority"
+            )
 
         reenabled = restarted.manager.set_enabled(MODULE_ID, True)
         if not reenabled.enabled or reenabled.lifecycle_state != "active":
@@ -159,7 +156,7 @@ async def _accept(root: Path) -> None:
 
     print(
         "frozen Core managed Portainer acceptance: PASS "
-        "(install -> managed registry -> restart -> factory fallback -> reactivate)"
+        "(install -> managed registry -> restart -> disabled suppression -> reactivate)"
     )
 
 
