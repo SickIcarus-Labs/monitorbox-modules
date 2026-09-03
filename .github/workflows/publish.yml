@@ -7,7 +7,9 @@ on:
     paths:
       - catalog.source.json
       - packages/**
+      - sources/portainer/**
       - tools/build_first_party_ui.py
+      - tools/build_first_party_portainer.py
       - tools/build_repository.py
       - .github/workflows/publish.yml
 
@@ -27,7 +29,9 @@ jobs:
         with:
           python-version: '3.13'
       - name: Build immutable first-party packages
-        run: python tools/build_first_party_ui.py
+        run: |
+          python tools/build_first_party_ui.py
+          python tools/build_first_party_portainer.py
       - run: python -m pip install --disable-pip-version-check cryptography
       - name: Build signed repository index
         env:
