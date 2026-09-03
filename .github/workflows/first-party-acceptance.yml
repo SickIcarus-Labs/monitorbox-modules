@@ -5,7 +5,9 @@ on:
     paths:
       - catalog.source.json
       - sources/ui/**
+      - sources/portainer/**
       - tools/build_first_party_ui.py
+      - tools/build_first_party_portainer.py
       - tools/accept_repository.py
       - tools/accept_frozen_core.py
       - tools/build_repository.py
@@ -17,7 +19,9 @@ on:
     paths:
       - catalog.source.json
       - sources/ui/**
+      - sources/portainer/**
       - tools/build_first_party_ui.py
+      - tools/build_first_party_portainer.py
       - tools/accept_repository.py
       - tools/accept_frozen_core.py
       - tools/build_repository.py
@@ -37,12 +41,14 @@ jobs:
           python-version: '3.13'
       - name: Install repository signing dependency
         run: python -m pip install --disable-pip-version-check cryptography==50.0.1
-      - name: Build reproducible certified UI packages
+      - name: Build reproducible first-party packages
         run: |
           python tools/build_first_party_ui.py
-          sha256sum packages/com.sickicarus.monitorbox.ui-*.zip > /tmp/ui-packages.first
+          python tools/build_first_party_portainer.py
+          sha256sum packages/com.sickicarus.monitorbox.ui-*.zip packages/com.sickicarus.monitorbox.portainer-*.zip > /tmp/first-party-packages.first
           python tools/build_first_party_ui.py
-          sha256sum packages/com.sickicarus.monitorbox.ui-*.zip > /tmp/ui-packages.second
-          diff -u /tmp/ui-packages.first /tmp/ui-packages.second
+          python tools/build_first_party_portainer.py
+          sha256sum packages/com.sickicarus.monitorbox.ui-*.zip packages/com.sickicarus.monitorbox.portainer-*.zip > /tmp/first-party-packages.second
+          diff -u /tmp/first-party-packages.first /tmp/first-party-packages.second
       - name: Verify package shape and signed repository contract
         run: python tools/accept_repository.py
