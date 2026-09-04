@@ -180,11 +180,21 @@ def _accept_current_ui9(root: Path, source: dict) -> None:
             "traffic-detail provider or its configuration is unavailable",
             "Throughput above remains valid from counter telemetry",
             "attribution_available:false",
-            "traffic_subject!=='busiest'",
+            "does not coerce malformed producer data",
         )
         missing = [marker for marker in required_traffic if marker not in traffic]
         if missing:
             raise AssertionError(f"UI build 9 omitted traffic presentation markers: {missing}")
+        forbidden_traffic = (
+            "uiBuild9BusiestCounterSeries",
+            "renderLiveOverview=function",
+            "liveChart=function",
+        )
+        present = [marker for marker in forbidden_traffic if marker in traffic]
+        if present:
+            raise AssertionError(
+                f"UI build 9 must not mask malformed producer telemetry or replace baseline chart rendering: {present}"
+            )
 
         hierarchy_patch = archive.read(f"{root_name}assets/service-hierarchy-interactions.js").decode("utf-8")
         required_hierarchy = (
