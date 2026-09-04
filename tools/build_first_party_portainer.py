@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Build the certified managed Portainer integration for MonitorBox Core 0545+.
+"""Build the current managed Portainer integration for frozen MonitorBox 2.3 Core.
 
-The source snapshot is vendored byte-for-byte from the certified MonitorBox
-provider line. Packaging verifies every Git blob before applying only the
-mechanical transforms required to move the provider out of Core's bundled
-namespace and into a generation-safe managed-module namespace.
+Portainer build 2 remains immutable release history in ``sources/`` and
+``packages/``. Build 3 is deliberately stored as a small changed-file delta over
+that verified source snapshot. The builder verifies both generations before
+composing the complete generation-safe managed package.
 """
 
 from __future__ import annotations
@@ -18,12 +18,14 @@ from pathlib import Path
 FIXED_ZIP_TIME = (1980, 1, 1, 0, 0, 0)
 MODULE_ID = "com.sickicarus.monitorbox.portainer"
 MODULE_VERSION = "1.0.0"
-MODULE_BUILD = 2
-CERTIFIED_SOURCE_SHA = "a707ace84a9112dca519fdcf0196fdc3bb990fa4"
-IMPORT_PACKAGE = "monitorbox_portainer_b2"
+MODULE_BUILD = 3
+IMPORT_PACKAGE = "monitorbox_portainer_b3"
 FILENAME = f"{MODULE_ID}-{MODULE_VERSION}-build{MODULE_BUILD}.zip"
+HISTORICAL_FILENAMES = frozenset(
+    {f"{MODULE_ID}-{MODULE_VERSION}-build2.zip"}
+)
 
-SOURCE_BLOBS = {
+BASE_SOURCE_BLOBS = {
     "__init__.py": "7757ab39a71d9a851dc942538b1961e9e7ee516f",
     "adoption.py": "5a6e8bd9b679665ec03e80bfb4a1a157396643ad",
     "deployment_transition.py": "ef291fcedb0f8faabda077cd6e5fe6fbe5480bd3",
@@ -37,6 +39,12 @@ SOURCE_BLOBS = {
     "runtime.py": "49e85c2dc853f41fb49c55312956ae25fa832e76",
     "suggestions.py": "38d445510118af7be8219612003febe2cc2ce414",
     "validation.py": "78f3011d8cf417ef55b225439a635df39bd634c6",
+}
+
+OVERRIDE_SOURCE_BLOBS = {
+    "__init__.py": "1e2914562205ff7302bb1785ab7111512ca211c1",
+    "onboarding.py": "f1d4a9c356bb3b8a29be5a87995f6bcd972ccfa6",
+    "runtime.py": "3d68cdb507b1f70248476f9fa4e3356ecf6781ef",
 }
 
 _CORE_IMPORT_REWRITES = (
@@ -55,7 +63,7 @@ try:
     )
 except ImportError as exc:  # pragma: no cover - exercised against superseded Core
     raise ImportError(
-        "managed Portainer build 2 requires MonitorBox Core build 0545 provider authority"
+        "managed Portainer build 3 requires MonitorBox Core build 0545+ provider authority"
     ) from exc
 else:
     del _managed_provider_authority
@@ -67,31 +75,54 @@ def _git_blob_sha(payload: bytes) -> str:
     return hashlib.sha1(f"blob {len(payload)}\0".encode("ascii") + payload).hexdigest()
 
 
-def _source_files(root: Path) -> dict[str, bytes]:
-    source_root = root / "sources" / "portainer" / "1.0.0-build2"
+def _verified_directory(
+    source_root: Path,
+    expected_blobs: dict[str, str],
+    *,
+    label: str,
+) -> dict[str, bytes]:
     actual_names = {
         path.name
         for path in source_root.iterdir()
         if path.is_file()
     }
-    expected_names = set(SOURCE_BLOBS)
+    expected_names = set(expected_blobs)
     if actual_names != expected_names:
         missing = sorted(expected_names - actual_names)
         extra = sorted(actual_names - expected_names)
         raise SystemExit(
-            f"certified Portainer source shape changed: missing={missing}, extra={extra}"
+            f"{label} source shape changed: missing={missing}, extra={extra}"
         )
 
     result: dict[str, bytes] = {}
-    for name, expected_blob in SOURCE_BLOBS.items():
+    for name, expected_blob in expected_blobs.items():
         payload = (source_root / name).read_bytes()
         actual_blob = _git_blob_sha(payload)
         if actual_blob != expected_blob:
             raise SystemExit(
-                f"certified Portainer source drift for {name}: "
+                f"{label} source drift for {name}: "
                 f"expected Git blob {expected_blob}, got {actual_blob}"
             )
         result[name] = payload
+    return result
+
+
+def _source_files(root: Path) -> dict[str, bytes]:
+    portainer_root = root / "sources" / "portainer"
+    base = _verified_directory(
+        portainer_root / "1.0.0-build2",
+        BASE_SOURCE_BLOBS,
+        label="immutable Portainer build 2",
+    )
+    overrides = _verified_directory(
+        portainer_root / "1.0.0-build3",
+        OVERRIDE_SOURCE_BLOBS,
+        label="Portainer build 3 delta",
+    )
+    result = dict(base)
+    result.update(overrides)
+    if set(result) != set(BASE_SOURCE_BLOBS):
+        raise SystemExit("Portainer build 3 composed source set does not match build 2 shape")
     return result
 
 
@@ -166,13 +197,14 @@ def build(root: Path, output_dir: Path) -> Path:
     target.write_bytes(payload)
     print(
         f"built {target}: sha256={hashlib.sha256(payload).hexdigest()} "
-        f"certified_source={CERTIFIED_SOURCE_SHA} "
+        f"base_build=2 overrides={len(OVERRIDE_SOURCE_BLOBS)} "
         f"entrypoint={IMPORT_PACKAGE}:PLUGIN"
     )
+    expected = set(HISTORICAL_FILENAMES) | {FILENAME}
     unexpected = sorted(
         path.name
         for path in output_dir.glob(f"{MODULE_ID}-*.zip")
-        if path.name != FILENAME
+        if path.name not in expected
     )
     if unexpected:
         raise SystemExit(f"unexpected managed Portainer packages already present: {unexpected}")
