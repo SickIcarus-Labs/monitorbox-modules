@@ -3,7 +3,7 @@
 
 This script must run with the accepted MonitorBox Core runtime importable. It
 proves the real packaged entrypoint can be admitted and imported by Core, then
-exercises the production-relevant build-2 -> build-4 update path. This catches
+exercises the production-relevant build-2 -> build-5 update path. This catches
 cross-file/import failures that package syntax checks cannot detect.
 """
 
@@ -30,7 +30,7 @@ SIGNATURE_IDENTITY = "acceptance-ephemeral-ed25519"
 MODULE_ID = "com.sickicarus.monitorbox.portainer"
 MODULE_VERSION = "1.0.0"
 BASE_BUILD = 2
-TARGET_BUILD = 4
+TARGET_BUILD = 5
 
 
 def _provider_registry(runtime: ModuleManagementRuntime):
@@ -146,9 +146,9 @@ async def _accept(root: Path) -> None:
         target_artifact, target_payload = await client.provide(entries[TARGET_BUILD])
         installed_target = management.install_verified(target_artifact, target_payload)
         if installed_target.active.manifest.build != TARGET_BUILD:
-            raise AssertionError("Portainer build 4 did not become active managed authority")
+            raise AssertionError("Portainer build 5 did not become active managed authority")
         if installed_target.previous is None or installed_target.previous.manifest.build != BASE_BUILD:
-            raise AssertionError("Portainer build-2 -> build-4 update did not retain build 2 for rollback")
+            raise AssertionError("Portainer build-2 -> build-5 update did not retain build 2 for rollback")
         _assert_managed_portainer(management, TARGET_BUILD)
 
         restarted = ModuleManagementRuntime.for_root(temp / "appliance")
@@ -157,9 +157,9 @@ async def _accept(root: Path) -> None:
             item for item in restarted.state.installed_records() if item.module_id == MODULE_ID
         )
         if not record.enabled or record.lifecycle_state != "active":
-            raise AssertionError("managed Portainer build 4 authority did not persist across restart")
+            raise AssertionError("managed Portainer build 5 authority did not persist across restart")
         if record.previous is None or record.previous.manifest.build != BASE_BUILD:
-            raise AssertionError("managed Portainer build 4 lost rollback state across restart")
+            raise AssertionError("managed Portainer build 5 lost rollback state across restart")
 
         rolled_back = restarted.manager.rollback(MODULE_ID)
         if rolled_back.active.manifest.build != BASE_BUILD:
@@ -168,7 +168,7 @@ async def _accept(root: Path) -> None:
 
         reinstalled = restarted.install_verified(target_artifact, target_payload)
         if reinstalled.active.manifest.build != TARGET_BUILD:
-            raise AssertionError("Portainer build 4 could not be reactivated after rollback")
+            raise AssertionError("Portainer build 5 could not be reactivated after rollback")
         _assert_managed_portainer(restarted, TARGET_BUILD)
 
         disabled = restarted.manager.set_enabled(MODULE_ID, False)
@@ -187,7 +187,7 @@ async def _accept(root: Path) -> None:
 
     print(
         "frozen Core managed Portainer acceptance: PASS "
-        "(build 2 -> build 4 -> restart -> rollback -> build 4 -> disable/reactivate)"
+        "(build 2 -> build 5 -> restart -> rollback -> build 5 -> disable/reactivate)"
     )
 
 
