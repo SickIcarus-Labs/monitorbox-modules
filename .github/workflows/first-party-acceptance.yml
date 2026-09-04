@@ -9,6 +9,7 @@ on:
       - tools/build_first_party_ui.py
       - tools/build_first_party_portainer.py
       - tools/accept_repository.py
+      - tools/accept_repository_current.py
       - tools/accept_portainer_runtime.py
       - tools/accept_portainer_coverage.py
       - tools/accept_portainer_lifecycle.py
@@ -29,6 +30,7 @@ on:
       - tools/build_first_party_ui.py
       - tools/build_first_party_portainer.py
       - tools/accept_repository.py
+      - tools/accept_repository_current.py
       - tools/accept_portainer_runtime.py
       - tools/accept_portainer_coverage.py
       - tools/accept_portainer_lifecycle.py
@@ -83,4 +85,4 @@ jobs:
           path: /tmp/ui-discovery-presentation.png
           if-no-files-found: error
       - name: Verify package shape, activation regression, and signed repository contract
-        run: python tools/accept_repository.py
+        run: python tools/accept_repository_current.py
