@@ -7,6 +7,7 @@ import vm from 'node:vm';
 const source = [
   '../sources/ui/1.0.0-build5/service-presentation.js',
   '../sources/ui/1.0.1-build6/provider-service-hierarchy.js',
+  '../sources/ui/1.0.1-build6/provider-service-labels.js',
 ].map(path => fs.readFileSync(new URL(path, import.meta.url), 'utf8')).join('\n');
 
 const stateRanks = new Map([
@@ -31,7 +32,8 @@ vm.runInContext(source, context, { filename: 'service-presentation-build6.js' })
 
 for (const name of [
   'providerPresentationModel', 'providerEnvironmentOwners', 'providerWorkloadRuntime',
-  'servicesForSite', 'servicePresentationEntries', 'serviceStackRow', 'serviceGroupObject',
+  'providerStackDisplayBase', 'servicesForSite', 'servicePresentationEntries',
+  'serviceStackRow', 'serviceGroupObject',
 ]) {
   assert.equal(typeof context[name], 'function', `${name} must remain executable`);
 }
@@ -52,7 +54,7 @@ function workload({ envKey, envName, envUrl, project = '', service = '', name, s
     identity,
     label: name || service,
     environment_key: envKey,
-    environment_name: envName,
+    environment: envName,
     environment_url: envUrl,
     compose_project: project,
     compose_service: service,
@@ -119,6 +121,8 @@ assert.ok(visible.some(item => item.label === 'watchtower' && item.kind === 'pro
 let entries = context.servicePresentationEntries(visible);
 const ombiStack = entries.find(entry => entry.kind === 'stack' && entry.group.project === 'ombi_mysql');
 assert.ok(ombiStack, 'Ombi provider project must materialize as a stack parent');
+assert.equal(ombiStack.label, 'Ombi', 'canonical application label should present the provider stack');
+assert.equal(ombiStack.group.environmentLabel, 'Broad Leaf - Goliath', 'real Portainer environment field should drive parent provenance');
 assert.equal(ombiStack.group.services.length, 3);
 assert.deepEqual(
   new Set(ombiStack.group.services.map(item => item.label)),
@@ -126,6 +130,8 @@ assert.deepEqual(
   'canonical application plus provider-only DB/admin members must share one parent',
 );
 assert.equal(ombiStack.group.services.find(item => item.label === 'Ombi').id, 'goliath_ombi', 'canonical child identity must be preserved');
+const scrobStack = entries.find(entry => entry.kind === 'stack' && entry.group.project === 'scrob');
+assert.equal(scrobStack?.label, 'Scrob', 'canonical Scrob label should present its Compose parent');
 let html = context.serviceStackRow(site, ombiStack, '__services__');
 assert.match(html, /<details class="service-compose-group healthy"/);
 assert.doesNotMatch(html, /service-compose-group healthy"[^>]* open/, 'healthy stack defaults collapsed');
@@ -156,11 +162,23 @@ const neutralStack = entries.find(entry => entry.kind === 'stack' && entry.group
 assert.equal(neutralStack.state, 'healthy', 'policy-neutral stopped provider member must not falsely fail a healthy canonical application');
 assert.equal(neutralStack.group.services.find(item => item.label === 'mariadb').state, 'unknown', 'child still exposes unknown expected-state truth');
 
+const duplicateEntries = context.servicePresentationEntries([
+  canonicalService('a_ombi', 'Ombi', 'a', { components: [{ enabled: true, state: 'healthy', adapter: 'portainer', summary: 'healthy', metadata: { provider: 'portainer', compose_project: 'ombi_mysql', compose_service: 'ombi', environment_key: 'env-a', environment_name: 'Environment A', deployment_kind: 'compose' } }] }),
+  { id: 'a_db', label: 'db', kind: 'provider_workload', state: 'healthy', components: [], _provider_workload: { compose_project: 'ombi_mysql', compose_service: 'db', environment_key: 'env-a', environment: 'Environment A' } },
+  canonicalService('b_ombi', 'Ombi', 'b', { components: [{ enabled: true, state: 'healthy', adapter: 'portainer', summary: 'healthy', metadata: { provider: 'portainer', compose_project: 'ombi_mysql', compose_service: 'ombi', environment_key: 'env-b', environment_name: 'Environment B', deployment_kind: 'compose' } }] }),
+  { id: 'b_db', label: 'db', kind: 'provider_workload', state: 'healthy', components: [], _provider_workload: { compose_project: 'ombi_mysql', compose_service: 'db', environment_key: 'env-b', environment: 'Environment B' } },
+]);
+assert.deepEqual(
+  new Set(duplicateEntries.filter(entry => entry.kind === 'stack').map(entry => entry.label)),
+  new Set(['Ombi · Environment A', 'Ombi · Environment B']),
+  'same application label in different environments must remain disambiguated',
+);
+
 const directory = context.serviceGroupObject(site);
 assert.equal(directory.health_participant, false);
 assert.ok(directory.services.length > 4);
 
 console.log(
   'UI 1.0.1 build 6 provider-backed Compose hierarchy acceptance: PASS ' +
-  '(authoritative inventory + canonical dedupe + provider-only children + local environment ownership + foreign exclusion + direct detail + worst-child anomaly propagation)',
+  '(authoritative inventory + canonical dedupe + provider-only children + local environment ownership + foreign exclusion + canonical parent labels + environment disambiguation + direct detail + worst-child anomaly propagation)',
 );
