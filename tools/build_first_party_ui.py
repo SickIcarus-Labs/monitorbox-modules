@@ -2,9 +2,9 @@
 """Build deterministic managed UI packages for the frozen MonitorBox 2.3 Core line.
 
 The factory UI is the certified recovery seed bundled with frozen Core. Managed build 2 is an
-explicit generation-safe adapter to that seed. Managed build 3 composes only its certified UI
-delta over the same seed. This keeps publication independent of private-repository credentials
-while preserving exact provenance for every changed build-3 asset.
+explicit generation-safe adapter to that seed. Managed build 3 composes its certified endpoint
+prefill/discovery delta over the seed. Managed build 4 is a deliberately narrow successor to
+build 3: it adds only bounded provider environment/Compose provenance presentation for #162.
 """
 
 from __future__ import annotations
@@ -22,10 +22,12 @@ MODULE_VERSION = "1.0.0"
 FACTORY_BUILD = 2
 CERTIFIED_BUILD2_SHA = "0f1c91e64b7772d757b484cedaec0b9df7cbf82b"
 CERTIFIED_BUILD3_SHA = "cc4a82ef4420be3edd8778ac16b5c132917ad22a"
+CERTIFIED_BUILD4_REFERENCE_SHA = "b539759659577ae95782c54aae36fc6ddd830964"
 BUILD3_SOURCE_BLOBS = {
     "discovery-v22.js": "4b97daed8a7813499cca57ed08dda708643fae06",
     "endpoint-prefill-v22.js": "675f16a1db88522b9bebce0d3f64751b969c1065",
 }
+BUILD4_PROVENANCE_SNIPPET_BLOB = "e3028c40c0ff336333d8d66f7e687f32b4928767"
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,6 +47,7 @@ class Release:
 RELEASES = (
     Release(build=2, certified_sha=CERTIFIED_BUILD2_SHA),
     Release(build=3, certified_sha=CERTIFIED_BUILD3_SHA),
+    Release(build=4, certified_sha=CERTIFIED_BUILD4_REFERENCE_SHA),
 )
 
 
@@ -78,8 +81,8 @@ __all__ = ["install"]
 '''.encode("utf-8")
 
 
-def _build3_adapter() -> bytes:
-    return f'''"""Managed MonitorBox UI build 3 composed over the certified factory UI seed."""
+def _managed_delta_adapter(build: int) -> bytes:
+    return f'''"""Managed MonitorBox UI build {build} composed over the certified factory UI seed."""
 
 from importlib.resources import files
 
@@ -94,7 +97,7 @@ from monitorbox.v2.modules.ui import application as factory
 _EXPECTED = ({MODULE_ID!r}, {MODULE_VERSION!r}, {FACTORY_BUILD})
 if (FACTORY_ID, FACTORY_VERSION, FACTORY_BUILD) != _EXPECTED:
     raise ImportError(
-        "managed UI build 3 requires the certified MonitorBox 2.3 factory UI build 2 seed"
+        "managed UI build {build} requires the certified MonitorBox 2.3 factory UI build 2 seed"
     )
 
 _OVERRIDES = frozenset(("discovery-v22.js", "endpoint-prefill-v22.js"))
@@ -136,10 +139,6 @@ async def asset(request):
 
 
 def install(app):
-    # Middleware order is intentional. aiohttp applies the list in reverse while
-    # composing the handler, making this first middleware outermost. It therefore
-    # appends endpoint-prefill after the factory presentation has injected its
-    # existing deferred scripts, matching certified build-3 execution order.
     app.middlewares.append(endpoint_prefill_presentation)
     app.middlewares.append(factory.v22_settings_presentation)
     app.router.add_get("/", factory.dashboard)
@@ -169,13 +168,52 @@ def _build3_assets(root: Path) -> dict[str, bytes]:
     return assets
 
 
+def _build4_assets(root: Path) -> dict[str, bytes]:
+    assets = _build3_assets(root)
+    snippet_path = root / "sources" / "ui" / "1.0.0-build4" / "provider-provenance-snippet.js"
+    snippet = snippet_path.read_bytes()
+    actual_blob = _git_blob_sha(snippet)
+    if actual_blob != BUILD4_PROVENANCE_SNIPPET_BLOB:
+        raise SystemExit(
+            "certified UI build-4 provenance snippet drift: "
+            f"expected Git blob {BUILD4_PROVENANCE_SNIPPET_BLOB}, got {actual_blob}"
+        )
+
+    discovery = assets["discovery-v22.js"].decode("utf-8")
+    function_marker = "\n  function addV22Controls(){"
+    if discovery.count(function_marker) != 1:
+        raise SystemExit("UI build-4 provenance function insertion marker changed")
+    discovery = discovery.replace(
+        function_marker,
+        "\n" + snippet.decode("utf-8").rstrip("\n") + "\n" + function_marker,
+        1,
+    )
+
+    render_marker = (
+        "        if(!item)continue;\n"
+        "        const configuredObject=new Set((item.configured_adapters||[])"
+    )
+    if discovery.count(render_marker) != 1:
+        raise SystemExit("UI build-4 provenance render insertion marker changed")
+    discovery = discovery.replace(
+        render_marker,
+        "        if(!item)continue;\n"
+        "        renderProviderProvenance(row,item);\n"
+        "        const configuredObject=new Set((item.configured_adapters||[])",
+        1,
+    )
+    assets["discovery-v22.js"] = discovery.encode("utf-8")
+    return assets
+
+
 def _package_files(root: Path, release: Release) -> dict[str, bytes]:
     package = release.import_package
     if release.build == 2:
         return {f"{package}/__init__.py": _build2_adapter()}
-    if release.build == 3:
-        files = {f"{package}/__init__.py": _build3_adapter()}
-        for name, payload in _build3_assets(root).items():
+    if release.build in {3, 4}:
+        files = {f"{package}/__init__.py": _managed_delta_adapter(release.build)}
+        assets = _build3_assets(root) if release.build == 3 else _build4_assets(root)
+        for name, payload in assets.items():
             files[f"{package}/assets/{name}"] = payload
         return files
     raise SystemExit(f"unsupported managed UI build {release.build}")
