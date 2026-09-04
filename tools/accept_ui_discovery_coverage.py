@@ -174,10 +174,10 @@ def main() -> None:
         assert covered_section.locator('.discovery-section-count').inner_text() == "49"
         assert attention_section.locator('.discovery-section-count').inner_text() == "2"
 
-        # Portainer's generic provider coverage must override a context-free
-        # server recommendation without provider-specific UI branching. The
-        # section is intentionally collapsed here, so inspect DOM text rather
-        # than rendered innerText.
+        # Generic provider coverage must override a context-free server
+        # recommendation without provider-specific UI branching. The section is
+        # intentionally collapsed here, so inspect DOM text rather than rendered
+        # innerText.
         first_covered = covered_section.locator('.candidate').first
         covered_checkbox = first_covered.locator('input[type="checkbox"][data-id]')
         assert not covered_checkbox.is_checked(), "provider-covered workload must default to no canonical change"
@@ -194,12 +194,28 @@ def main() -> None:
         summary = page.locator('#resultSummary').inner_text()
         assert summary.startswith("57 discovered · 49 already monitored · 6 not yet monitored · 2 auxiliary/needs review · 4 configuration changes selected")
         assert "Canonical configuration is unchanged." in summary
-        assert page.locator('#selectNew').inner_text() == "Select all not yet monitored"
+        select_new = page.locator('#selectNew')
+        assert select_new.inner_text() == "Select all not yet monitored"
+
+        # The managed select-all action must honor its label. Provider-covered
+        # legacy `recommended` rows are excluded even though the factory handler
+        # would have selected them.
+        select_new.click()
+        assert not covered_checkbox.is_checked(), "select-all must not stage provider-covered adoption"
+        new_checkboxes = new_section.locator('input[type="checkbox"][data-id]')
+        assert new_checkboxes.count() == 6
+        assert all(new_checkboxes.nth(index).is_checked() for index in range(6))
+        assert "6 configuration changes selected" in page.locator('#resultSummary').inner_text()
+        new_checkboxes.nth(4).uncheck()
+        new_checkboxes.nth(5).uncheck()
+        assert "4 configuration changes selected" in page.locator('#resultSummary').inner_text()
 
         # Collapsing already-covered provider inventory must reduce the default
-        # review surface without touching any candidate action state.
+        # review surface without touching any candidate action state. Build 7
+        # separately enforces individual row density; this production-like
+        # fixture keeps a loose absolute sanity bound and a strong relative one.
         default_height = page.locator('#results').bounding_box()["height"]
-        assert default_height < 2400, f"default discovery surface remains too tall: {default_height:.1f}px"
+        assert default_height < 3200, f"default discovery surface unexpectedly tall: {default_height:.1f}px"
         assert not covered_checkbox.is_checked()
         covered_section.locator('summary').click()
         assert covered_section.get_attribute("open") is not None
@@ -235,7 +251,7 @@ def main() -> None:
 
     print(
         "UI v1.1.0 build 8 discovery coverage acceptance: PASS "
-        "(provider coverage + proposed action separation + 46-row collapsed group + expanded new group + production controls)"
+        "(provider coverage + proposed action separation + bounded select-all + 46-row collapsed group + expanded new group + production controls)"
     )
     print(f"screenshot: {SCREENSHOT}")
 
