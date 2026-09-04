@@ -7,6 +7,7 @@ on:
       - sources/ui/**
       - sources/portainer/**
       - tools/build_first_party_ui.py
+      - tools/build_first_party_ui_current.py
       - tools/build_first_party_portainer.py
       - tools/accept_repository.py
       - tools/accept_repository_current.py
@@ -15,6 +16,7 @@ on:
       - tools/accept_portainer_lifecycle.py
       - tools/accept_ui_compose_hierarchy.mjs
       - tools/accept_ui_discovery_presentation.py
+      - tools/accept_ui_discovery_coverage.py
       - tools/accept_frozen_core.py
       - tools/accept_frozen_core_portainer.py
       - tools/build_repository.py
@@ -28,6 +30,7 @@ on:
       - sources/ui/**
       - sources/portainer/**
       - tools/build_first_party_ui.py
+      - tools/build_first_party_ui_current.py
       - tools/build_first_party_portainer.py
       - tools/accept_repository.py
       - tools/accept_repository_current.py
@@ -36,6 +39,7 @@ on:
       - tools/accept_portainer_lifecycle.py
       - tools/accept_ui_compose_hierarchy.mjs
       - tools/accept_ui_discovery_presentation.py
+      - tools/accept_ui_discovery_coverage.py
       - tools/accept_frozen_core.py
       - tools/accept_frozen_core_portainer.py
       - tools/build_repository.py
@@ -59,10 +63,10 @@ jobs:
           python -m playwright install --with-deps chromium
       - name: Build reproducible first-party packages
         run: |
-          python tools/build_first_party_ui.py
+          python tools/build_first_party_ui_current.py
           python tools/build_first_party_portainer.py
           sha256sum packages/com.sickicarus.monitorbox.ui-*.zip packages/com.sickicarus.monitorbox.portainer-*.zip > /tmp/first-party-packages.first
-          python tools/build_first_party_ui.py
+          python tools/build_first_party_ui_current.py
           python tools/build_first_party_portainer.py
           sha256sum packages/com.sickicarus.monitorbox.ui-*.zip packages/com.sickicarus.monitorbox.portainer-*.zip > /tmp/first-party-packages.second
           diff -u /tmp/first-party-packages.first /tmp/first-party-packages.second
@@ -74,15 +78,21 @@ jobs:
         run: python tools/accept_portainer_lifecycle.py
       - name: Verify UI Compose hierarchy preserves canonical child truth
         run: node tools/accept_ui_compose_hierarchy.mjs
-      - name: Verify provider-scale Discoveries presentation in Chromium
+      - name: Verify legacy provider-scale Discoveries presentation
         env:
           UI_DISCOVERY_SCREENSHOT: /tmp/ui-discovery-presentation.png
         run: python tools/accept_ui_discovery_presentation.py
-      - name: Upload Discoveries acceptance screenshot
+      - name: Verify grouped coverage/action Discoveries presentation
+        env:
+          UI_DISCOVERY_COVERAGE_SCREENSHOT: /tmp/ui-discovery-coverage.png
+        run: python tools/accept_ui_discovery_coverage.py
+      - name: Upload Discoveries acceptance screenshots
         uses: actions/upload-artifact@v4
         with:
-          name: ui-discovery-presentation
-          path: /tmp/ui-discovery-presentation.png
+          name: ui-discovery-acceptance
+          path: |
+            /tmp/ui-discovery-presentation.png
+            /tmp/ui-discovery-coverage.png
           if-no-files-found: error
       - name: Verify package shape, activation regression, and signed repository contract
         run: python tools/accept_repository_current.py

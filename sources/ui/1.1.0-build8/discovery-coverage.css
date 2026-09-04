@@ -1,0 +1,140 @@
+/* MonitorBox UI v1.1.0 build 8 — discovery coverage/action hierarchy.
+ *
+ * Coverage is read-only evidence. Section disclosure and coverage badges never
+ * stage canonical configuration; only the existing candidate controls do that.
+ */
+#results {
+  display: block;
+}
+
+#results .discovery-coverage-section {
+  margin: 10px 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: clip;
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+}
+
+#results .discovery-coverage-section > summary {
+  min-height: 46px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  cursor: pointer;
+  user-select: none;
+  list-style-position: inside;
+}
+
+#results .discovery-coverage-section > summary strong {
+  font-size: 0.96rem;
+}
+
+#results .discovery-section-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 24px;
+  padding: 0 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+#results .discovery-coverage-section[open] > summary {
+  border-bottom: 1px solid var(--line);
+}
+
+#results .discovery-coverage-covered > summary {
+  color: var(--muted);
+}
+
+#results .discovery-section-rows > .candidate {
+  border-left: 0 !important;
+  border-right: 0 !important;
+  border-top: 0 !important;
+}
+
+#results .discovery-section-rows > .candidate:first-child,
+#results .discovery-section-rows > .candidate:last-child {
+  border-radius: 0 !important;
+}
+
+#results .discovery-section-rows > .candidate:last-child {
+  border-bottom: 0 !important;
+}
+
+#results .discovery-proposed-action {
+  display: grid;
+  grid-template-columns: 22px minmax(74px, auto);
+  align-items: start;
+  gap: 6px;
+  min-width: 112px;
+  margin: 0;
+  cursor: pointer;
+  line-height: 1.2;
+}
+
+#results .discovery-proposed-action input[type="checkbox"] {
+  margin: 1px 0 0;
+}
+
+#results .discovery-proposed-action-text {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+#results .proposal-staged .discovery-proposed-action-text {
+  color: var(--text);
+}
+
+#results .discovery-coverage-badge {
+  white-space: nowrap;
+}
+
+#results .discovery-recommendation-badge {
+  margin-left: 4px;
+}
+
+/* Frozen Core's factory discovery row has one policy select and it must retain
+ * the full evidence-column width. Richer managed rows may add an adjacent
+ * disposition/control select; only that paired shape is compacted side by side.
+ * Leave enough slack for inline formatting whitespace so the pair cannot wrap. */
+@media (min-width: 760px) {
+  #results .candidate .wide:has(> select + select) > select {
+    display: inline-block;
+    width: calc(50% - 8px);
+    min-width: 0;
+    margin-right: 4px;
+    vertical-align: top;
+  }
+
+  #results .candidate .wide:has(> select + select) > select + select {
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  #results .candidate .provider-provenance {
+    display: block;
+    clear: both;
+  }
+}
+
+@media (max-width: 759px) {
+  #results .discovery-coverage-section > summary {
+    min-height: 44px;
+    padding: 9px 10px;
+  }
+
+  #results .discovery-proposed-action {
+    min-width: 0;
+  }
+
+  #results .candidate .wide > select {
+    width: 100%;
+  }
+}
