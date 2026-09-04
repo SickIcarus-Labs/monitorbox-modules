@@ -24,6 +24,7 @@ EXPECTED_RELEASES = {
     (PORTAINER_ID, "1.0.0", 2),
     (PORTAINER_ID, "1.0.0", 3),
     (PORTAINER_ID, "1.0.0", 4),
+    (PORTAINER_ID, "1.0.0", 5),
 }
 SIGNATURE_IDENTITY = "acceptance-ephemeral-ed25519"
 PORTAINER_SOURCE_FILES = {
@@ -185,11 +186,11 @@ def _portainer_package_shape(
         if present:
             raise AssertionError(f"Portainer managed namespace rewrite incomplete in {path}: {present}")
 
-    if build == 4:
+    if build in {4, 5}:
         validation = archive.read(f"{package_root}validation.py").decode("utf-8")
         if "from .runtime import MODULE_ID" in validation:
             raise AssertionError(
-                "Portainer build 4 reintroduced validation's activation-breaking runtime identity import"
+                f"Portainer build {build} reintroduced validation's activation-breaking runtime identity import"
             )
         required_validation = (
             '_PORTAINER_MODULE_ID = "com.sickicarus.monitorbox.portainer"',
@@ -198,7 +199,7 @@ def _portainer_package_shape(
         missing = [marker for marker in required_validation if marker not in validation]
         if missing:
             raise AssertionError(
-                f"Portainer build 4 validation identity contract is incomplete: {missing}"
+                f"Portainer build {build} validation identity contract is incomplete: {missing}"
             )
 
 
@@ -228,7 +229,7 @@ def _package_shape(root: Path, source: dict) -> None:
             if manifest.get("requires_core") != ">=2.2.2 <3.0.0":
                 raise AssertionError(f"UI build {build} Core SemVer floor changed")
         elif module_id == PORTAINER_ID:
-            if version != "1.0.0" or build not in {2, 3, 4}:
+            if version != "1.0.0" or build not in {2, 3, 4, 5}:
                 raise AssertionError(f"unexpected Portainer release {(version, build)}")
             package = f"monitorbox_portainer_b{build}"
             if manifest["entrypoints"] != {"integration": f"{package}:PLUGIN"}:
@@ -312,8 +313,8 @@ def main() -> None:
     _signed_repository(root, source)
     print(
         "public module repository acceptance: PASS "
-        "(reproducible UI builds 2/3/4/5 + immutable Portainer builds 2/3 + "
-        "Portainer build 4 activation hotfix + signed repository)"
+        "(reproducible UI builds 2/3/4/5 + immutable Portainer builds 2/3/4 + "
+        "Portainer build 5 lifecycle-certified release + signed repository)"
     )
 
 
