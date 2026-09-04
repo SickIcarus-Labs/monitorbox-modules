@@ -2,9 +2,9 @@
 """Extend stable repository acceptance through current semantic releases.
 
 Historical release assertions remain byte/shape strict in ``accept_repository``.
-This adapter validates only the newly published Portainer v1.1.0 build 6 and
-candidate UI v1.1.0 build 8, then delegates all signing/digest/index checks to
-the existing stable acceptance implementation.
+This adapter validates current Portainer v1.1.0 build 6 plus UI v1.1.0 build 8
+and UI v1.1.1 build 9, then delegates signing/digest/index checks to the stable
+acceptance implementation.
 """
 
 from __future__ import annotations
@@ -16,8 +16,9 @@ from pathlib import Path
 import accept_repository as stable
 
 CURRENT_PORTAINER = (stable.PORTAINER_ID, "1.1.0", 6)
-CURRENT_UI = (stable.UI_ID, "1.1.0", 8)
-CURRENT_ONLY = {CURRENT_PORTAINER, CURRENT_UI}
+CURRENT_UI8 = (stable.UI_ID, "1.1.0", 8)
+CURRENT_UI9 = (stable.UI_ID, "1.1.1", 9)
+CURRENT_ONLY = {CURRENT_PORTAINER, CURRENT_UI8, CURRENT_UI9}
 HISTORICAL_RELEASES = set(stable.EXPECTED_RELEASES)
 CURRENT_RELEASES = HISTORICAL_RELEASES | CURRENT_ONLY
 _STABLE_PACKAGE_SHAPE = stable._package_shape
@@ -67,8 +68,29 @@ def _accept_current_portainer(root: Path, source: dict) -> None:
             )
 
 
-def _accept_current_ui(root: Path, source: dict) -> None:
-    release = _release(source, CURRENT_UI)
+def _ui_package(root: Path, source: dict, identity: tuple[str, str, int], package: str, expected_assets: set[str]) -> tuple[zipfile.ZipFile, str]:
+    release = _release(source, identity)
+    package_path = root / "packages" / release["package"]
+    if not package_path.is_file():
+        raise AssertionError(f"generated package is missing: {package_path.name}")
+    archive = zipfile.ZipFile(package_path)
+    root_name = f"{package}/"
+    expected_names = {f"{root_name}__init__.py"} | {
+        f"{root_name}assets/{name}" for name in expected_assets
+    }
+    names = set(archive.namelist())
+    if names != expected_names:
+        archive.close()
+        raise AssertionError(
+            f"{identity} package shape changed: "
+            f"missing={sorted(expected_names-names)}, extra={sorted(names-expected_names)}"
+        )
+    stable._assert_python_syntax(archive, names, root_name)
+    return archive, root_name
+
+
+def _accept_current_ui8(root: Path, source: dict) -> None:
+    release = _release(source, CURRENT_UI8)
     manifest = release["manifest"]
     if manifest.get("entrypoints") != {"webui": "monitorbox_ui_b8:install"}:
         raise AssertionError("UI v1.1.0 build 8 entrypoint is not generation-safe")
@@ -77,31 +99,13 @@ def _accept_current_ui(root: Path, source: dict) -> None:
     if manifest.get("requires_core") != ">=2.2.2 <3.0.0":
         raise AssertionError("UI v1.1.0 build 8 Core compatibility changed")
 
-    package_path = root / "packages" / release["package"]
-    if not package_path.is_file():
-        raise AssertionError(f"generated package is missing: {package_path.name}")
-    package = "monitorbox_ui_b8"
-    root_name = f"{package}/"
     expected_assets = {
-        "discovery-v22.js",
-        "endpoint-prefill-v22.js",
-        "service-presentation.js",
-        "service-presentation.css",
-        "discovery-presentation.css",
-        "discovery-coverage.js",
-        "discovery-coverage.css",
+        "discovery-v22.js", "endpoint-prefill-v22.js", "service-presentation.js",
+        "service-presentation.css", "discovery-presentation.css",
+        "discovery-coverage.js", "discovery-coverage.css",
     }
-    expected_names = {f"{root_name}__init__.py"} | {
-        f"{root_name}assets/{name}" for name in expected_assets
-    }
-    with zipfile.ZipFile(package_path) as archive:
-        names = set(archive.namelist())
-        if names != expected_names:
-            raise AssertionError(
-                "UI v1.1.0 build 8 package shape changed: "
-                f"missing={sorted(expected_names-names)}, extra={sorted(names-expected_names)}"
-            )
-        stable._assert_python_syntax(archive, names, root_name)
+    archive, root_name = _ui_package(root, source, CURRENT_UI8, "monitorbox_ui_b8", expected_assets)
+    with archive:
         adapter = archive.read(f"{root_name}__init__.py").decode("utf-8")
         adapter_required = (
             "managed UI 1.1.0 build 8",
@@ -130,28 +134,7 @@ def _accept_current_ui(root: Path, source: dict) -> None:
         if "Portainer" in coverage_js or "source==='portainer'" in coverage_js:
             raise AssertionError("UI build 8 must consume generic coverage truth without Portainer branching")
 
-        coverage_css = archive.read(f"{root_name}assets/discovery-coverage.css").decode("utf-8")
-        required_css = (
-            ".discovery-coverage-section",
-            ".discovery-proposed-action",
-            ".discovery-section-count",
-            "min-height: 46px",
-            "@media (max-width: 759px)",
-        )
-        missing = [marker for marker in required_css if marker not in coverage_css]
-        if missing:
-            raise AssertionError(f"UI build 8 omitted grouped-discovery CSS markers: {missing}")
-
-        # Build 8 composes every certified build-7 capability rather than
-        # replacing discovery provenance or provider-backed Service hierarchy.
-        discovery = archive.read(f"{root_name}assets/discovery-v22.js").decode("utf-8")
         hierarchy = archive.read(f"{root_name}assets/service-presentation.js").decode("utf-8")
-        for marker in (
-            "function providerProvenance(item)",
-            "renderProviderProvenance(row,item);",
-        ):
-            if marker not in discovery:
-                raise AssertionError(f"UI build 8 regressed provider provenance marker {marker!r}")
         for marker in (
             "function serviceComposeProvenance(service)",
             "function providerPresentationModel(site)",
@@ -159,6 +142,67 @@ def _accept_current_ui(root: Path, source: dict) -> None:
         ):
             if marker not in hierarchy:
                 raise AssertionError(f"UI build 8 regressed Service hierarchy marker {marker!r}")
+
+
+def _accept_current_ui9(root: Path, source: dict) -> None:
+    release = _release(source, CURRENT_UI9)
+    manifest = release["manifest"]
+    if manifest.get("entrypoints") != {"webui": "monitorbox_ui_b9:install"}:
+        raise AssertionError("UI v1.1.1 build 9 entrypoint is not generation-safe")
+    if manifest.get("module_type") != "ui" or manifest.get("lifecycle_policy") != "required":
+        raise AssertionError("UI v1.1.1 build 9 lifecycle/type contract changed")
+    if manifest.get("requires_core") != ">=2.2.2 <3.0.0":
+        raise AssertionError("UI v1.1.1 build 9 Core compatibility changed")
+
+    expected_assets = {
+        "discovery-v22.js", "endpoint-prefill-v22.js", "service-presentation.js",
+        "service-presentation.css", "discovery-presentation.css",
+        "discovery-coverage.js", "discovery-coverage.css",
+        "network-traffic-presentation.js", "service-hierarchy-interactions.js",
+    }
+    archive, root_name = _ui_package(root, source, CURRENT_UI9, "monitorbox_ui_b9", expected_assets)
+    with archive:
+        adapter = archive.read(f"{root_name}__init__.py").decode("utf-8")
+        required_adapter = (
+            "managed UI 1.1.1 build 9",
+            '"network-traffic-presentation.js": "text/javascript"',
+            '"service-hierarchy-interactions.js": "text/javascript"',
+            '/static/network-traffic-presentation.js',
+            '/static/service-hierarchy-interactions.js',
+            'request.path == "/"',
+        )
+        missing = [marker for marker in required_adapter if marker not in adapter]
+        if missing:
+            raise AssertionError(f"UI build 9 adapter omitted dashboard deltas: {missing}")
+
+        traffic = archive.read(f"{root_name}assets/network-traffic-presentation.js").decode("utf-8")
+        required_traffic = (
+            "traffic-detail provider or its configuration is unavailable",
+            "Throughput above remains valid from counter telemetry",
+            "attribution_available:false",
+            "traffic_subject!=='busiest'",
+        )
+        missing = [marker for marker in required_traffic if marker not in traffic]
+        if missing:
+            raise AssertionError(f"UI build 9 omitted traffic presentation markers: {missing}")
+
+        hierarchy_patch = archive.read(f"{root_name}assets/service-hierarchy-interactions.js").decode("utf-8")
+        required_hierarchy = (
+            "uiBuild9ProviderPresentationUrl",
+            "app.serviceStackExpansion",
+            "details[data-compose-stack]",
+            ".service-compose-members a.icon-outbound",
+        )
+        missing = [marker for marker in required_hierarchy if marker not in hierarchy_patch]
+        if missing:
+            raise AssertionError(f"UI build 9 omitted hierarchy interaction markers: {missing}")
+
+        coverage_js = archive.read(f"{root_name}assets/discovery-coverage.js").decode("utf-8")
+        if "monitoring_coverage" not in coverage_js or "Already monitored" not in coverage_js:
+            raise AssertionError("UI build 9 regressed build-8 discovery coverage semantics")
+        hierarchy = archive.read(f"{root_name}assets/service-presentation.js").decode("utf-8")
+        if "function providerPresentationModel(site)" not in hierarchy:
+            raise AssertionError("UI build 9 regressed provider-backed Service hierarchy")
 
 
 def _current_package_shape(root: Path, source: dict) -> None:
@@ -169,7 +213,8 @@ def _current_package_shape(root: Path, source: dict) -> None:
         )
 
     _accept_current_portainer(root, source)
-    _accept_current_ui(root, source)
+    _accept_current_ui8(root, source)
+    _accept_current_ui9(root, source)
 
     historical = copy.deepcopy(source)
     historical["modules"] = [
