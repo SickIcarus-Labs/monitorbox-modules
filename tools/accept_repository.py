@@ -21,6 +21,7 @@ EXPECTED_RELEASES = {
     (UI_ID, "1.0.0", 3),
     (UI_ID, "1.0.0", 4),
     (UI_ID, "1.0.0", 5),
+    (UI_ID, "1.0.1", 6),
     (PORTAINER_ID, "1.0.0", 2),
     (PORTAINER_ID, "1.0.0", 3),
     (PORTAINER_ID, "1.0.0", 4),
@@ -62,7 +63,7 @@ def _ui_package_shape(archive: zipfile.ZipFile, names: set[str], build: int) -> 
         raise AssertionError(f"UI build {build} has no importable package root")
     if any(name.startswith("monitorbox/") for name in names):
         raise AssertionError("managed package may not shadow frozen Core's monitorbox namespace")
-    expected_delta = build in {3, 4, 5}
+    expected_delta = build in {3, 4, 5, 6}
     for asset in ("discovery-v22.js", "endpoint-prefill-v22.js"):
         present = f"{package_root}assets/{asset}" in names
         if present != expected_delta:
@@ -72,13 +73,13 @@ def _ui_package_shape(archive: zipfile.ZipFile, names: set[str], build: int) -> 
     hierarchy_assets = ("service-presentation.js", "service-presentation.css")
     for asset in hierarchy_assets:
         present = f"{package_root}assets/{asset}" in names
-        if present != (build == 5):
+        if present != (build in {5, 6}):
             raise AssertionError(
                 f"UI build {build} Compose hierarchy delta shape is wrong for {asset}"
             )
     _assert_python_syntax(archive, names, package_root)
 
-    if build in {4, 5}:
+    if build in {4, 5, 6}:
         discovery = archive.read(f"{package_root}assets/discovery-v22.js").decode("utf-8")
         required = (
             "function providerProvenance(item)",
@@ -105,7 +106,7 @@ def _ui_package_shape(archive: zipfile.ZipFile, names: set[str], build: int) -> 
                 f"UI build {build} leaks forbidden provider metadata: {present}"
             )
 
-    if build == 5:
+    if build in {5, 6}:
         hierarchy = archive.read(
             f"{package_root}assets/service-presentation.js"
         ).decode("utf-8")
@@ -124,7 +125,7 @@ def _ui_package_shape(archive: zipfile.ZipFile, names: set[str], build: int) -> 
         missing = [marker for marker in required_hierarchy if marker not in hierarchy]
         if missing:
             raise AssertionError(
-                f"UI build 5 omitted Compose hierarchy contract markers: {missing}"
+                f"UI build {build} omitted Compose hierarchy contract markers: {missing}"
             )
         css = archive.read(
             f"{package_root}assets/service-presentation.css"
@@ -138,7 +139,39 @@ def _ui_package_shape(archive: zipfile.ZipFile, names: set[str], build: int) -> 
         missing_css = [marker for marker in required_css if marker not in css]
         if missing_css:
             raise AssertionError(
-                f"UI build 5 omitted Compose hierarchy CSS markers: {missing_css}"
+                f"UI build {build} omitted Compose hierarchy CSS markers: {missing_css}"
+            )
+
+    if build == 6:
+        hierarchy = archive.read(
+            f"{package_root}assets/service-presentation.js"
+        ).decode("utf-8")
+        required_provider_backing = (
+            "function portainerInventoryWorkloads(site)",
+            "function providerEnvironmentOwners(site,workloads)",
+            "function providerPresentationModel(site)",
+            "authenticated_portainer_controller",
+            "['host','appliance']",
+            "kind:'provider_workload'",
+            "expected-state intent is not configured",
+            "function renderProviderWorkloadDrawer(site,object)",
+        )
+        missing = [marker for marker in required_provider_backing if marker not in hierarchy]
+        if missing:
+            raise AssertionError(
+                f"UI 1.0.1 build 6 omitted provider-backed hierarchy markers: {missing}"
+            )
+        forbidden_provider_backing = (
+            "turnberry_-_apollo",
+            "broad_leaf_-_goliath",
+            "broad_leaf_-_arrrrr2",
+            "192.168.3.13",
+            "192.168.3.9",
+        )
+        present = [marker for marker in forbidden_provider_backing if marker in hierarchy]
+        if present:
+            raise AssertionError(
+                f"UI build 6 embedded deployment-specific provider ownership: {present}"
             )
 
 
@@ -213,11 +246,12 @@ def _package_shape(root: Path, source: dict) -> None:
             f"expected repository releases {sorted(EXPECTED_RELEASES)}, got {sorted(identities)}"
         )
 
+    ui_versions = {2: "1.0.0", 3: "1.0.0", 4: "1.0.0", 5: "1.0.0", 6: "1.0.1"}
     for item in modules:
         manifest = item["manifest"]
         module_id, version, build = _release_identity(item)
         if module_id == UI_ID:
-            if version != "1.0.0" or build not in {2, 3, 4, 5}:
+            if ui_versions.get(build) != version:
                 raise AssertionError(f"unexpected UI release {(version, build)}")
             expected_entrypoint = {"webui": f"monitorbox_ui_b{build}:install"}
             if manifest["entrypoints"] != expected_entrypoint:
@@ -313,8 +347,8 @@ def main() -> None:
     _signed_repository(root, source)
     print(
         "public module repository acceptance: PASS "
-        "(reproducible UI builds 2/3/4/5 + immutable Portainer builds 2/3/4 + "
-        "Portainer build 5 lifecycle-certified release + signed repository)"
+        "(reproducible UI builds 2/3/4/5 + UI v1.0.1 build 6 + immutable Portainer "
+        "builds 2/3/4 + Portainer build 5 lifecycle-certified release + signed repository)"
     )
 
 
