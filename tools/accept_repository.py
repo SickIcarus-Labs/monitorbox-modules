@@ -22,6 +22,7 @@ EXPECTED_RELEASES = {
     (UI_ID, "1.0.0", 4),
     (PORTAINER_ID, "1.0.0", 2),
     (PORTAINER_ID, "1.0.0", 3),
+    (PORTAINER_ID, "1.0.0", 4),
 }
 SIGNATURE_IDENTITY = "acceptance-ephemeral-ed25519"
 PORTAINER_SOURCE_FILES = {
@@ -110,11 +111,10 @@ def _portainer_package_shape(
     _assert_python_syntax(archive, names, package_root)
 
     source = archive.read(f"{package_root}__init__.py").decode("utf-8")
-    guard_marker = (
-        "managed Portainer build 2 requires MonitorBox Core build 0545 provider authority"
-        if build == 2
-        else "managed Portainer build 3 requires MonitorBox Core build 0545+ provider authority"
-    )
+    if build == 2:
+        guard_marker = "managed Portainer build 2 requires MonitorBox Core build 0545 provider authority"
+    else:
+        guard_marker = f"managed Portainer build {build} requires MonitorBox Core build 0545+ provider authority"
     required_markers = (
         "monitorbox.v2.plugin_api.provider_authority",
         guard_marker,
@@ -136,6 +136,22 @@ def _portainer_package_shape(
         present = [marker for marker in forbidden if marker in text]
         if present:
             raise AssertionError(f"Portainer managed namespace rewrite incomplete in {path}: {present}")
+
+    if build == 4:
+        validation = archive.read(f"{package_root}validation.py").decode("utf-8")
+        if "from .runtime import MODULE_ID" in validation:
+            raise AssertionError(
+                "Portainer build 4 reintroduced validation's activation-breaking runtime identity import"
+            )
+        required_validation = (
+            '_PORTAINER_MODULE_ID = "com.sickicarus.monitorbox.portainer"',
+            "module_id=_PORTAINER_MODULE_ID",
+        )
+        missing = [marker for marker in required_validation if marker not in validation]
+        if missing:
+            raise AssertionError(
+                f"Portainer build 4 validation identity contract is incomplete: {missing}"
+            )
 
 
 def _package_shape(root: Path, source: dict) -> None:
@@ -160,7 +176,7 @@ def _package_shape(root: Path, source: dict) -> None:
             if manifest.get("module_type") != "ui" or manifest.get("lifecycle_policy") != "required":
                 raise AssertionError(f"UI build {build} lifecycle/type contract changed")
         elif module_id == PORTAINER_ID:
-            if version != "1.0.0" or build not in {2, 3}:
+            if version != "1.0.0" or build not in {2, 3, 4}:
                 raise AssertionError(f"unexpected Portainer release {(version, build)}")
             package = f"monitorbox_portainer_b{build}"
             if manifest["entrypoints"] != {"integration": f"{package}:PLUGIN"}:
@@ -244,7 +260,8 @@ def main() -> None:
     _signed_repository(root, source)
     print(
         "public module repository acceptance: PASS "
-        "(reproducible UI builds 2/3/4 + immutable Portainer build 2 + Portainer build 3 + signed repository)"
+        "(reproducible UI builds 2/3/4 + immutable Portainer builds 2/3 + "
+        "Portainer build 4 activation hotfix + signed repository)"
     )
 
 
