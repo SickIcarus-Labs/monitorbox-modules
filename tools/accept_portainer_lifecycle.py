@@ -100,7 +100,7 @@ def _container(
     else:
         status = "Exited (1) 1 minute ago"
     if health:
-        status += f" ({health})"
+        status += " (health: starting)" if health == "starting" else f" ({health})"
     return {
         "Id": f"{service}-generation-{generation}",
         "Names": [f"/{service}"],
