@@ -10,6 +10,8 @@ on:
       - tools/build_first_party_portainer.py
       - tools/accept_repository.py
       - tools/accept_portainer_runtime.py
+      - tools/accept_portainer_lifecycle.py
+      - tools/accept_ui_compose_hierarchy.mjs
       - tools/accept_frozen_core.py
       - tools/accept_frozen_core_portainer.py
       - tools/build_repository.py
@@ -26,6 +28,8 @@ on:
       - tools/build_first_party_portainer.py
       - tools/accept_repository.py
       - tools/accept_portainer_runtime.py
+      - tools/accept_portainer_lifecycle.py
+      - tools/accept_ui_compose_hierarchy.mjs
       - tools/accept_frozen_core.py
       - tools/accept_frozen_core_portainer.py
       - tools/build_repository.py
@@ -56,5 +60,9 @@ jobs:
           diff -u /tmp/first-party-packages.first /tmp/first-party-packages.second
       - name: Verify Portainer complete inventory and provider-loss truth
         run: python tools/accept_portainer_runtime.py
+      - name: Verify Portainer lifecycle and bounded diagnostics truth
+        run: python tools/accept_portainer_lifecycle.py
+      - name: Verify UI Compose hierarchy preserves canonical child truth
+        run: node tools/accept_ui_compose_hierarchy.mjs
       - name: Verify package shape, activation regression, and signed repository contract
         run: python tools/accept_repository.py

@@ -20,9 +20,11 @@ EXPECTED_RELEASES = {
     (UI_ID, "1.0.0", 2),
     (UI_ID, "1.0.0", 3),
     (UI_ID, "1.0.0", 4),
+    (UI_ID, "1.0.0", 5),
     (PORTAINER_ID, "1.0.0", 2),
     (PORTAINER_ID, "1.0.0", 3),
     (PORTAINER_ID, "1.0.0", 4),
+    (PORTAINER_ID, "1.0.0", 5),
 }
 SIGNATURE_IDENTITY = "acceptance-ephemeral-ed25519"
 PORTAINER_SOURCE_FILES = {
@@ -60,16 +62,23 @@ def _ui_package_shape(archive: zipfile.ZipFile, names: set[str], build: int) -> 
         raise AssertionError(f"UI build {build} has no importable package root")
     if any(name.startswith("monitorbox/") for name in names):
         raise AssertionError("managed package may not shadow frozen Core's monitorbox namespace")
-    expected_delta = build in {3, 4}
+    expected_delta = build in {3, 4, 5}
     for asset in ("discovery-v22.js", "endpoint-prefill-v22.js"):
         present = f"{package_root}assets/{asset}" in names
         if present != expected_delta:
             raise AssertionError(
                 f"UI build {build} certified delta shape is wrong for {asset}"
             )
+    hierarchy_assets = ("service-presentation.js", "service-presentation.css")
+    for asset in hierarchy_assets:
+        present = f"{package_root}assets/{asset}" in names
+        if present != (build == 5):
+            raise AssertionError(
+                f"UI build {build} Compose hierarchy delta shape is wrong for {asset}"
+            )
     _assert_python_syntax(archive, names, package_root)
 
-    if build == 4:
+    if build in {4, 5}:
         discovery = archive.read(f"{package_root}assets/discovery-v22.js").decode("utf-8")
         required = (
             "function providerProvenance(item)",
@@ -86,11 +95,51 @@ def _ui_package_shape(archive: zipfile.ZipFile, names: set[str], build: int) -> 
         )
         missing = [marker for marker in required if marker not in discovery]
         if missing:
-            raise AssertionError(f"UI build 4 omitted provenance contract markers: {missing}")
+            raise AssertionError(
+                f"UI build {build} omitted provenance contract markers: {missing}"
+            )
         forbidden = ("environment_url", "provider_id", "JSON.stringify(metadata)")
         present = [marker for marker in forbidden if marker in discovery]
         if present:
-            raise AssertionError(f"UI build 4 leaks forbidden provider metadata: {present}")
+            raise AssertionError(
+                f"UI build {build} leaks forbidden provider metadata: {present}"
+            )
+
+    if build == 5:
+        hierarchy = archive.read(
+            f"{package_root}assets/service-presentation.js"
+        ).decode("utf-8")
+        required_hierarchy = (
+            "function serviceComposeProvenance(service)",
+            "function servicePresentationEntries(services)",
+            "function serviceStackRow(site,entry,parent)",
+            "data-compose-stack=",
+            "group.services.length<2",
+            "stateRank(entry.state)>0",
+            "data-service-object=",
+            "health_participant:false",
+            "environmentKey",
+            "compose_project",
+        )
+        missing = [marker for marker in required_hierarchy if marker not in hierarchy]
+        if missing:
+            raise AssertionError(
+                f"UI build 5 omitted Compose hierarchy contract markers: {missing}"
+            )
+        css = archive.read(
+            f"{package_root}assets/service-presentation.css"
+        ).decode("utf-8")
+        required_css = (
+            ".service-compose-group",
+            ".service-compose-summary",
+            ".service-compose-members",
+            ".service-compose-group[open]",
+        )
+        missing_css = [marker for marker in required_css if marker not in css]
+        if missing_css:
+            raise AssertionError(
+                f"UI build 5 omitted Compose hierarchy CSS markers: {missing_css}"
+            )
 
 
 def _portainer_package_shape(
@@ -137,11 +186,11 @@ def _portainer_package_shape(
         if present:
             raise AssertionError(f"Portainer managed namespace rewrite incomplete in {path}: {present}")
 
-    if build == 4:
+    if build in {4, 5}:
         validation = archive.read(f"{package_root}validation.py").decode("utf-8")
         if "from .runtime import MODULE_ID" in validation:
             raise AssertionError(
-                "Portainer build 4 reintroduced validation's activation-breaking runtime identity import"
+                f"Portainer build {build} reintroduced validation's activation-breaking runtime identity import"
             )
         required_validation = (
             '_PORTAINER_MODULE_ID = "com.sickicarus.monitorbox.portainer"',
@@ -150,7 +199,7 @@ def _portainer_package_shape(
         missing = [marker for marker in required_validation if marker not in validation]
         if missing:
             raise AssertionError(
-                f"Portainer build 4 validation identity contract is incomplete: {missing}"
+                f"Portainer build {build} validation identity contract is incomplete: {missing}"
             )
 
 
@@ -168,6 +217,8 @@ def _package_shape(root: Path, source: dict) -> None:
         manifest = item["manifest"]
         module_id, version, build = _release_identity(item)
         if module_id == UI_ID:
+            if version != "1.0.0" or build not in {2, 3, 4, 5}:
+                raise AssertionError(f"unexpected UI release {(version, build)}")
             expected_entrypoint = {"webui": f"monitorbox_ui_b{build}:install"}
             if manifest["entrypoints"] != expected_entrypoint:
                 raise AssertionError(
@@ -175,8 +226,10 @@ def _package_shape(root: Path, source: dict) -> None:
                 )
             if manifest.get("module_type") != "ui" or manifest.get("lifecycle_policy") != "required":
                 raise AssertionError(f"UI build {build} lifecycle/type contract changed")
+            if manifest.get("requires_core") != ">=2.2.2 <3.0.0":
+                raise AssertionError(f"UI build {build} Core SemVer floor changed")
         elif module_id == PORTAINER_ID:
-            if version != "1.0.0" or build not in {2, 3, 4}:
+            if version != "1.0.0" or build not in {2, 3, 4, 5}:
                 raise AssertionError(f"unexpected Portainer release {(version, build)}")
             package = f"monitorbox_portainer_b{build}"
             if manifest["entrypoints"] != {"integration": f"{package}:PLUGIN"}:
@@ -260,8 +313,8 @@ def main() -> None:
     _signed_repository(root, source)
     print(
         "public module repository acceptance: PASS "
-        "(reproducible UI builds 2/3/4 + immutable Portainer builds 2/3 + "
-        "Portainer build 4 activation hotfix + signed repository)"
+        "(reproducible UI builds 2/3/4/5 + immutable Portainer builds 2/3/4 + "
+        "Portainer build 5 lifecycle-certified release + signed repository)"
     )
 
 

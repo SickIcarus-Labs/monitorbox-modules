@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise generated first-party packages through the exact frozen Core lifecycle substrate.
+"""Exercise generated UI packages through the exact frozen Core lifecycle substrate.
 
 This script intentionally imports MonitorBox runtime code from its caller. In pre-publication
 CI it is run from a test-only branch based on the certified frozen Core SHA; it does not require
@@ -27,14 +27,24 @@ REPOSITORY_ID = "official"
 DISPLAY_NAME = "MonitorBox Official"
 SIGNATURE_IDENTITY = "acceptance-ephemeral-ed25519"
 MODULE_ID = "com.sickicarus.monitorbox.ui"
-EXPECTED_RELEASES = (2, 3)
+EXPECTED_RELEASES = (2, 3, 4, 5)
+
+
+def _ui_releases(source: dict) -> dict[int, dict]:
+    releases = {
+        item["manifest"]["build"]: item
+        for item in source["modules"]
+        if item["manifest"]["module_id"] == MODULE_ID
+    }
+    if tuple(sorted(releases)) != EXPECTED_RELEASES:
+        raise AssertionError(
+            f"expected UI builds {EXPECTED_RELEASES}, got {tuple(sorted(releases))}"
+        )
+    return releases
 
 
 def _assert_package_shape(root: Path, source: dict) -> None:
-    by_build = {item["manifest"]["build"]: item for item in source["modules"]}
-    if tuple(sorted(by_build)) != EXPECTED_RELEASES:
-        raise AssertionError(f"expected UI builds {EXPECTED_RELEASES}, got {tuple(sorted(by_build))}")
-
+    by_build = _ui_releases(source)
     for build_number, item in sorted(by_build.items()):
         package_path = root / "packages" / item["package"]
         import_package = f"monitorbox_ui_b{build_number}"
@@ -50,26 +60,35 @@ def _assert_package_shape(root: Path, source: dict) -> None:
 
             discovery = f"{import_package}/assets/discovery-v22.js"
             endpoint = f"{import_package}/assets/endpoint-prefill-v22.js"
-            expected_delta = build_number == 3
+            expected_delta = build_number in {3, 4, 5}
             if (discovery in names) != expected_delta:
                 raise AssertionError(
-                    "certified discovery override must be absent from build 2 and present in build 3"
+                    f"certified discovery override shape is wrong for build {build_number}"
                 )
             if (endpoint in names) != expected_delta:
                 raise AssertionError(
-                    "certified endpoint-prefill asset must be absent from build 2 and present in build 3"
+                    f"certified endpoint-prefill shape is wrong for build {build_number}"
+                )
+
+            hierarchy = {
+                f"{import_package}/assets/service-presentation.js",
+                f"{import_package}/assets/service-presentation.css",
+            }
+            if hierarchy.issubset(names) != (build_number == 5):
+                raise AssertionError(
+                    f"Compose hierarchy override shape is wrong for build {build_number}"
                 )
 
 
 def _effective_package(runtime: ModuleManagementRuntime, build_number: int):
     packages = runtime.effective_source(TestModuleSource(())).packages()
-    if len(packages) != 1:
-        raise AssertionError(f"expected one effective managed package, got {len(packages)}")
-    package = packages[0]
-    if package.manifest.module_id != MODULE_ID or package.manifest.build != build_number:
+    matches = [package for package in packages if package.manifest.module_id == MODULE_ID]
+    if len(matches) != 1:
+        raise AssertionError(f"expected one effective managed UI package, got {len(matches)}")
+    package = matches[0]
+    if package.manifest.build != build_number:
         raise AssertionError(
-            f"expected effective {MODULE_ID} build {build_number}, got "
-            f"{package.manifest.module_id} build {package.manifest.build}"
+            f"expected effective {MODULE_ID} build {build_number}, got build {package.manifest.build}"
         )
     entrypoint = package.entrypoints["webui"]
     expected_module = f"monitorbox_ui_b{build_number}"
@@ -82,7 +101,7 @@ def _effective_package(runtime: ModuleManagementRuntime, build_number: int):
 
 
 def _assert_installable(runtime: ModuleManagementRuntime, build_number: int) -> None:
-    """Prove the admitted webui entrypoint composes successfully with the frozen host API."""
+    """Prove the admitted webui entrypoint composes successfully with frozen Core 0547."""
 
     from aiohttp import web
 
@@ -94,6 +113,10 @@ def _assert_installable(runtime: ModuleManagementRuntime, build_number: int) -> 
     missing = required - routes
     if missing:
         raise AssertionError(f"managed UI build {build_number} omitted routes: {sorted(missing)}")
+
+
+def _ui_snapshot_entries(snapshot):
+    return [entry for entry in snapshot.entries if entry.manifest.module_id == MODULE_ID]
 
 
 async def _accept(root: Path) -> None:
@@ -136,38 +159,47 @@ async def _accept(root: Path) -> None:
         )
 
         snapshot = await client.refresh(REPOSITORY_ID)
-        if tuple(entry.manifest.build for entry in snapshot.entries) != EXPECTED_RELEASES:
-            raise AssertionError("signed catalog did not expose both certified UI generations")
+        ui_entries = _ui_snapshot_entries(snapshot)
+        if tuple(entry.manifest.build for entry in ui_entries) != EXPECTED_RELEASES:
+            raise AssertionError(
+                "signed catalog did not expose all certified UI generations in order"
+            )
 
+        # Exercise each generation so build 5 cannot hide an admission/entrypoint
+        # break behind its predecessor's already-certified path.
         for expected_build in EXPECTED_RELEASES:
-            entry = next(item for item in snapshot.entries if item.manifest.build == expected_build)
+            entry = next(item for item in ui_entries if item.manifest.build == expected_build)
             artifact, payload = await client.provide(entry)
             installed = management.install_verified(artifact, payload)
             if installed.active.manifest.build != expected_build:
                 raise AssertionError(f"failed to activate UI build {expected_build}")
             _assert_installable(management, expected_build)
 
+        # User-facing rollback from the new build must restore the exact prior
+        # managed generation (build 4), not the factory seed or an older delta.
         rolled_back = management.manager.rollback(MODULE_ID)
-        if rolled_back.active.manifest.build != 2:
-            raise AssertionError("managed UI rollback did not restore build 2")
-        _assert_installable(management, 2)
+        if rolled_back.active.manifest.build != 4:
+            raise AssertionError("managed UI rollback did not restore build 4")
+        _assert_installable(management, 4)
 
         restarted = ModuleManagementRuntime.for_root(temp / "appliance")
-        _assert_installable(restarted, 2)
-        record = restarted.state.installed_records()[0]
-        if record.previous is None or record.previous.manifest.build != 3:
-            raise AssertionError("rollback did not retain build 3 as the reversible prior generation")
+        _assert_installable(restarted, 4)
+        record = next(
+            item for item in restarted.state.installed_records() if item.module_id == MODULE_ID
+        )
+        if record.previous is None or record.previous.manifest.build != 5:
+            raise AssertionError("rollback did not retain build 5 as the reversible prior generation")
 
-        build3_entry = next(item for item in snapshot.entries if item.manifest.build == 3)
-        build3_artifact, build3_payload = await client.provide(build3_entry)
-        reinstalled = restarted.install_verified(build3_artifact, build3_payload)
-        if reinstalled.active.manifest.build != 3:
-            raise AssertionError("build 3 could not be reactivated after restart/rollback")
-        _assert_installable(restarted, 3)
+        build5_entry = next(item for item in ui_entries if item.manifest.build == 5)
+        build5_artifact, build5_payload = await client.provide(build5_entry)
+        reinstalled = restarted.install_verified(build5_artifact, build5_payload)
+        if reinstalled.active.manifest.build != 5:
+            raise AssertionError("build 5 could not be reactivated after restart/rollback")
+        _assert_installable(restarted, 5)
 
     print(
         "frozen Core managed UI acceptance: PASS "
-        "(build 2 -> build 3 -> rollback -> restart -> build 3)"
+        "(build 2 -> 3 -> 4 -> 5 -> rollback 4 -> restart -> build 5)"
     )
 
 

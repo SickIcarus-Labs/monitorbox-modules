@@ -5,6 +5,7 @@ The factory UI is the certified recovery seed bundled with frozen Core. Managed 
 explicit generation-safe adapter to that seed. Managed build 3 composes its certified endpoint
 prefill/discovery delta over the seed. Managed build 4 is a deliberately narrow successor to
 build 3: it adds only bounded provider environment/Compose provenance presentation for #162.
+Managed build 5 composes build 4 plus presentation-only Compose stack hierarchy for #171.
 """
 
 from __future__ import annotations
@@ -23,11 +24,16 @@ FACTORY_BUILD = 2
 CERTIFIED_BUILD2_SHA = "0f1c91e64b7772d757b484cedaec0b9df7cbf82b"
 CERTIFIED_BUILD3_SHA = "cc4a82ef4420be3edd8778ac16b5c132917ad22a"
 CERTIFIED_BUILD4_REFERENCE_SHA = "b539759659577ae95782c54aae36fc6ddd830964"
+CERTIFIED_BUILD5_REFERENCE_SHA = "804de1c26bb28cfa2ffce65eb1960d3df4f4312a"
 BUILD3_SOURCE_BLOBS = {
     "discovery-v22.js": "4b97daed8a7813499cca57ed08dda708643fae06",
     "endpoint-prefill-v22.js": "675f16a1db88522b9bebce0d3f64751b969c1065",
 }
 BUILD4_PROVENANCE_SNIPPET_BLOB = "e3028c40c0ff336333d8d66f7e687f32b4928767"
+BUILD5_SOURCE_BLOBS = {
+    "service-presentation.js": "804de1c26bb28cfa2ffce65eb1960d3df4f4312a",
+    "service-presentation.css": "451ae6f906d5bc70e585795dfd835d6111204d2f",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,6 +54,7 @@ RELEASES = (
     Release(build=2, certified_sha=CERTIFIED_BUILD2_SHA),
     Release(build=3, certified_sha=CERTIFIED_BUILD3_SHA),
     Release(build=4, certified_sha=CERTIFIED_BUILD4_REFERENCE_SHA),
+    Release(build=5, certified_sha=CERTIFIED_BUILD5_REFERENCE_SHA),
 )
 
 
@@ -82,6 +89,7 @@ __all__ = ["install"]
 
 
 def _managed_delta_adapter(build: int) -> bytes:
+    """Keep byte-identical build-3/build-4 adapter generation immutable."""
     return f'''"""Managed MonitorBox UI build {build} composed over the certified factory UI seed."""
 
 from importlib.resources import files
@@ -133,6 +141,83 @@ async def asset(request):
     return web.Response(
         text=_override_resource(name).read_text(encoding="utf-8"),
         content_type="text/javascript",
+        charset="utf-8",
+        headers={{"Cache-Control": "no-cache"}},
+    )
+
+
+def install(app):
+    app.middlewares.append(endpoint_prefill_presentation)
+    app.middlewares.append(factory.v22_settings_presentation)
+    app.router.add_get("/", factory.dashboard)
+    app.router.add_get("/modules", factory.modules)
+    app.router.add_get("/api/v2/build", factory.build_identity)
+    app.router.add_get("/static/icons/{{name}}", factory.service_icon)
+    app.router.add_get("/static/{{name}}", asset)
+
+
+__all__ = ["install"]
+'''.encode("utf-8")
+
+
+def _managed_build5_adapter() -> bytes:
+    return f'''"""Managed MonitorBox UI build 5 composed over the certified factory UI seed."""
+
+from importlib.resources import files
+
+from aiohttp import web
+from monitorbox.v2.modules.ui import (
+    MODULE_BUILD as FACTORY_BUILD,
+    MODULE_ID as FACTORY_ID,
+    MODULE_VERSION as FACTORY_VERSION,
+)
+from monitorbox.v2.modules.ui import application as factory
+
+_EXPECTED = ({MODULE_ID!r}, {MODULE_VERSION!r}, {FACTORY_BUILD})
+if (FACTORY_ID, FACTORY_VERSION, FACTORY_BUILD) != _EXPECTED:
+    raise ImportError(
+        "managed UI build 5 requires the certified MonitorBox 2.3 factory UI build 2 seed"
+    )
+
+_OVERRIDE_TYPES = {{
+    "discovery-v22.js": "text/javascript",
+    "endpoint-prefill-v22.js": "text/javascript",
+    "service-presentation.js": "text/javascript",
+    "service-presentation.css": "text/css",
+}}
+_ENDPOINT_PREFILL_SCRIPT = '<script src="/static/endpoint-prefill-v22.js" defer></script>'
+
+
+def _override_resource(name):
+    return files(__package__).joinpath("assets", name)
+
+
+@web.middleware
+async def endpoint_prefill_presentation(request, handler):
+    response = await handler(request)
+    if (
+        request.path == "/settings/quick-add"
+        and isinstance(response, web.Response)
+        and response.content_type == "text/html"
+        and response.body
+    ):
+        markup = response.text
+        if _ENDPOINT_PREFILL_SCRIPT not in markup and "</body>" in markup:
+            response.text = markup.replace(
+                "</body>",
+                _ENDPOINT_PREFILL_SCRIPT + "</body>",
+            )
+    return response
+
+
+async def asset(request):
+    name = request.match_info["name"]
+    content_type = _OVERRIDE_TYPES.get(name)
+    if content_type is None:
+        return await factory.asset(request)
+    return web.Response(
+        text=_override_resource(name).read_text(encoding="utf-8"),
+        content_type=content_type,
         charset="utf-8",
         headers={{"Cache-Control": "no-cache"}},
     )
@@ -206,6 +291,28 @@ def _build4_assets(root: Path) -> dict[str, bytes]:
     return assets
 
 
+def _build5_assets(root: Path) -> dict[str, bytes]:
+    assets = _build4_assets(root)
+    source_root = root / "sources" / "ui" / "1.0.0-build5"
+    actual_names = {path.name for path in source_root.iterdir() if path.is_file()}
+    expected_names = set(BUILD5_SOURCE_BLOBS)
+    if actual_names != expected_names:
+        raise SystemExit(
+            "UI build-5 delta shape changed: "
+            f"missing={sorted(expected_names-actual_names)}, extra={sorted(actual_names-expected_names)}"
+        )
+    for name, expected_blob in BUILD5_SOURCE_BLOBS.items():
+        payload = (source_root / name).read_bytes()
+        actual_blob = _git_blob_sha(payload)
+        if actual_blob != expected_blob:
+            raise SystemExit(
+                f"certified UI build-5 source drift for {name}: "
+                f"expected Git blob {expected_blob}, got {actual_blob}"
+            )
+        assets[name] = payload
+    return assets
+
+
 def _package_files(root: Path, release: Release) -> dict[str, bytes]:
     package = release.import_package
     if release.build == 2:
@@ -214,6 +321,11 @@ def _package_files(root: Path, release: Release) -> dict[str, bytes]:
         files = {f"{package}/__init__.py": _managed_delta_adapter(release.build)}
         assets = _build3_assets(root) if release.build == 3 else _build4_assets(root)
         for name, payload in assets.items():
+            files[f"{package}/assets/{name}"] = payload
+        return files
+    if release.build == 5:
+        files = {f"{package}/__init__.py": _managed_build5_adapter()}
+        for name, payload in _build5_assets(root).items():
             files[f"{package}/assets/{name}"] = payload
         return files
     raise SystemExit(f"unsupported managed UI build {release.build}")
