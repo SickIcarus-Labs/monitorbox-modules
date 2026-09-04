@@ -38,7 +38,10 @@ BUILD5_SOURCE_BLOBS = {
     "service-presentation.js": "804de1c26bb28cfa2ffce65eb1960d3df4f4312a",
     "service-presentation.css": "451ae6f906d5bc70e585795dfd835d6111204d2f",
 }
-BUILD6_PATCH_BLOB = CERTIFIED_BUILD6_REFERENCE_SHA
+BUILD6_SOURCE_BLOBS = {
+    "provider-service-hierarchy.js": CERTIFIED_BUILD6_REFERENCE_SHA,
+    "provider-service-labels.js": "65739e3d810cc337863178fc4ccea02170ec0442",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -329,22 +332,29 @@ def _build5_assets(root: Path) -> dict[str, bytes]:
 def _build6_assets(root: Path) -> dict[str, bytes]:
     assets = _build5_assets(root)
     source_root = root / "sources" / "ui" / "1.0.1-build6"
-    expected_names = {"provider-service-hierarchy.js"}
+    expected_names = set(BUILD6_SOURCE_BLOBS)
     actual_names = {path.name for path in source_root.iterdir() if path.is_file()}
     if actual_names != expected_names:
         raise SystemExit(
             "UI 1.0.1 build-6 delta shape changed: "
             f"missing={sorted(expected_names-actual_names)}, extra={sorted(actual_names-expected_names)}"
         )
-    patch = (source_root / "provider-service-hierarchy.js").read_bytes()
-    actual_blob = _git_blob_sha(patch)
-    if actual_blob != BUILD6_PATCH_BLOB:
-        raise SystemExit(
-            "certified UI 1.0.1 build-6 source drift: "
-            f"expected Git blob {BUILD6_PATCH_BLOB}, got {actual_blob}"
-        )
+    patches: list[bytes] = []
+    for name in ("provider-service-hierarchy.js", "provider-service-labels.js"):
+        payload = (source_root / name).read_bytes()
+        expected_blob = BUILD6_SOURCE_BLOBS[name]
+        actual_blob = _git_blob_sha(payload)
+        if actual_blob != expected_blob:
+            raise SystemExit(
+                f"certified UI 1.0.1 build-6 source drift for {name}: "
+                f"expected Git blob {expected_blob}, got {actual_blob}"
+            )
+        patches.append(payload.rstrip(b"\n"))
     assets["service-presentation.js"] = (
-        assets["service-presentation.js"].rstrip(b"\n") + b"\n\n" + patch.rstrip(b"\n") + b"\n"
+        assets["service-presentation.js"].rstrip(b"\n")
+        + b"\n\n"
+        + b"\n\n".join(patches)
+        + b"\n"
     )
     return assets
 
