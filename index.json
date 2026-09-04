@@ -3,8 +3,35 @@
   "signed": {
     "repository_id": "official",
     "display_name": "MonitorBox Official",
-    "generated_at": "2026-09-04T22:33:33.084240Z",
+    "generated_at": "2026-09-04T23:39:34.568464Z",
     "modules": [
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.http",
+          "display_name": "HTTP(S) Integration",
+          "version": "1.0.0",
+          "build": 1,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "integration",
+          "entrypoints": {
+            "integration": "monitorbox_http_b1:PLUGIN"
+          },
+          "requires_core": ">=2.3.0 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "optional"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.http-1.0.0-build1.zip",
+          "filename": "com.sickicarus.monitorbox.http-1.0.0-build1.zip",
+          "sha256": "bf8b7b985a5d30e7a0165de24dc61ddc6e6205b14ed782a4135564e9a75d8761",
+          "signature_identity": "official-ed25519-1",
+          "signature": "FwGW9SNPSSu+x34vxaP/bZYxTW9z8vnio5CgjBgWybCScJWI0oCbfkQubRUVO+TGZqDr0DsjiO3D+4PqNbH7Ag=="
+        }
+      },
       {
         "manifest": {
           "module_id": "com.sickicarus.monitorbox.portainer",
@@ -388,6 +415,6 @@
   "signature": {
     "algorithm": "ed25519",
     "identity": "official-ed25519-1",
-    "value": "ha5lW4Y3b2VBelKCHU4iP6catof0TnIcya10wOHvekqtlK/rgvtJYA49iA/XV0kQjxyjf6R4R5D70QfElg4+Bg=="
+    "value": "1xQUBho8clMWL6hPgyhhlwLaIKl5dqr3sJ2fR4oyG8jAhBdE/UVgEB7NOsRjjyYw9Z+slO15zR7vYjZkiOzGBg=="
   }
 }
