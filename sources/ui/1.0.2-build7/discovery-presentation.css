@@ -10,7 +10,7 @@
 
 #results .candidate {
   margin: 0 !important;
-  padding: 9px 10px !important;
+  padding: 7px 10px !important;
   border-radius: 0 !important;
   border-bottom-width: 0 !important;
   align-items: start;
@@ -37,8 +37,16 @@
   margin-top: 0;
 }
 
+#results .candidate .candidate-title {
+  margin-bottom: 4px;
+}
+
 #results .candidate .muted {
   line-height: 1.25;
+}
+
+#results .candidate .row {
+  margin-top: 5px;
 }
 
 #results .candidate .provider-provenance {
@@ -100,6 +108,10 @@
 @media (max-width: 759px) {
   #results .candidate {
     padding: 10px 8px !important;
+  }
+
+  #results .candidate .row {
+    margin-top: 7px;
   }
 
   #results .candidate button,
