@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise managed Portainer through the exact certified Core provider-authority seam.
+"""Exercise current managed Portainer through the exact certified Core provider-authority seam.
 
 This script is intended to run from an environment that supplies the certified
 MonitorBox Core runtime. The public module repository owns package/repository
@@ -29,8 +29,8 @@ DISPLAY_NAME = "MonitorBox Official"
 SIGNATURE_IDENTITY = "acceptance-ephemeral-ed25519"
 MODULE_ID = "com.sickicarus.monitorbox.portainer"
 MODULE_VERSION = "1.0.0"
-MODULE_BUILD = 2
-IMPORT_PACKAGE = "monitorbox_portainer_b2"
+MODULE_BUILD = 3
+IMPORT_PACKAGE = "monitorbox_portainer_b3"
 
 
 def _provider_registry(runtime: ModuleManagementRuntime):
@@ -71,7 +71,7 @@ async def _accept(root: Path) -> None:
         None,
     )
     if release is None:
-        raise AssertionError("Portainer build 2 is missing from catalog.source.json")
+        raise AssertionError("Portainer build 3 is missing from catalog.source.json")
     if release["manifest"]["entrypoints"] != {"integration": f"{IMPORT_PACKAGE}:PLUGIN"}:
         raise AssertionError("Portainer catalog entrypoint is not generation-safe")
 
@@ -122,12 +122,12 @@ async def _accept(root: Path) -> None:
             None,
         )
         if entry is None:
-            raise AssertionError("signed catalog did not expose Portainer build 2")
+            raise AssertionError("signed catalog did not expose Portainer build 3")
 
         artifact, payload = await client.provide(entry)
         installed = management.install_verified(artifact, payload)
         if installed.active.manifest.module_id != MODULE_ID or installed.active.manifest.build != MODULE_BUILD:
-            raise AssertionError("Portainer build 2 did not become active managed authority")
+            raise AssertionError("Portainer build 3 did not become active managed authority")
         if installed.previous is not None:
             raise AssertionError("first managed Portainer install unexpectedly has a previous artifact")
         _assert_managed_portainer(management)
@@ -156,7 +156,7 @@ async def _accept(root: Path) -> None:
 
     print(
         "frozen Core managed Portainer acceptance: PASS "
-        "(install -> managed registry -> restart -> disabled suppression -> reactivate)"
+        "(build 3 install -> managed registry -> restart -> disabled suppression -> reactivate)"
     )
 
 
