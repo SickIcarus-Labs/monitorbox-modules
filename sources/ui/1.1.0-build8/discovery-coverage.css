@@ -100,20 +100,22 @@
   margin-left: 4px;
 }
 
-/* The real production row carries several full-width select controls. On
- * iPad/desktop widths, allow adjacent controls to share the evidence column;
- * this removes empty vertical bands without shrinking their touch height. */
+/* Frozen Core's factory discovery row has one policy select and it must retain
+ * the full evidence-column width. Richer managed rows may add an adjacent
+ * disposition/control select; only that paired shape is compacted side by side.
+ * Leave enough slack for inline formatting whitespace so the pair cannot wrap. */
 @media (min-width: 760px) {
-  #results .candidate .wide > select {
+  #results .candidate .wide:has(> select + select) > select {
     display: inline-block;
-    width: calc(50% - 4px);
-    min-width: 180px;
+    width: calc(50% - 8px);
+    min-width: 0;
     margin-right: 4px;
     vertical-align: top;
   }
 
-  #results .candidate .wide > select + select {
+  #results .candidate .wide:has(> select + select) > select + select {
     margin-left: 0;
+    margin-right: 0;
   }
 
   #results .candidate .provider-provenance {
