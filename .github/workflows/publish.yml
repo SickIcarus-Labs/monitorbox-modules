@@ -9,10 +9,12 @@ on:
       - packages/**
       - sources/ui/**
       - sources/portainer/**
+      - sources/http/**
       - tools/build_first_party_ui.py
       - tools/build_first_party_ui_current.py
       - tools/build_first_party_ui_build10.py
       - tools/build_first_party_portainer.py
+      - tools/build_first_party_http.py
       - tools/build_repository.py
       - .github/workflows/publish.yml
 
@@ -35,6 +37,7 @@ jobs:
         run: |
           python tools/build_first_party_ui_build10.py
           python tools/build_first_party_portainer.py
+          python tools/build_first_party_http.py
       - run: python -m pip install --disable-pip-version-check cryptography
       - name: Build signed repository index
         env:

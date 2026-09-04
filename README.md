@@ -11,9 +11,12 @@ Module releases follow the canonical [`VERSIONING.md`](VERSIONING.md) policy: in
 ## Publishing
 
 1. Choose the semantic version required by [`VERSIONING.md`](VERSIONING.md) and increment the module build number.
-2. Add the immutable module ZIP under `packages/`.
-3. Add its manifest and package filename to `catalog.source.json`.
-4. Merge to `main`. The publish workflow calculates the digest, signs the package and catalog, and commits the regenerated `index.json`.
+2. Add the immutable first-party source snapshot under `sources/` and update or add its deterministic package builder under `tools/`.
+3. Add the release manifest and generated package filename to `catalog.source.json`.
+4. Extend first-party acceptance and publication workflow coverage when introducing a new independently published first-party module.
+5. Merge to `main`. The publish workflow deterministically rebuilds `packages/`, calculates package digests, signs the packages and catalog, and commits changed generated artifacts plus the regenerated `index.json`.
+
+Do not hand-author or hand-modify first-party package ZIPs. Their checked-in bytes are generated publication artifacts and must reproduce exactly from the immutable source snapshots and builders.
 
 The private signing key exists only as the Actions secret `MONITORBOX_MODULE_SIGNING_KEY`. Never commit it. Public trust material is in [`trust/official-ed25519-1.pub`](trust/official-ed25519-1.pub).
 

@@ -6,13 +6,17 @@ on:
       - catalog.source.json
       - sources/ui/**
       - sources/portainer/**
+      - sources/http/**
       - tools/build_first_party_ui.py
       - tools/build_first_party_ui_current.py
       - tools/build_first_party_ui_build10.py
       - tools/build_first_party_portainer.py
+      - tools/build_first_party_http.py
       - tools/accept_repository.py
       - tools/accept_repository_current.py
       - tools/accept_repository_build10.py
+      - tools/accept_repository_http.py
+      - tools/accept_http_behavior.py
       - tools/accept_portainer_runtime.py
       - tools/accept_portainer_coverage.py
       - tools/accept_portainer_lifecycle.py
@@ -34,13 +38,17 @@ on:
       - catalog.source.json
       - sources/ui/**
       - sources/portainer/**
+      - sources/http/**
       - tools/build_first_party_ui.py
       - tools/build_first_party_ui_current.py
       - tools/build_first_party_ui_build10.py
       - tools/build_first_party_portainer.py
+      - tools/build_first_party_http.py
       - tools/accept_repository.py
       - tools/accept_repository_current.py
       - tools/accept_repository_build10.py
+      - tools/accept_repository_http.py
+      - tools/accept_http_behavior.py
       - tools/accept_portainer_runtime.py
       - tools/accept_portainer_coverage.py
       - tools/accept_portainer_lifecycle.py
@@ -75,11 +83,15 @@ jobs:
         run: |
           python tools/build_first_party_ui_build10.py
           python tools/build_first_party_portainer.py
-          sha256sum packages/com.sickicarus.monitorbox.ui-*.zip packages/com.sickicarus.monitorbox.portainer-*.zip > /tmp/first-party-packages.first
+          python tools/build_first_party_http.py
+          sha256sum packages/com.sickicarus.monitorbox.ui-*.zip packages/com.sickicarus.monitorbox.portainer-*.zip packages/com.sickicarus.monitorbox.http-*.zip > /tmp/first-party-packages.first
           python tools/build_first_party_ui_build10.py
           python tools/build_first_party_portainer.py
-          sha256sum packages/com.sickicarus.monitorbox.ui-*.zip packages/com.sickicarus.monitorbox.portainer-*.zip > /tmp/first-party-packages.second
+          python tools/build_first_party_http.py
+          sha256sum packages/com.sickicarus.monitorbox.ui-*.zip packages/com.sickicarus.monitorbox.portainer-*.zip packages/com.sickicarus.monitorbox.http-*.zip > /tmp/first-party-packages.second
           diff -u /tmp/first-party-packages.first /tmp/first-party-packages.second
+      - name: Verify managed HTTP behavior
+        run: python tools/accept_http_behavior.py
       - name: Verify Portainer complete inventory and provider-loss truth
         run: python tools/accept_portainer_runtime.py
       - name: Verify Portainer monitoring-coverage evidence
@@ -111,4 +123,4 @@ jobs:
             /tmp/ui-discovery-coverage.png
           if-no-files-found: error
       - name: Verify package shape, activation regression, and signed repository contract
-        run: python tools/accept_repository_build10.py
+        run: python tools/accept_repository_http.py
