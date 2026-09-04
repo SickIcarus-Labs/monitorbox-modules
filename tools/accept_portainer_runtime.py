@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """Provider-local acceptance for managed Portainer build 3 runtime truth.
 
-This deliberately runs without MonitorBox Core. It loads the provider runtime
-against tiny API/result stubs so the signed module repository can permanently
-prove the historical complete-inventory failure mode and the provider-loss
-truth boundary without widening or rebuilding Core.
+The test deliberately runs without MonitorBox Core. It loads build 3's changed
+runtime over the immutable build-2 helper source and proves the provider-local
+contracts that previously allowed a 20/20 false green.
 """
 
 from __future__ import annotations
@@ -19,7 +18,8 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
-SOURCE = ROOT / "sources" / "portainer" / "1.0.0-build3"
+BASE_SOURCE = ROOT / "sources" / "portainer" / "1.0.0-build2"
+DELTA_SOURCE = ROOT / "sources" / "portainer" / "1.0.0-build3"
 API_KEY_ENV = "MONITORBOX_PORTAINER_ACCEPTANCE_KEY"
 
 
@@ -42,7 +42,7 @@ class RuntimeExecutionResult:
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
-def _install_test_modules() -> None:
+def _install_stubs() -> None:
     for name in ("candidate", "candidate.integrations", "candidate.integrations.portainer"):
         module = types.ModuleType(name)
         module.__path__ = []
@@ -85,19 +85,27 @@ def _load(name: str, path: Path):
     return module
 
 
-def _container(prefix: str, number: int, *, unhealthy: bool = False, provider_generation: int = 1):
+def _container(
+    prefix: str,
+    number: int,
+    *,
+    generation: int = 1,
+    unhealthy: bool = False,
+    standalone: bool = False,
+) -> dict[str, Any]:
     service = f"svc{number:02d}"
+    labels = {} if standalone else {
+        "com.docker.compose.project": prefix,
+        "com.docker.compose.service": service,
+    }
     return {
-        "Id": f"{prefix}-container-{number}-generation-{provider_generation}",
+        "Id": f"{prefix}-{number}-generation-{generation}",
         "Names": [f"/{prefix}-{service}"],
         "Image": f"example/{service}:1",
         "ImageID": f"sha256:{prefix}{number:02d}",
         "State": "running",
         "Status": "Up 1 hour (unhealthy)" if unhealthy else "Up 1 hour (healthy)",
-        "Labels": {
-            "com.docker.compose.project": prefix,
-            "com.docker.compose.service": service,
-        },
+        "Labels": labels,
         "Ports": [],
     }
 
@@ -105,11 +113,21 @@ def _container(prefix: str, number: int, *, unhealthy: bool = False, provider_ge
 def _fixture(*, generation: int = 1) -> dict[int, list[dict[str, Any]]]:
     return {
         1: [
-            _container("goliath", number, unhealthy=number == 21, provider_generation=generation)
+            _container(
+                "goliath",
+                number,
+                generation=generation,
+                unhealthy=number == 21,
+            )
             for number in range(1, 22)
         ],
         2: [
-            _container("arrrrr2", number, provider_generation=generation)
+            _container(
+                "arrrrr2",
+                number,
+                generation=generation,
+                standalone=number == 16,
+            )
             for number in range(1, 17)
         ],
     }
@@ -142,49 +160,75 @@ class FixtureExecutorMixin:
 
 
 def _options(**overrides):
-    result = {
+    options = {
         "base_url": "https://portainer.example",
         "api_key_env": API_KEY_ENV,
         "verify_tls": True,
         "operation": "inventory",
         "environment_ids": [1],
     }
-    result.update(overrides)
-    return result
+    options.update(overrides)
+    return options
+
+
+def _request(identity: str, environment_key: str, policy: str = "required"):
+    return RuntimeExecutionRequest(
+        "portainer",
+        _options(
+            operation="workload",
+            environment_ids=[2],
+            workload_identity=identity,
+            environment_key=environment_key,
+            policy=policy,
+        ),
+    )
 
 
 async def _accept(runtime) -> None:
     Executor = type("FixtureExecutor", (FixtureExecutorMixin, runtime.PortainerRuntimeExecutor), {})
     os.environ[API_KEY_ENV] = "acceptance-only"
     try:
-        executor = Executor(_fixture())
+        fixture = _fixture()
+        executor = Executor(fixture)
         inventory = await executor._inventory(_options())
         workloads = inventory["workloads"]
 
-        # Inventory authority deliberately ignores the configured workload-check
-        # environment subset and sees every environment visible to Portainer.
-        assert len(workloads) == 37, len(workloads)
+        # Inventory authority scans every visible Docker environment even when
+        # an individual workload check is configured for a subset.
+        assert len(workloads) == 37
         assert len(inventory["_workloads_by_identity"]) == 37
         assert {row["environment_provider_id"] for row in workloads} == {1, 2}
         container_urls = [url for url in executor.requested_urls if "/containers/json" in url]
         assert len(container_urls) == 2
         assert all(url.endswith("containers/json?all=true") for url in container_urls)
 
+        # Provider evidence consistently preserves Compose project/service
+        # provenance while leaving a standalone container explicitly standalone.
+        compose = [row for row in workloads if row["deployment_kind"] == "compose"]
+        standalone = [row for row in workloads if row["deployment_kind"] == "standalone"]
+        assert len(compose) == 36
+        assert len(standalone) == 1
+        assert all(row["compose_project"] and row["compose_service"] for row in compose)
+        assert standalone[0]["compose_project"] is None
+        assert standalone[0]["compose_service"] is None
+        assert standalone[0]["label"] == "arrrrr2-svc16"
+
         observation = await executor.execute(
             RuntimeExecutionRequest("portainer", _options()), RuntimeExecutionContext()
         )
-        assert observation.state == "degraded", observation
+        assert observation.state == "degraded"
         assert observation.metrics["containers"] == 37.0
         assert observation.metrics["unhealthy_containers"] == 1.0
         anomaly = next(
-            item for item in observation.metadata["runtime_anomalies"]
+            item
+            for item in observation.metadata["runtime_anomalies"]
             if item["kind"] == "unhealthy"
         )
         assert anomaly["container_name"] == "goliath-svc21"
         assert len(observation.metadata["discovery_evidence"]) == 37
 
-        # Stable workload identity must survive a container recreation with a
-        # different provider-native container ID.
+        # Recreate under entirely new provider/container IDs must retain logical
+        # Compose/name identities.
         first_identities = {row["identity"] for row in workloads}
         recreated = Executor(_fixture(generation=2))
         recreated_inventory = await recreated._inventory(_options())
@@ -201,73 +245,42 @@ async def _accept(runtime) -> None:
         }
         assert old_provider_ids.isdisjoint(new_provider_ids)
 
-        # Targeted checks use the retained identity index rather than rescanning
-        # the complete workload list, while preserving ordinary health truth.
-        target = next(row for row in workloads if row["environment_provider_id"] == 2)
+        # Targeted checks reuse the retained identity index instead of rescanning
+        # the 37-row list.
+        target = next(
+            row
+            for row in workloads
+            if row["environment_provider_id"] == 2 and row["deployment_kind"] == "compose"
+        )
         targeted = await executor.execute(
-            RuntimeExecutionRequest(
-                "portainer",
-                _options(
-                    operation="workload",
-                    environment_ids=[2],
-                    workload_identity=target["identity"],
-                    environment_key=target["environment_key"],
-                    policy="required",
-                ),
-            ),
+            _request(target["identity"], target["environment_key"]),
             RuntimeExecutionContext(),
         )
-        assert targeted.state == "healthy", targeted
+        assert targeted.state == "healthy"
         assert targeted.metadata["identity"] == target["identity"]
 
-        # A failed environment inventory is observation loss, not evidence that
-        # a required workload disappeared.
-        unavailable = Executor({1: _fixture()[1], 2: RuntimeError("fixture unavailable")})
+        # Provider loss is observation loss, never proof of workload absence.
+        unavailable = Executor({1: fixture[1], 2: RuntimeError("fixture unavailable")})
         unknown = await unavailable.execute(
-            RuntimeExecutionRequest(
-                "portainer",
-                _options(
-                    operation="workload",
-                    environment_ids=[2],
-                    workload_identity=target["identity"],
-                    environment_key=target["environment_key"],
-                    policy="required",
-                ),
-            ),
+            _request(target["identity"], target["environment_key"]),
             RuntimeExecutionContext(),
         )
-        assert unknown.state == "unknown", unknown
+        assert unknown.state == "unknown"
         assert unknown.metadata["authoritative"] is False
         assert unknown.metadata.get("missing") is not True
 
-        # Successful authoritative absence retains required/optional semantics.
-        absent = Executor({1: _fixture()[1], 2: []})
+        # Only successful authoritative absence drives required/optional missing
+        # policy outcomes.
+        absent = Executor({1: fixture[1], 2: []})
         required_missing = await absent.execute(
-            RuntimeExecutionRequest(
-                "portainer",
-                _options(
-                    operation="workload",
-                    environment_ids=[2],
-                    workload_identity=target["identity"],
-                    environment_key=target["environment_key"],
-                    policy="required",
-                ),
-            ),
+            _request(target["identity"], target["environment_key"]),
             RuntimeExecutionContext(),
         )
         assert required_missing.state == "failed"
         assert required_missing.metadata["missing"] is True
+
         optional_missing = await absent.execute(
-            RuntimeExecutionRequest(
-                "portainer",
-                _options(
-                    operation="workload",
-                    environment_ids=[2],
-                    workload_identity=target["identity"],
-                    environment_key=target["environment_key"],
-                    policy="optional",
-                ),
-            ),
+            _request(target["identity"], target["environment_key"], "optional"),
             RuntimeExecutionContext(),
         )
         assert optional_missing.state == "healthy"
@@ -278,13 +291,14 @@ async def _accept(runtime) -> None:
 
 
 def main() -> None:
-    _install_test_modules()
-    _load("candidate.integrations.portainer.suggestions", SOURCE / "suggestions.py")
-    runtime = _load("candidate.integrations.portainer.runtime", SOURCE / "runtime.py")
+    _install_stubs()
+    _load("candidate.integrations.portainer.suggestions", BASE_SOURCE / "suggestions.py")
+    runtime = _load("candidate.integrations.portainer.runtime", DELTA_SOURCE / "runtime.py")
     asyncio.run(_accept(runtime))
     print(
         "Portainer build-3 provider runtime acceptance: PASS "
-        "(37-container coverage + beyond-20 anomaly + stable identity + provider-loss truth)"
+        "(37-container coverage + beyond-20 anomaly + Compose provenance + "
+        "stable identity + provider-loss truth)"
     )
 
 
