@@ -21,9 +21,9 @@ EXPECTED_RELEASES = {
     (UI_ID, "1.0.0", 3),
     (UI_ID, "1.0.0", 4),
     (PORTAINER_ID, "1.0.0", 2),
+    (PORTAINER_ID, "1.0.0", 3),
 }
 SIGNATURE_IDENTITY = "acceptance-ephemeral-ed25519"
-PORTAINER_PACKAGE = "monitorbox_portainer_b2"
 PORTAINER_SOURCE_FILES = {
     "__init__.py",
     "adoption.py",
@@ -92,12 +92,17 @@ def _ui_package_shape(archive: zipfile.ZipFile, names: set[str], build: int) -> 
             raise AssertionError(f"UI build 4 leaks forbidden provider metadata: {present}")
 
 
-def _portainer_package_shape(archive: zipfile.ZipFile, names: set[str]) -> None:
-    package_root = f"{PORTAINER_PACKAGE}/"
+def _portainer_package_shape(
+    archive: zipfile.ZipFile,
+    names: set[str],
+    build: int,
+) -> None:
+    package = f"monitorbox_portainer_b{build}"
+    package_root = f"{package}/"
     expected_names = {f"{package_root}{name}" for name in PORTAINER_SOURCE_FILES}
     if names != expected_names:
         raise AssertionError(
-            "Portainer build 2 package shape changed: "
+            f"Portainer build {build} package shape changed: "
             f"missing={sorted(expected_names - names)}, extra={sorted(names - expected_names)}"
         )
     if any(name.startswith("monitorbox/") for name in names):
@@ -105,10 +110,15 @@ def _portainer_package_shape(archive: zipfile.ZipFile, names: set[str]) -> None:
     _assert_python_syntax(archive, names, package_root)
 
     source = archive.read(f"{package_root}__init__.py").decode("utf-8")
+    guard_marker = (
+        "managed Portainer build 2 requires MonitorBox Core build 0545 provider authority"
+        if build == 2
+        else "managed Portainer build 3 requires MonitorBox Core build 0545+ provider authority"
+    )
     required_markers = (
         "monitorbox.v2.plugin_api.provider_authority",
-        "managed Portainer build 2 requires MonitorBox Core build 0545 provider authority",
-        'entrypoints={"integration": "monitorbox_portainer_b2:PLUGIN"}',
+        guard_marker,
+        f'entrypoints={{"integration": "{package}:PLUGIN"}}',
         'requires_core=">=2.3.0 <3.0.0"',
     )
     for marker in required_markers:
@@ -150,28 +160,33 @@ def _package_shape(root: Path, source: dict) -> None:
             if manifest.get("module_type") != "ui" or manifest.get("lifecycle_policy") != "required":
                 raise AssertionError(f"UI build {build} lifecycle/type contract changed")
         elif module_id == PORTAINER_ID:
-            if (version, build) != ("1.0.0", 2):
+            if version != "1.0.0" or build not in {2, 3}:
                 raise AssertionError(f"unexpected Portainer release {(version, build)}")
-            if manifest["entrypoints"] != {"integration": f"{PORTAINER_PACKAGE}:PLUGIN"}:
-                raise AssertionError("Portainer build 2 does not use its generation-specific entrypoint")
+            package = f"monitorbox_portainer_b{build}"
+            if manifest["entrypoints"] != {"integration": f"{package}:PLUGIN"}:
+                raise AssertionError(
+                    f"Portainer build {build} does not use its generation-specific entrypoint"
+                )
             if manifest.get("module_type") != "integration":
-                raise AssertionError("Portainer build 2 is not an integration module")
+                raise AssertionError(f"Portainer build {build} is not an integration module")
             if manifest.get("lifecycle_policy") != "optional":
-                raise AssertionError("Portainer build 2 must remain ordinarily removable/disableable")
+                raise AssertionError(
+                    f"Portainer build {build} must remain ordinarily removable/disableable"
+                )
             if manifest.get("requires_core") != ">=2.3.0 <3.0.0":
-                raise AssertionError("Portainer build 2 Core SemVer floor changed")
+                raise AssertionError(f"Portainer build {build} Core SemVer floor changed")
         else:
             raise AssertionError(f"unexpected module id {module_id!r}")
 
-        package = root / "packages" / item["package"]
-        if not package.is_file():
-            raise AssertionError(f"generated package is missing: {package.name}")
-        with zipfile.ZipFile(package) as archive:
+        package_path = root / "packages" / item["package"]
+        if not package_path.is_file():
+            raise AssertionError(f"generated package is missing: {package_path.name}")
+        with zipfile.ZipFile(package_path) as archive:
             names = set(archive.namelist())
             if module_id == UI_ID:
                 _ui_package_shape(archive, names, build)
             else:
-                _portainer_package_shape(archive, names)
+                _portainer_package_shape(archive, names, build)
 
 
 def _signed_repository(root: Path, source: dict) -> None:
@@ -229,7 +244,7 @@ def main() -> None:
     _signed_repository(root, source)
     print(
         "public module repository acceptance: PASS "
-        "(reproducible UI builds 2/3/4 + Portainer build 2 + signed repository)"
+        "(reproducible UI builds 2/3/4 + immutable Portainer build 2 + Portainer build 3 + signed repository)"
     )
 
 
