@@ -19,6 +19,7 @@ PORTAINER_ID = "com.sickicarus.monitorbox.portainer"
 EXPECTED_RELEASES = {
     (UI_ID, "1.0.0", 2),
     (UI_ID, "1.0.0", 3),
+    (UI_ID, "1.0.0", 4),
     (PORTAINER_ID, "1.0.0", 2),
 }
 SIGNATURE_IDENTITY = "acceptance-ephemeral-ed25519"
@@ -58,7 +59,7 @@ def _ui_package_shape(archive: zipfile.ZipFile, names: set[str], build: int) -> 
         raise AssertionError(f"UI build {build} has no importable package root")
     if any(name.startswith("monitorbox/") for name in names):
         raise AssertionError("managed package may not shadow frozen Core's monitorbox namespace")
-    expected_delta = build == 3
+    expected_delta = build in {3, 4}
     for asset in ("discovery-v22.js", "endpoint-prefill-v22.js"):
         present = f"{package_root}assets/{asset}" in names
         if present != expected_delta:
@@ -66,6 +67,29 @@ def _ui_package_shape(archive: zipfile.ZipFile, names: set[str], build: int) -> 
                 f"UI build {build} certified delta shape is wrong for {asset}"
             )
     _assert_python_syntax(archive, names, package_root)
+
+    if build == 4:
+        discovery = archive.read(f"{package_root}assets/discovery-v22.js").decode("utf-8")
+        required = (
+            "function providerProvenance(item)",
+            "metadata.environment_name||metadata.environment",
+            "metadata.stack_name||metadata.compose_project",
+            "metadata.compose_service",
+            "metadata.deployment_kind",
+            "Environment/System · ${environment}",
+            "Stack · ${stack}",
+            "Service · ${service}",
+            "Deployment · ${deployment}",
+            "renderProviderProvenance(row,item);",
+            "line.textContent=text",
+        )
+        missing = [marker for marker in required if marker not in discovery]
+        if missing:
+            raise AssertionError(f"UI build 4 omitted provenance contract markers: {missing}")
+        forbidden = ("environment_url", "provider_id", "JSON.stringify(metadata)")
+        present = [marker for marker in forbidden if marker in discovery]
+        if present:
+            raise AssertionError(f"UI build 4 leaks forbidden provider metadata: {present}")
 
 
 def _portainer_package_shape(archive: zipfile.ZipFile, names: set[str]) -> None:
@@ -205,7 +229,7 @@ def main() -> None:
     _signed_repository(root, source)
     print(
         "public module repository acceptance: PASS "
-        "(reproducible UI builds 2/3 + Portainer build 2 + signed repository)"
+        "(reproducible UI builds 2/3/4 + Portainer build 2 + signed repository)"
     )
 
 
