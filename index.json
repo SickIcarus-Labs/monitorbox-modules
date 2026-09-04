@@ -3,7 +3,7 @@
   "signed": {
     "repository_id": "official",
     "display_name": "MonitorBox Official",
-    "generated_at": "2026-09-04T07:30:42.485473Z",
+    "generated_at": "2026-09-04T07:44:37.009533Z",
     "modules": [
       {
         "manifest": {
@@ -57,6 +57,33 @@
           "sha256": "50f5c24d7c0700354ad8475c687cecbb9e4c525157037f344175f1d5a9c19c41",
           "signature_identity": "official-ed25519-1",
           "signature": "mf8ofxiCaqwZjBJ3boRrbd/u+Inx+Su8C/bEPVMRpnJlvid0n3QgErBgcggvVG0dVQx5uFOlQseZ+HqGLKwFBA=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.portainer",
+          "display_name": "Portainer Integration",
+          "version": "1.0.0",
+          "build": 4,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "integration",
+          "entrypoints": {
+            "integration": "monitorbox_portainer_b4:PLUGIN"
+          },
+          "requires_core": ">=2.3.0 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "optional"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.portainer-1.0.0-build4.zip",
+          "filename": "com.sickicarus.monitorbox.portainer-1.0.0-build4.zip",
+          "sha256": "3791082e7c3d7b46437827d2d7615b6e26d56f351bfb12a4b9f3c49fb04dc1ce",
+          "signature_identity": "official-ed25519-1",
+          "signature": "938oYyBBAPU/n7TT2Z7iGiPRev/S6JHEYYrYgkN02DAgVVKIw9VIfNRbltKgJ0xIzS43YB9lgHOmejxlThJRBg=="
         }
       },
       {
@@ -145,6 +172,6 @@
   "signature": {
     "algorithm": "ed25519",
     "identity": "official-ed25519-1",
-    "value": "D10fDMC2vniO8WYLJHpGd2y4wOdT82Z4Dyl9eTdte9OgWLxOQ+3ht/e8b1fdmUVgFtjxHgiiFzBatidxv2phCA=="
+    "value": "neS1LKTuRwCoBvb3OmJCdksGv1gTmVOW0Cle8jWTBZImjxVWvbo2/77c0q2Fwx3YZgy05sPTR7udXc0Nhtp9DA=="
   }
 }
