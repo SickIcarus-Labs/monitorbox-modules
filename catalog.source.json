@@ -68,6 +68,27 @@
     },
     {
       "manifest": {
+        "module_id": "com.sickicarus.monitorbox.ui",
+        "display_name": "MonitorBox UI",
+        "version": "1.0.0",
+        "build": 5,
+        "schema": 1,
+        "state_schema": 1,
+        "module_type": "ui",
+        "entrypoints": {
+          "webui": "monitorbox_ui_b5:install"
+        },
+        "requires_core": ">=2.2.2 <3.0.0",
+        "requires_runtime_api": ">=1 <2",
+        "dependencies": [],
+        "publisher_id": "com.sickicarus",
+        "permissions": [],
+        "lifecycle_policy": "required"
+      },
+      "package": "com.sickicarus.monitorbox.ui-1.0.0-build5.zip"
+    },
+    {
+      "manifest": {
         "module_id": "com.sickicarus.monitorbox.portainer",
         "display_name": "Portainer Integration",
         "version": "1.0.0",
