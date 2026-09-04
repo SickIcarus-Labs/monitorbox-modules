@@ -15,7 +15,7 @@ from .validation import PortainerValidation
 
 MODULE_ID = "com.sickicarus.monitorbox.portainer"
 MODULE_VERSION = "1.0.0"
-MODULE_BUILD = 2
+MODULE_BUILD = 3
 
 
 class _PortainerRuntimeDiscoveryExecutor(PortainerEndpointRuntimeExecutor):
