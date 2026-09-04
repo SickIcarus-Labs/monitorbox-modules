@@ -15,9 +15,9 @@ import build_first_party_ui as stable
 
 UI_VERSION = "1.1.0"
 UI_BUILD = 8
-BUILD8_REFERENCE_SHA = "d1cb0cd03d762071f690f8f8723a52f3fabdc93e"
+BUILD8_REFERENCE_SHA = "6f21dd60a7dee3b4545d89572375fa7d518d567c"
 BUILD8_SOURCE_BLOBS = {
-    "discovery-coverage.js": "d1cb0cd03d762071f690f8f8723a52f3fabdc93e",
+    "discovery-coverage.js": "6f21dd60a7dee3b4545d89572375fa7d518d567c",
     "discovery-coverage.css": "bfbdce2a073ba23697601833d280b7eac71d32b9",
 }
 RELEASE8 = stable.Release(build=UI_BUILD, certified_sha=BUILD8_REFERENCE_SHA, version=UI_VERSION)
