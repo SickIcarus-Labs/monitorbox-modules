@@ -1,38 +1,10 @@
 'use strict';
 
-// UI 1.1.1 build 9: restore the accepted traffic-detail presentation contract.
-// Counter telemetry remains authoritative for throughput even when optional
-// gateway-flow attribution is empty or unavailable. Busiest-client counter
-// series are presentation data and must remain visible when their shape is valid.
-const uiBuild9BaseLiveChart=liveChart;
+// UI 1.1.1 build 9: keep throughput evidence independent from optional
+// gateway-flow attribution. The accepted live-telemetry producer already emits
+// busiest-client data as a normal counter_pair series; this delta deliberately
+// does not coerce malformed producer data or replace the baseline chart renderer.
 const uiBuild9BaseTrafficAttributionHtml=trafficAttributionHtml;
-
-function uiBuild9BusiestCounterSeries(series){
-  if(!series||series.kind==='counter_pair')return series;
-  if(series.traffic_subject!=='busiest')return series;
-  const points=Array.isArray(series.points)?series.points:[];
-  const counterShaped=points.some(point=>point&&point.valid&&(
-    Number.isFinite(Number(point.rx))||Number.isFinite(Number(point.tx))
-  ));
-  return counterShaped?{...series,kind:'counter_pair'}:series;
-}
-
-liveChart=function(series,...args){
-  return uiBuild9BaseLiveChart(uiBuild9BusiestCounterSeries(series),...args);
-};
-
-renderLiveOverview=function(){
-  const section=document.querySelector('#live-overview'),grid=document.querySelector('#live-overview-grid');
-  if(!section||!grid)return;
-  const counters=(app.liveTelemetry.series||[])
-    .map(uiBuild9BusiestCounterSeries)
-    .filter(series=>series?.kind==='counter_pair')
-    .sort((a,b)=>liveOverviewRank(a)-liveOverviewRank(b)||String(a.label).localeCompare(String(b.label)));
-  if(!counters.length){section.classList.add('hidden');grid.innerHTML='';return;}
-  section.classList.remove('hidden');
-  grid.innerHTML=counters.map(item=>liveChart(item,300)).join('');
-  bindTrafficCards(grid);
-};
 
 function uiBuild9ProviderFailureHtml(payload){
   const detail=String(payload?.error||payload?.provider_error||'').trim();
