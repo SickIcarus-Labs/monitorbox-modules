@@ -27,7 +27,7 @@ REPOSITORY_ID = "official"
 DISPLAY_NAME = "MonitorBox Official"
 SIGNATURE_IDENTITY = "acceptance-ephemeral-ed25519"
 MODULE_ID = "com.sickicarus.monitorbox.ui"
-EXPECTED_RELEASES = (2, 3, 4, 5)
+EXPECTED_RELEASES = (2, 3, 4, 5, 6)
 
 
 def _ui_releases(source: dict) -> dict[int, dict]:
@@ -40,6 +40,8 @@ def _ui_releases(source: dict) -> dict[int, dict]:
         raise AssertionError(
             f"expected UI builds {EXPECTED_RELEASES}, got {tuple(sorted(releases))}"
         )
+    if releases[6]["manifest"]["version"] != "1.0.1":
+        raise AssertionError("UI build 6 must exercise the v1.0.1 patch release")
     return releases
 
 
@@ -60,7 +62,7 @@ def _assert_package_shape(root: Path, source: dict) -> None:
 
             discovery = f"{import_package}/assets/discovery-v22.js"
             endpoint = f"{import_package}/assets/endpoint-prefill-v22.js"
-            expected_delta = build_number in {3, 4, 5}
+            expected_delta = build_number in {3, 4, 5, 6}
             if (discovery in names) != expected_delta:
                 raise AssertionError(
                     f"certified discovery override shape is wrong for build {build_number}"
@@ -74,7 +76,7 @@ def _assert_package_shape(root: Path, source: dict) -> None:
                 f"{import_package}/assets/service-presentation.js",
                 f"{import_package}/assets/service-presentation.css",
             }
-            if hierarchy.issubset(names) != (build_number == 5):
+            if hierarchy.issubset(names) != (build_number in {5, 6}):
                 raise AssertionError(
                     f"Compose hierarchy override shape is wrong for build {build_number}"
                 )
@@ -165,8 +167,8 @@ async def _accept(root: Path) -> None:
                 "signed catalog did not expose all certified UI generations in order"
             )
 
-        # Exercise each generation so build 5 cannot hide an admission/entrypoint
-        # break behind its predecessor's already-certified path.
+        # Exercise every retained generation. The build counter stays monotonic
+        # across the 1.0.0 -> 1.0.1 SemVer transition.
         for expected_build in EXPECTED_RELEASES:
             entry = next(item for item in ui_entries if item.manifest.build == expected_build)
             artifact, payload = await client.provide(entry)
@@ -175,31 +177,30 @@ async def _accept(root: Path) -> None:
                 raise AssertionError(f"failed to activate UI build {expected_build}")
             _assert_installable(management, expected_build)
 
-        # User-facing rollback from the new build must restore the exact prior
-        # managed generation (build 4), not the factory seed or an older delta.
+        # Rollback from v1.0.1 build 6 must restore v1.0.0 build 5 exactly.
         rolled_back = management.manager.rollback(MODULE_ID)
-        if rolled_back.active.manifest.build != 4:
-            raise AssertionError("managed UI rollback did not restore build 4")
-        _assert_installable(management, 4)
+        if rolled_back.active.manifest.build != 5:
+            raise AssertionError("managed UI rollback did not restore build 5")
+        _assert_installable(management, 5)
 
         restarted = ModuleManagementRuntime.for_root(temp / "appliance")
-        _assert_installable(restarted, 4)
+        _assert_installable(restarted, 5)
         record = next(
             item for item in restarted.state.installed_records() if item.module_id == MODULE_ID
         )
-        if record.previous is None or record.previous.manifest.build != 5:
-            raise AssertionError("rollback did not retain build 5 as the reversible prior generation")
+        if record.previous is None or record.previous.manifest.build != 6:
+            raise AssertionError("rollback did not retain build 6 as the reversible prior generation")
 
-        build5_entry = next(item for item in ui_entries if item.manifest.build == 5)
-        build5_artifact, build5_payload = await client.provide(build5_entry)
-        reinstalled = restarted.install_verified(build5_artifact, build5_payload)
-        if reinstalled.active.manifest.build != 5:
-            raise AssertionError("build 5 could not be reactivated after restart/rollback")
-        _assert_installable(restarted, 5)
+        build6_entry = next(item for item in ui_entries if item.manifest.build == 6)
+        build6_artifact, build6_payload = await client.provide(build6_entry)
+        reinstalled = restarted.install_verified(build6_artifact, build6_payload)
+        if reinstalled.active.manifest.build != 6:
+            raise AssertionError("build 6 could not be reactivated after restart/rollback")
+        _assert_installable(restarted, 6)
 
     print(
         "frozen Core managed UI acceptance: PASS "
-        "(build 2 -> 3 -> 4 -> 5 -> rollback 4 -> restart -> build 5)"
+        "(build 2 -> 3 -> 4 -> 5 -> v1.0.1 build 6 -> rollback 5 -> restart -> build 6)"
     )
 
 
