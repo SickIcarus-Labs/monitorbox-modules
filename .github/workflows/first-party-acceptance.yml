@@ -40,20 +40,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - name: Checkout accepted MonitorBox Core 0547
-        uses: actions/checkout@v6
-        with:
-          repository: SickIcarus-Labs/monitorbox
-          ref: ba89f9623bfa1b406720444bf7ca51f5dc3b04bb
-          path: frozen-core
-          persist-credentials: false
       - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
-      - name: Install acceptance dependencies
-        run: |
-          python -m pip install --disable-pip-version-check cryptography==50.0.1
-          python -m pip install --disable-pip-version-check -e ./frozen-core
+      - name: Install repository signing dependency
+        run: python -m pip install --disable-pip-version-check cryptography==50.0.1
       - name: Build reproducible first-party packages
         run: |
           python tools/build_first_party_ui.py
@@ -65,7 +56,5 @@ jobs:
           diff -u /tmp/first-party-packages.first /tmp/first-party-packages.second
       - name: Verify Portainer complete inventory and provider-loss truth
         run: python tools/accept_portainer_runtime.py
-      - name: Verify package shape and signed repository contract
+      - name: Verify package shape, activation regression, and signed repository contract
         run: python tools/accept_repository.py
-      - name: Resolve Portainer build 4 through accepted Core 0547
-        run: python tools/accept_frozen_core_portainer.py
