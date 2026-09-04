@@ -22,9 +22,9 @@ BUILD8_SOURCE_BLOBS = {
     "discovery-coverage.js": "6f21dd60a7dee3b4545d89572375fa7d518d567c",
     "discovery-coverage.css": "c6d39f2145943a9991b5626ccdd363245a1e99a4",
 }
-BUILD9_REFERENCE_SHA = "d76380ff516f3be9f403a3b6379a4fd30ba3c17a"
+BUILD9_REFERENCE_SHA = "9160337a8b3a71b86f002ba5f6fbe77106168c1f"
 BUILD9_SOURCE_BLOBS = {
-    "network-traffic-presentation.js": "d76380ff516f3be9f403a3b6379a4fd30ba3c17a",
+    "network-traffic-presentation.js": "9160337a8b3a71b86f002ba5f6fbe77106168c1f",
     "service-hierarchy-interactions.js": "01a2ba843061d46cc9397950bc2f7a1bd8c8ae49",
 }
 RELEASE8 = stable.Release(build=BUILD8, certified_sha=BUILD8_REFERENCE_SHA, version=BUILD8_VERSION)
