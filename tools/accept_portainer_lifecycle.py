@@ -301,7 +301,6 @@ async def _accept(endpoint, diagnostics, transition) -> None:
         # A correlated multi-member Compose disruption is a short deployment
         # transition, not two independent hard failures. Single-member loss is
         # intentionally insufficient to activate the transition grace.
-        transition_executor = transition.PortainerDeploymentTransitionRuntimeExecutor()
         base = _options()
         before = {
             "successful_environments": {"goliath"},
@@ -327,13 +326,18 @@ async def _accept(endpoint, diagnostics, transition) -> None:
                 },
             ],
         }
-        transition_executor._observe_compose_transitions(base, before)
+
+        single_executor = transition.PortainerDeploymentTransitionRuntimeExecutor()
+        single_executor._observe_compose_transitions(base, before)
         one_missing = {
             **before,
             "workloads": before["workloads"][1:],
         }
-        transition_executor._observe_compose_transitions(base, one_missing)
-        assert transition_executor._transition_for(base, "compose:goliath:ombi:web") is None
+        single_executor._observe_compose_transitions(base, one_missing)
+        assert single_executor._transition_for(base, "compose:goliath:ombi:web") is None
+
+        transition_executor = transition.PortainerDeploymentTransitionRuntimeExecutor()
+        transition_executor._observe_compose_transitions(base, before)
         two_missing = {
             **before,
             "workloads": before["workloads"][2:],
@@ -348,6 +352,10 @@ async def _accept(endpoint, diagnostics, transition) -> None:
         assert web_transition is not None and db_transition is not None
         assert web_transition["kind"] == "compose_multi_member_transition"
         assert web_transition["compose_project"] == "ombi"
+        assert set(web_transition["affected_workload_identities"]) == {
+            "compose:goliath:ombi:web",
+            "compose:goliath:ombi:db",
+        }
 
         # Provider loss invalidates transition baselines. Recovery cannot be
         # compared against pre-outage state to invent a deployment transition.
