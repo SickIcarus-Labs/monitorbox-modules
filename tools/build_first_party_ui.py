@@ -6,6 +6,8 @@ explicit generation-safe adapter to that seed. Managed build 3 composes its cert
 prefill/discovery delta over the seed. Managed build 4 is a deliberately narrow successor to
 build 3: it adds only bounded provider environment/Compose provenance presentation for #162.
 Managed build 5 composes build 4 plus presentation-only Compose stack hierarchy for #171.
+Managed UI 1.0.1 build 6 corrects that hierarchy so authoritative provider workload members can
+participate in the Service Directory without becoming canonical Core health objects.
 """
 
 from __future__ import annotations
@@ -20,11 +22,13 @@ from pathlib import Path
 FIXED_ZIP_TIME = (1980, 1, 1, 0, 0, 0)
 MODULE_ID = "com.sickicarus.monitorbox.ui"
 MODULE_VERSION = "1.0.0"
+PATCH_VERSION = "1.0.1"
 FACTORY_BUILD = 2
 CERTIFIED_BUILD2_SHA = "0f1c91e64b7772d757b484cedaec0b9df7cbf82b"
 CERTIFIED_BUILD3_SHA = "cc4a82ef4420be3edd8778ac16b5c132917ad22a"
 CERTIFIED_BUILD4_REFERENCE_SHA = "b539759659577ae95782c54aae36fc6ddd830964"
 CERTIFIED_BUILD5_REFERENCE_SHA = "804de1c26bb28cfa2ffce65eb1960d3df4f4312a"
+CERTIFIED_BUILD6_REFERENCE_SHA = "18eea695a237856fdea8e74c4ff22418fdc5f1ad"
 BUILD3_SOURCE_BLOBS = {
     "discovery-v22.js": "4b97daed8a7813499cca57ed08dda708643fae06",
     "endpoint-prefill-v22.js": "675f16a1db88522b9bebce0d3f64751b969c1065",
@@ -34,12 +38,14 @@ BUILD5_SOURCE_BLOBS = {
     "service-presentation.js": "804de1c26bb28cfa2ffce65eb1960d3df4f4312a",
     "service-presentation.css": "451ae6f906d5bc70e585795dfd835d6111204d2f",
 }
+BUILD6_PATCH_BLOB = CERTIFIED_BUILD6_REFERENCE_SHA
 
 
 @dataclass(frozen=True, slots=True)
 class Release:
     build: int
     certified_sha: str
+    version: str = MODULE_VERSION
 
     @property
     def import_package(self) -> str:
@@ -47,7 +53,7 @@ class Release:
 
     @property
     def filename(self) -> str:
-        return f"{MODULE_ID}-{MODULE_VERSION}-build{self.build}.zip"
+        return f"{MODULE_ID}-{self.version}-build{self.build}.zip"
 
 
 RELEASES = (
@@ -55,6 +61,7 @@ RELEASES = (
     Release(build=3, certified_sha=CERTIFIED_BUILD3_SHA),
     Release(build=4, certified_sha=CERTIFIED_BUILD4_REFERENCE_SHA),
     Release(build=5, certified_sha=CERTIFIED_BUILD5_REFERENCE_SHA),
+    Release(build=6, certified_sha=CERTIFIED_BUILD6_REFERENCE_SHA, version=PATCH_VERSION),
 )
 
 
@@ -237,6 +244,12 @@ __all__ = ["install"]
 '''.encode("utf-8")
 
 
+def _managed_build6_adapter() -> bytes:
+    # Runtime surface is intentionally identical to build 5; only the packaged
+    # service-presentation asset gains the 1.0.1 correction delta.
+    return _managed_build5_adapter().replace(b"build 5", b"build 6")
+
+
 def _build3_assets(root: Path) -> dict[str, bytes]:
     source_root = root / "sources" / "ui" / "1.0.0-build3"
     assets: dict[str, bytes] = {}
@@ -313,6 +326,29 @@ def _build5_assets(root: Path) -> dict[str, bytes]:
     return assets
 
 
+def _build6_assets(root: Path) -> dict[str, bytes]:
+    assets = _build5_assets(root)
+    source_root = root / "sources" / "ui" / "1.0.1-build6"
+    expected_names = {"provider-service-hierarchy.js"}
+    actual_names = {path.name for path in source_root.iterdir() if path.is_file()}
+    if actual_names != expected_names:
+        raise SystemExit(
+            "UI 1.0.1 build-6 delta shape changed: "
+            f"missing={sorted(expected_names-actual_names)}, extra={sorted(actual_names-expected_names)}"
+        )
+    patch = (source_root / "provider-service-hierarchy.js").read_bytes()
+    actual_blob = _git_blob_sha(patch)
+    if actual_blob != BUILD6_PATCH_BLOB:
+        raise SystemExit(
+            "certified UI 1.0.1 build-6 source drift: "
+            f"expected Git blob {BUILD6_PATCH_BLOB}, got {actual_blob}"
+        )
+    assets["service-presentation.js"] = (
+        assets["service-presentation.js"].rstrip(b"\n") + b"\n\n" + patch.rstrip(b"\n") + b"\n"
+    )
+    return assets
+
+
 def _package_files(root: Path, release: Release) -> dict[str, bytes]:
     package = release.import_package
     if release.build == 2:
@@ -326,6 +362,11 @@ def _package_files(root: Path, release: Release) -> dict[str, bytes]:
     if release.build == 5:
         files = {f"{package}/__init__.py": _managed_build5_adapter()}
         for name, payload in _build5_assets(root).items():
+            files[f"{package}/assets/{name}"] = payload
+        return files
+    if release.build == 6:
+        files = {f"{package}/__init__.py": _managed_build6_adapter()}
+        for name, payload in _build6_assets(root).items():
             files[f"{package}/assets/{name}"] = payload
         return files
     raise SystemExit(f"unsupported managed UI build {release.build}")
