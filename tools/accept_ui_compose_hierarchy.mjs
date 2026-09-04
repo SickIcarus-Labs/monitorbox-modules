@@ -4,245 +4,163 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 
-const source = fs.readFileSync(
-  new URL('../sources/ui/1.0.0-build5/service-presentation.js', import.meta.url),
-  'utf8',
-);
+const source = [
+  '../sources/ui/1.0.0-build5/service-presentation.js',
+  '../sources/ui/1.0.1-build6/provider-service-hierarchy.js',
+].map(path => fs.readFileSync(new URL(path, import.meta.url), 'utf8')).join('\n');
 
 const stateRanks = new Map([
-  ['healthy', 0],
-  ['planned', 0],
-  ['unknown', 1],
-  ['degraded', 2],
-  ['failed', 3],
+  ['healthy', 0], ['planned', 0], ['unknown', 1], ['degraded', 2], ['failed', 3],
 ]);
-
 const context = vm.createContext({
   renderSite: () => '',
   findObject: () => ({ site: undefined, object: undefined }),
   renderDrawer: () => undefined,
   stateRank: state => stateRanks.get(String(state)) ?? 1,
+  stateLabel: state => String(state),
   esc: value => String(value),
   pill: state => `<span class="state-pill ${state}">${state}</span>`,
   app: { state: { sites: [] }, selected: null },
   openDrawer: () => undefined,
   document: { querySelectorAll: () => [], querySelector: () => null },
   $: () => null,
+  URL,
   console,
 });
-vm.runInContext(source, context, { filename: 'service-presentation.js' });
+vm.runInContext(source, context, { filename: 'service-presentation-build6.js' });
 
-const {
-  serviceComposeProvenance,
-  servicePresentationEntries,
-  serviceStackRow,
-  serviceGroupObject,
-} = context;
-for (const [name, value] of Object.entries({
-  serviceComposeProvenance,
-  servicePresentationEntries,
-  serviceStackRow,
-  serviceGroupObject,
-})) {
-  assert.equal(typeof value, 'function', `${name} must remain executable`);
+for (const name of [
+  'providerPresentationModel', 'providerEnvironmentOwners', 'providerWorkloadRuntime',
+  'servicesForSite', 'servicePresentationEntries', 'serviceStackRow', 'serviceGroupObject',
+]) {
+  assert.equal(typeof context[name], 'function', `${name} must remain executable`);
 }
 
-function service({
-  id,
-  label,
-  state = 'healthy',
-  environmentKey,
-  environmentName,
-  project,
-  composeService,
-  deployment = 'compose',
-  provider = 'portainer',
-  providerContainerId = `${id}-container-1`,
-}) {
-  const metadata = provider
-    ? {
-        provider,
-        environment_key: environmentKey,
-        environment_name: environmentName,
-        compose_project: project,
-        compose_service: composeService,
-        deployment_kind: deployment,
-        container_provider_id: providerContainerId,
-      }
-    : {};
+function canonicalService(id, label, hostId, extra = {}) {
   return {
-    id,
-    label,
-    kind: 'service',
-    state,
-    summary: `${label} ${state}`,
-    retired: false,
-    components: [
-      {
-        enabled: true,
-        state,
-        adapter: provider,
-        summary: `${label} runtime ${state}`,
-        metadata,
-      },
-    ],
-    depends_on: [],
+    id, label, kind: 'service', state: extra.state || 'healthy',
+    summary: `${label} ${extra.state || 'healthy'}`, retired: false,
+    address: extra.address || '', presentation_url: extra.presentation_url || null,
+    icon: extra.icon || null, depends_on: hostId ? [hostId] : [],
+    components: extra.components || [{ enabled: true, state: extra.state || 'healthy', adapter: 'http', summary: `${label} HTTP healthy`, metadata: {} }],
   };
 }
 
-const ombiWeb = service({
-  id: 'svc-ombi-web',
-  label: 'Ombi',
-  environmentKey: 'goliath',
-  environmentName: 'Goliath',
-  project: 'ombi',
-  composeService: 'ombi',
-});
-const ombiDb = service({
-  id: 'svc-ombi-db',
-  label: 'MariaDB',
-  environmentKey: 'goliath',
-  environmentName: 'Goliath',
-  project: 'ombi',
-  composeService: 'mariadb',
-});
-const standalone = service({
-  id: 'svc-standalone',
-  label: 'Standalone',
-  environmentKey: 'goliath',
-  environmentName: 'Goliath',
-  project: '',
-  composeService: '',
-  deployment: 'standalone',
-});
-const singleton = service({
-  id: 'svc-single-compose',
-  label: 'Single Compose Service',
-  environmentKey: 'goliath',
-  environmentName: 'Goliath',
-  project: 'single-project',
-  composeService: 'only-service',
-});
+function workload({ envKey, envName, envUrl, project = '', service = '', name, state = 'running', health = null, endpoints = [], actionable = true, suppression = null }) {
+  const identity = project ? `compose:${envKey}:${project}:${service}` : `container:${envKey}:${name}`;
+  return {
+    identity,
+    label: name || service,
+    environment_key: envKey,
+    environment_name: envName,
+    environment_url: envUrl,
+    compose_project: project,
+    compose_service: service,
+    discovery_actionable: actionable,
+    discovery_suppression_reason: suppression,
+    ignored: false,
+    service_endpoints: endpoints,
+    containers: [{ provider_id: `${identity}-container`, name: name || service, state, health }],
+  };
+}
 
-let entries = servicePresentationEntries([
-  ombiWeb,
-  ombiDb,
-  standalone,
-  singleton,
-]);
-assert.equal(entries.filter(entry => entry.kind === 'stack').length, 1);
-const goliathOmbi = entries.find(entry => entry.kind === 'stack');
-assert.ok(goliathOmbi);
-assert.equal(goliathOmbi.group.key, 'goliath\u0000ombi');
-assert.equal(goliathOmbi.group.services.length, 2);
-assert.deepEqual(
-  new Set(goliathOmbi.group.services.map(item => item.id)),
-  new Set(['svc-ombi-web', 'svc-ombi-db']),
-);
-assert.equal(
-  entries.find(entry => entry.kind === 'service' && entry.service.id === 'svc-standalone')?.service,
-  standalone,
-  'standalone service must remain the canonical child object',
-);
-assert.equal(
-  entries.find(entry => entry.kind === 'service' && entry.service.id === 'svc-single-compose')?.service,
-  singleton,
-  'single-member Compose project must not add pointless parent indirection',
-);
+const goliath = { id: 'goliath', label: 'Goliath', kind: 'host', address: '192.168.3.13', depends_on: [] };
+const arrrrr2 = { id: 'arrrrr2', label: 'Arrrrr2', kind: 'host', address: '192.168.3.9', depends_on: [] };
+const monitor = { id: 'monitor', label: 'Monitor', kind: 'appliance', address: '192.168.3.5', depends_on: [] };
+const turnberry = { id: 'turnberry', label: 'Turnberry', kind: 'remote_site', address: '192.168.1.0/24', depends_on: [] };
 
-const arrWeb = service({
-  id: 'svc-arr-web',
-  label: 'Ombi',
-  environmentKey: 'arrrrr2',
-  environmentName: 'Arrrrr2',
-  project: 'ombi',
-  composeService: 'ombi',
-});
-const arrDb = service({
-  id: 'svc-arr-db',
-  label: 'MariaDB',
-  environmentKey: 'arrrrr2',
-  environmentName: 'Arrrrr2',
-  project: 'ombi',
-  composeService: 'mariadb',
-});
-entries = servicePresentationEntries([ombiWeb, ombiDb, arrWeb, arrDb]);
-const stacks = entries.filter(entry => entry.kind === 'stack');
-assert.equal(stacks.length, 2);
-assert.deepEqual(
-  new Set(stacks.map(entry => entry.group.key)),
-  new Set(['goliath\u0000ombi', 'arrrrr2\u0000ombi']),
-  'same project name on different environments must never collapse together',
-);
-assert.deepEqual(
-  new Set(stacks.map(entry => entry.label)),
-  new Set(['ombi · Goliath', 'ombi · Arrrrr2']),
-  'duplicate project names must be visibly disambiguated by environment',
-);
+const workloads = [
+  workload({ envKey: 'broad_leaf_-_goliath', envName: 'Broad Leaf - Goliath', envUrl: 'unix:///var/run/docker.sock', project: 'ombi_mysql', service: 'ombi', name: 'ombi', endpoints: [{ host: '192.168.3.13', public_port: 3579 }] }),
+  workload({ envKey: 'broad_leaf_-_goliath', envName: 'Broad Leaf - Goliath', envUrl: 'unix:///var/run/docker.sock', project: 'ombi_mysql', service: 'mariadb', name: 'mariadb' }),
+  workload({ envKey: 'broad_leaf_-_goliath', envName: 'Broad Leaf - Goliath', envUrl: 'unix:///var/run/docker.sock', project: 'ombi_mysql', service: 'phpmyadmin', name: 'phpmyadmin', endpoints: [{ host: '192.168.3.13', public_port: 8081 }] }),
+  workload({ envKey: 'broad_leaf_-_goliath', envName: 'Broad Leaf - Goliath', envUrl: 'unix:///var/run/docker.sock', name: 'portainer', actionable: false, suppression: 'authenticated_portainer_controller' }),
+  workload({ envKey: 'broad_leaf_-_goliath', envName: 'Broad Leaf - Goliath', envUrl: 'unix:///var/run/docker.sock', name: 'watchtower' }),
+  workload({ envKey: 'broad_leaf_-_arrrrr2', envName: 'Broad Leaf - Arrrrr2', envUrl: 'tcp://192.168.3.9:9001', project: 'scrob', service: 'scrob', name: 'scrob', endpoints: [{ host: '192.168.3.9', public_port: 7575 }] }),
+  workload({ envKey: 'broad_leaf_-_arrrrr2', envName: 'Broad Leaf - Arrrrr2', envUrl: 'tcp://192.168.3.9:9001', project: 'scrob', service: 'scrob-db', name: 'scrob-db' }),
+  workload({ envKey: 'broad_leaf_-_monitor', envName: 'Broad Leaf - Monitor', envUrl: 'tcp://192.168.3.5:9001', project: 'monitorbox', service: 'controller', name: 'controller' }),
+  workload({ envKey: 'broad_leaf_-_monitor', envName: 'Broad Leaf - Monitor', envUrl: 'tcp://192.168.3.5:9001', project: 'monitorbox', service: 'agent', name: 'agent' }),
+  workload({ envKey: 'turnberry_-_apollo', envName: 'Turnberry - Apollo', envUrl: 'tcp://192.168.1.9:9001', project: 'foreign', service: 'app', name: 'app', endpoints: [{ host: '192.168.1.9', public_port: 8080 }] }),
+  workload({ envKey: 'turnberry_-_apollo', envName: 'Turnberry - Apollo', envUrl: 'tcp://192.168.1.9:9001', project: 'foreign', service: 'db', name: 'db' }),
+];
 
-const beforeRecreate = serviceComposeProvenance(ombiWeb);
-const recreated = service({
-  id: ombiWeb.id,
-  label: ombiWeb.label,
-  environmentKey: 'goliath',
-  environmentName: 'Goliath',
-  project: 'ombi',
-  composeService: 'ombi',
-  providerContainerId: 'entirely-new-container-id',
+const inventoryMetadata = { provider: 'portainer', authoritative: true, workloads };
+const portainer = canonicalService('goliath_portainer', 'Portainer', 'goliath', {
+  components: [{ enabled: true, state: 'healthy', adapter: 'portainer', summary: 'Portainer inventory healthy', metadata: inventoryMetadata }],
 });
-const afterRecreate = serviceComposeProvenance(recreated);
-assert.equal(beforeRecreate.key, afterRecreate.key);
-assert.equal(beforeRecreate.project, afterRecreate.project);
-
-const healthyEntry = servicePresentationEntries([ombiWeb, ombiDb]).find(
-  entry => entry.kind === 'stack',
-);
-const healthyHtml = serviceStackRow({}, healthyEntry, '__services__');
-assert.match(healthyHtml, /<details class="service-compose-group healthy"/);
-assert.doesNotMatch(
-  healthyHtml,
-  /<details class="service-compose-group healthy"[^>]* open/,
-  'healthy stack must default collapsed',
-);
-assert.match(healthyHtml, /data-service-object="svc-ombi-web"/);
-assert.match(healthyHtml, /data-service-object="svc-ombi-db"/);
-
-const failedDb = service({
-  id: 'svc-ombi-db',
-  label: 'MariaDB',
-  state: 'failed',
-  environmentKey: 'goliath',
-  environmentName: 'Goliath',
-  project: 'ombi',
-  composeService: 'mariadb',
-});
-const failedEntry = servicePresentationEntries([ombiWeb, failedDb]).find(
-  entry => entry.kind === 'stack',
-);
-assert.equal(failedEntry.state, 'failed');
-const failedHtml = serviceStackRow({}, failedEntry, '__services__');
-assert.match(
-  failedHtml,
-  /<details class="service-compose-group failed"[^>]* open/,
-  'non-healthy child must make the parent visible and auto-expanded',
-);
-assert.match(failedHtml, /data-service-object="svc-ombi-db"/);
+const ombi = canonicalService('goliath_ombi', 'Ombi', 'goliath');
+const scrob = canonicalService('arrrrr2_scrob', 'Scrob', 'arrrrr2');
+const cockpit = canonicalService('arrrrr2_cockpit', 'Cockpit', 'arrrrr2');
 
 const site = {
-  id: 'broadleaf',
-  objects: [ombiWeb, failedDb, standalone],
+  id: 'broadleaf', label: 'Broad Leaf',
+  objects: [goliath, arrrrr2, monitor, turnberry, portainer, ombi, scrob, cockpit],
 };
-const directory = serviceGroupObject(site);
-assert.equal(directory.health_participant, false);
-assert.equal(directory.state, 'failed');
-assert.equal(directory.services[0], ombiWeb);
-assert.ok(
-  directory.services.includes(failedDb) && directory.services.includes(standalone),
-  'presentation grouping must not replace or discard canonical service objects',
+context.app.state.sites = [site];
+
+const model = context.providerPresentationModel(site);
+assert.equal(model.inventory.length, 11, 'raw authoritative inventory remains complete');
+assert.deepEqual(
+  new Set([...model.owners.keys()]),
+  new Set(['broad_leaf_-_goliath', 'broad_leaf_-_arrrrr2', 'broad_leaf_-_monitor']),
+  'only exact canonical host/appliance environments may enter the Service Directory',
 );
+assert.equal(model.owners.has('turnberry_-_apollo'), false, 'remote Site/CIDR reachability must not establish local service ownership');
+
+const visible = context.servicesForSite(site);
+assert.ok(visible.length > 4, 'provider workload children must extend the canonical service-only directory');
+assert.equal(visible.some(item => String(item._provider_workload?.environment_key) === 'turnberry_-_apollo'), false, 'foreign Apollo workloads must not leak into Broad Leaf Services');
+assert.equal(visible.some(item => item._provider_workload?.discovery_suppression_reason === 'authenticated_portainer_controller'), false, 'controller-self provenance must stay non-actionable');
+assert.equal(visible.filter(item => item.id === 'goliath_ombi').length, 1, 'canonical Ombi service must not be duplicated by provider evidence');
+assert.ok(visible.some(item => item.label === 'mariadb' && item.kind === 'provider_workload'));
+assert.ok(visible.some(item => item.label === 'phpmyadmin' && item.kind === 'provider_workload'));
+assert.ok(visible.some(item => item.label === 'scrob-db' && item.kind === 'provider_workload'));
+assert.ok(visible.some(item => item.label === 'watchtower' && item.kind === 'provider_workload'), 'local standalone provider workload must remain standalone');
+
+let entries = context.servicePresentationEntries(visible);
+const ombiStack = entries.find(entry => entry.kind === 'stack' && entry.group.project === 'ombi_mysql');
+assert.ok(ombiStack, 'Ombi provider project must materialize as a stack parent');
+assert.equal(ombiStack.group.services.length, 3);
+assert.deepEqual(
+  new Set(ombiStack.group.services.map(item => item.label)),
+  new Set(['Ombi', 'mariadb', 'phpmyadmin']),
+  'canonical application plus provider-only DB/admin members must share one parent',
+);
+assert.equal(ombiStack.group.services.find(item => item.label === 'Ombi').id, 'goliath_ombi', 'canonical child identity must be preserved');
+let html = context.serviceStackRow(site, ombiStack, '__services__');
+assert.match(html, /<details class="service-compose-group healthy"/);
+assert.doesNotMatch(html, /service-compose-group healthy"[^>]* open/, 'healthy stack defaults collapsed');
+assert.match(html, /data-service-object="goliath_ombi"/);
+assert.match(html, /__provider_workload__:/, 'provider-only child must retain direct detail navigation');
+
+const providerChild = ombiStack.group.services.find(item => item.kind === 'provider_workload');
+const resolved = context.findObject('broadleaf', providerChild.id);
+assert.equal(resolved.object.kind, 'provider_workload');
+assert.equal(resolved.object._provider_workload.identity, providerChild._provider_workload.identity);
+
+const failedWorkloads = workloads.map(row => row.compose_service === 'mariadb'
+  ? { ...row, containers: row.containers.map(container => ({ ...container, health: 'unhealthy' })) }
+  : row);
+portainer.components[0].metadata = { provider: 'portainer', authoritative: true, workloads: failedWorkloads };
+entries = context.servicePresentationEntries(context.servicesForSite(site));
+const failedStack = entries.find(entry => entry.kind === 'stack' && entry.group.project === 'ombi_mysql');
+assert.equal(failedStack.state, 'failed', 'confirmed provider child runtime failure must propagate to parent');
+html = context.serviceStackRow(site, failedStack, '__services__');
+assert.match(html, /service-compose-group failed"[^>]* open/, 'failed child must auto-expand parent');
+
+const stoppedWorkloads = failedWorkloads.map(row => row.compose_service === 'mariadb'
+  ? { ...row, containers: row.containers.map(container => ({ ...container, health: null, state: 'exited' })) }
+  : row);
+portainer.components[0].metadata = { provider: 'portainer', authoritative: true, workloads: stoppedWorkloads };
+entries = context.servicePresentationEntries(context.servicesForSite(site));
+const neutralStack = entries.find(entry => entry.kind === 'stack' && entry.group.project === 'ombi_mysql');
+assert.equal(neutralStack.state, 'healthy', 'policy-neutral stopped provider member must not falsely fail a healthy canonical application');
+assert.equal(neutralStack.group.services.find(item => item.label === 'mariadb').state, 'unknown', 'child still exposes unknown expected-state truth');
+
+const directory = context.serviceGroupObject(site);
+assert.equal(directory.health_participant, false);
+assert.ok(directory.services.length > 4);
 
 console.log(
-  'UI build-5 Compose hierarchy acceptance: PASS ' +
-    '(stable environment+project grouping + same-name disambiguation + ' +
-    'canonical children + singleton/standalone preservation + attention auto-expand)',
+  'UI 1.0.1 build 6 provider-backed Compose hierarchy acceptance: PASS ' +
+  '(authoritative inventory + canonical dedupe + provider-only children + local environment ownership + foreign exclusion + direct detail + worst-child anomaly propagation)',
 );
