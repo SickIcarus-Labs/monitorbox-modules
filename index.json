@@ -3,7 +3,7 @@
   "signed": {
     "repository_id": "official",
     "display_name": "MonitorBox Official",
-    "generated_at": "2026-09-04T17:38:39.405915Z",
+    "generated_at": "2026-09-04T18:30:16.269891Z",
     "modules": [
       {
         "manifest": {
@@ -247,12 +247,39 @@
           "signature_identity": "official-ed25519-1",
           "signature": "fse1/HYbCsi3i+D7xTF1OOiM4i/jsVK91036jByu4jBNxTMYDfwOoRIheX8dWuQDubtdCCYGo0A5nASCpzk/Cw=="
         }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.ui",
+          "display_name": "MonitorBox UI",
+          "version": "1.0.2",
+          "build": 7,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "ui",
+          "entrypoints": {
+            "webui": "monitorbox_ui_b7:install"
+          },
+          "requires_core": ">=2.2.2 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "required"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.ui-1.0.2-build7.zip",
+          "filename": "com.sickicarus.monitorbox.ui-1.0.2-build7.zip",
+          "sha256": "a61d5985be2d354fbd60770cfb6ee6160ecb2bfa98a7bd847ff9b526f2377fd0",
+          "signature_identity": "official-ed25519-1",
+          "signature": "oMIHGfwnSIZUs61orFyAjLmINf0asYEXu5h65KT4zpov++vtzYCI24Z+LQWwltsIPrjPc6xJAwuO1ZTh+ju4Dw=="
+        }
       }
     ]
   },
   "signature": {
     "algorithm": "ed25519",
     "identity": "official-ed25519-1",
-    "value": "7bCh7ay4rr1qZvtKU/hviVIRps0GXV/8gV8gsXfGEL5H+EWH6DrXqC3HXhWI0YWh9dYNuzow28bZS+WtiedvDw=="
+    "value": "Zt9BvEMfRimMaRZFXi2abP9bsSECXWS9vWIqGpiklAx6yigsCfd/HZfnQt9kyHT6hNrJVf0zPNGvoFL/AL6iBg=="
   }
 }
