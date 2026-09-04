@@ -12,10 +12,6 @@ import aiohttp
 from ...plugin_api import RuntimeExecutionContext, RuntimeExecutionRequest, RuntimeExecutionResult
 from .suggestions import generic_workload_evidence, is_portainer_controller_self
 
-MODULE_ID = "com.sickicarus.monitorbox.portainer"
-MODULE_VERSION = "1.0.0"
-MODULE_BUILD = 1
-
 _TRUE = {"1", "true", "yes", "on"}
 _FALSE = {"0", "false", "no", "off"}
 _CACHE_SECONDS = 10.0
@@ -223,15 +219,6 @@ def _environment_rows(
     ]
 
 
-def _workload_discovery_evidence(
-    workloads: Any,
-    *,
-    authoritative: bool,
-) -> list[dict[str, Any]]:
-    """Compatibility name for module-local generic evidence projection."""
-    return generic_workload_evidence(workloads, authoritative=authoritative)
-
-
 def _inventory_runtime_health(
     workloads: Any,
 ) -> tuple[dict[str, int], list[dict[str, Any]]]:
@@ -375,7 +362,7 @@ class PortainerRuntimeExecutor:
                 "ignored_count": inventory["ignored_count"],
                 "runtime_health": runtime_health,
                 "runtime_anomalies": runtime_anomalies,
-                "discovery_evidence": _workload_discovery_evidence(
+                "discovery_evidence": generic_workload_evidence(
                     inventory["workloads"], authoritative=authoritative
                 ),
             }
@@ -402,14 +389,7 @@ class PortainerRuntimeExecutor:
 
         identity = str(options["workload_identity"])
         policy = str(options.get("policy", "optional"))
-        workload = next(
-            (
-                item
-                for item in inventory["workloads"]
-                if item.get("identity") == identity
-            ),
-            None,
-        )
+        workload = inventory["_workloads_by_identity"].get(identity)
         environment_key = str(
             options.get("environment_key")
             or self._identity_environment(identity)
@@ -676,6 +656,7 @@ class PortainerRuntimeExecutor:
             "successful_environments": successful,
             "errors": errors,
             "workloads": workloads,
+            "_workloads_by_identity": workloads_by_identity,
             "ignored_count": ignored_count,
         }
         self._inventory_cache[cache_key] = (now, result)
