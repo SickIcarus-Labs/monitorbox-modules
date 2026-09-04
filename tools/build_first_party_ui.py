@@ -7,7 +7,8 @@ prefill/discovery delta over the seed. Managed build 4 is a deliberately narrow 
 build 3: it adds only bounded provider environment/Compose provenance presentation for #162.
 Managed build 5 composes build 4 plus presentation-only Compose stack hierarchy for #171.
 Managed UI 1.0.1 build 6 corrects that hierarchy so authoritative provider workload members can
-participate in the Service Directory without becoming canonical Core health objects.
+participate in the Service Directory without becoming canonical Core health objects. Managed UI
+1.0.2 build 7 compacts provider-scale Discoveries while preserving the build-4 provenance truth.
 """
 
 from __future__ import annotations
@@ -23,12 +24,14 @@ FIXED_ZIP_TIME = (1980, 1, 1, 0, 0, 0)
 MODULE_ID = "com.sickicarus.monitorbox.ui"
 MODULE_VERSION = "1.0.0"
 PATCH_VERSION = "1.0.1"
+DISCOVERY_PATCH_VERSION = "1.0.2"
 FACTORY_BUILD = 2
 CERTIFIED_BUILD2_SHA = "0f1c91e64b7772d757b484cedaec0b9df7cbf82b"
 CERTIFIED_BUILD3_SHA = "cc4a82ef4420be3edd8778ac16b5c132917ad22a"
 CERTIFIED_BUILD4_REFERENCE_SHA = "b539759659577ae95782c54aae36fc6ddd830964"
 CERTIFIED_BUILD5_REFERENCE_SHA = "804de1c26bb28cfa2ffce65eb1960d3df4f4312a"
 CERTIFIED_BUILD6_REFERENCE_SHA = "18eea695a237856fdea8e74c4ff22418fdc5f1ad"
+CERTIFIED_BUILD7_REFERENCE_SHA = "ea70d59aa936aa0330a95b954c2b688e0ef72ed4"
 BUILD3_SOURCE_BLOBS = {
     "discovery-v22.js": "4b97daed8a7813499cca57ed08dda708643fae06",
     "endpoint-prefill-v22.js": "675f16a1db88522b9bebce0d3f64751b969c1065",
@@ -41,6 +44,9 @@ BUILD5_SOURCE_BLOBS = {
 BUILD6_SOURCE_BLOBS = {
     "provider-service-hierarchy.js": CERTIFIED_BUILD6_REFERENCE_SHA,
     "provider-service-labels.js": "65739e3d810cc337863178fc4ccea02170ec0442",
+}
+BUILD7_SOURCE_BLOBS = {
+    "discovery-presentation.css": CERTIFIED_BUILD7_REFERENCE_SHA,
 }
 
 
@@ -65,6 +71,7 @@ RELEASES = (
     Release(build=4, certified_sha=CERTIFIED_BUILD4_REFERENCE_SHA),
     Release(build=5, certified_sha=CERTIFIED_BUILD5_REFERENCE_SHA),
     Release(build=6, certified_sha=CERTIFIED_BUILD6_REFERENCE_SHA, version=PATCH_VERSION),
+    Release(build=7, certified_sha=CERTIFIED_BUILD7_REFERENCE_SHA, version=DISCOVERY_PATCH_VERSION),
 )
 
 
@@ -253,6 +260,88 @@ def _managed_build6_adapter() -> bytes:
     return _managed_build5_adapter().replace(b"build 5", b"build 6")
 
 
+def _managed_build7_adapter() -> bytes:
+    return f'''"""Managed MonitorBox UI 1.0.2 build 7 composed over the certified factory UI seed."""
+
+from importlib.resources import files
+
+from aiohttp import web
+from monitorbox.v2.modules.ui import (
+    MODULE_BUILD as FACTORY_BUILD,
+    MODULE_ID as FACTORY_ID,
+    MODULE_VERSION as FACTORY_VERSION,
+)
+from monitorbox.v2.modules.ui import application as factory
+
+_EXPECTED = ({MODULE_ID!r}, {MODULE_VERSION!r}, {FACTORY_BUILD})
+if (FACTORY_ID, FACTORY_VERSION, FACTORY_BUILD) != _EXPECTED:
+    raise ImportError(
+        "managed UI 1.0.2 build 7 requires the certified MonitorBox 2.3 factory UI build 2 seed"
+    )
+
+_OVERRIDE_TYPES = {{
+    "discovery-v22.js": "text/javascript",
+    "endpoint-prefill-v22.js": "text/javascript",
+    "service-presentation.js": "text/javascript",
+    "service-presentation.css": "text/css",
+    "discovery-presentation.css": "text/css",
+}}
+_ENDPOINT_PREFILL_SCRIPT = '<script src="/static/endpoint-prefill-v22.js" defer></script>'
+_DISCOVERY_PRESENTATION_STYLESHEET = '<link rel="stylesheet" href="/static/discovery-presentation.css">'
+_DISCOVERY_PRESENTATION_PATHS = frozenset(("/settings/quick-add", "/settings/discover"))
+
+
+def _override_resource(name):
+    return files(__package__).joinpath("assets", name)
+
+
+@web.middleware
+async def managed_discovery_presentation(request, handler):
+    response = await handler(request)
+    if (
+        request.path in _DISCOVERY_PRESENTATION_PATHS
+        and isinstance(response, web.Response)
+        and response.content_type == "text/html"
+        and response.body
+    ):
+        markup = response.text
+        additions = []
+        if _DISCOVERY_PRESENTATION_STYLESHEET not in markup:
+            additions.append(_DISCOVERY_PRESENTATION_STYLESHEET)
+        if request.path == "/settings/quick-add" and _ENDPOINT_PREFILL_SCRIPT not in markup:
+            additions.append(_ENDPOINT_PREFILL_SCRIPT)
+        if additions and "</body>" in markup:
+            response.text = markup.replace("</body>", "".join(additions) + "</body>")
+    return response
+
+
+async def asset(request):
+    name = request.match_info["name"]
+    content_type = _OVERRIDE_TYPES.get(name)
+    if content_type is None:
+        return await factory.asset(request)
+    return web.Response(
+        text=_override_resource(name).read_text(encoding="utf-8"),
+        content_type=content_type,
+        charset="utf-8",
+        headers={{"Cache-Control": "no-cache"}},
+    )
+
+
+def install(app):
+    app.middlewares.append(managed_discovery_presentation)
+    app.middlewares.append(factory.v22_settings_presentation)
+    app.router.add_get("/", factory.dashboard)
+    app.router.add_get("/modules", factory.modules)
+    app.router.add_get("/api/v2/build", factory.build_identity)
+    app.router.add_get("/static/icons/{{name}}", factory.service_icon)
+    app.router.add_get("/static/{{name}}", asset)
+
+
+__all__ = ["install"]
+'''.encode("utf-8")
+
+
 def _build3_assets(root: Path) -> dict[str, bytes]:
     source_root = root / "sources" / "ui" / "1.0.0-build3"
     assets: dict[str, bytes] = {}
@@ -359,6 +448,28 @@ def _build6_assets(root: Path) -> dict[str, bytes]:
     return assets
 
 
+def _build7_assets(root: Path) -> dict[str, bytes]:
+    assets = _build6_assets(root)
+    source_root = root / "sources" / "ui" / "1.0.2-build7"
+    expected_names = set(BUILD7_SOURCE_BLOBS)
+    actual_names = {path.name for path in source_root.iterdir() if path.is_file()}
+    if actual_names != expected_names:
+        raise SystemExit(
+            "UI 1.0.2 build-7 delta shape changed: "
+            f"missing={sorted(expected_names-actual_names)}, extra={sorted(actual_names-expected_names)}"
+        )
+    for name, expected_blob in BUILD7_SOURCE_BLOBS.items():
+        payload = (source_root / name).read_bytes()
+        actual_blob = _git_blob_sha(payload)
+        if actual_blob != expected_blob:
+            raise SystemExit(
+                f"certified UI 1.0.2 build-7 source drift for {name}: "
+                f"expected Git blob {expected_blob}, got {actual_blob}"
+            )
+        assets[name] = payload
+    return assets
+
+
 def _package_files(root: Path, release: Release) -> dict[str, bytes]:
     package = release.import_package
     if release.build == 2:
@@ -377,6 +488,11 @@ def _package_files(root: Path, release: Release) -> dict[str, bytes]:
     if release.build == 6:
         files = {f"{package}/__init__.py": _managed_build6_adapter()}
         for name, payload in _build6_assets(root).items():
+            files[f"{package}/assets/{name}"] = payload
+        return files
+    if release.build == 7:
+        files = {f"{package}/__init__.py": _managed_build7_adapter()}
+        for name, payload in _build7_assets(root).items():
             files[f"{package}/assets/{name}"] = payload
         return files
     raise SystemExit(f"unsupported managed UI build {release.build}")

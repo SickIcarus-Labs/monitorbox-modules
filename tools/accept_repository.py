@@ -22,6 +22,7 @@ EXPECTED_RELEASES = {
     (UI_ID, "1.0.0", 4),
     (UI_ID, "1.0.0", 5),
     (UI_ID, "1.0.1", 6),
+    (UI_ID, "1.0.2", 7),
     (PORTAINER_ID, "1.0.0", 2),
     (PORTAINER_ID, "1.0.0", 3),
     (PORTAINER_ID, "1.0.0", 4),
@@ -63,7 +64,7 @@ def _ui_package_shape(archive: zipfile.ZipFile, names: set[str], build: int) -> 
         raise AssertionError(f"UI build {build} has no importable package root")
     if any(name.startswith("monitorbox/") for name in names):
         raise AssertionError("managed package may not shadow frozen Core's monitorbox namespace")
-    expected_delta = build in {3, 4, 5, 6}
+    expected_delta = build in {3, 4, 5, 6, 7}
     for asset in ("discovery-v22.js", "endpoint-prefill-v22.js"):
         present = f"{package_root}assets/{asset}" in names
         if present != expected_delta:
@@ -73,13 +74,18 @@ def _ui_package_shape(archive: zipfile.ZipFile, names: set[str], build: int) -> 
     hierarchy_assets = ("service-presentation.js", "service-presentation.css")
     for asset in hierarchy_assets:
         present = f"{package_root}assets/{asset}" in names
-        if present != (build in {5, 6}):
+        if present != (build in {5, 6, 7}):
             raise AssertionError(
                 f"UI build {build} Compose hierarchy delta shape is wrong for {asset}"
             )
+    discovery_presentation = f"{package_root}assets/discovery-presentation.css"
+    if (discovery_presentation in names) != (build == 7):
+        raise AssertionError(
+            f"UI build {build} provider-scale Discoveries presentation shape is wrong"
+        )
     _assert_python_syntax(archive, names, package_root)
 
-    if build in {4, 5, 6}:
+    if build in {4, 5, 6, 7}:
         discovery = archive.read(f"{package_root}assets/discovery-v22.js").decode("utf-8")
         required = (
             "function providerProvenance(item)",
@@ -106,7 +112,7 @@ def _ui_package_shape(archive: zipfile.ZipFile, names: set[str], build: int) -> 
                 f"UI build {build} leaks forbidden provider metadata: {present}"
             )
 
-    if build in {5, 6}:
+    if build in {5, 6, 7}:
         hierarchy = archive.read(
             f"{package_root}assets/service-presentation.js"
         ).decode("utf-8")
@@ -142,7 +148,7 @@ def _ui_package_shape(archive: zipfile.ZipFile, names: set[str], build: int) -> 
                 f"UI build {build} omitted Compose hierarchy CSS markers: {missing_css}"
             )
 
-    if build == 6:
+    if build in {6, 7}:
         hierarchy = archive.read(
             f"{package_root}assets/service-presentation.js"
         ).decode("utf-8")
@@ -159,7 +165,7 @@ def _ui_package_shape(archive: zipfile.ZipFile, names: set[str], build: int) -> 
         missing = [marker for marker in required_provider_backing if marker not in hierarchy]
         if missing:
             raise AssertionError(
-                f"UI 1.0.1 build 6 omitted provider-backed hierarchy markers: {missing}"
+                f"UI build {build} omitted provider-backed hierarchy markers: {missing}"
             )
         forbidden_provider_backing = (
             "turnberry_-_apollo",
@@ -171,7 +177,24 @@ def _ui_package_shape(archive: zipfile.ZipFile, names: set[str], build: int) -> 
         present = [marker for marker in forbidden_provider_backing if marker in hierarchy]
         if present:
             raise AssertionError(
-                f"UI build 6 embedded deployment-specific provider ownership: {present}"
+                f"UI build {build} embedded deployment-specific provider ownership: {present}"
+            )
+
+    if build == 7:
+        css = archive.read(discovery_presentation).decode("utf-8")
+        required_density = (
+            "#results .candidate",
+            "#results .candidate .provider-provenance",
+            "#results .candidate .connection-suggestion",
+            'input[type="checkbox"]',
+            "min-height: 40px",
+            "@media (max-width: 759px)",
+            "min-height: 44px",
+        )
+        missing = [marker for marker in required_density if marker not in css]
+        if missing:
+            raise AssertionError(
+                f"UI 1.0.2 build 7 omitted Discoveries density/touch markers: {missing}"
             )
 
 
@@ -246,7 +269,14 @@ def _package_shape(root: Path, source: dict) -> None:
             f"expected repository releases {sorted(EXPECTED_RELEASES)}, got {sorted(identities)}"
         )
 
-    ui_versions = {2: "1.0.0", 3: "1.0.0", 4: "1.0.0", 5: "1.0.0", 6: "1.0.1"}
+    ui_versions = {
+        2: "1.0.0",
+        3: "1.0.0",
+        4: "1.0.0",
+        5: "1.0.0",
+        6: "1.0.1",
+        7: "1.0.2",
+    }
     for item in modules:
         manifest = item["manifest"]
         module_id, version, build = _release_identity(item)
@@ -347,8 +377,9 @@ def main() -> None:
     _signed_repository(root, source)
     print(
         "public module repository acceptance: PASS "
-        "(reproducible UI builds 2/3/4/5 + UI v1.0.1 build 6 + immutable Portainer "
-        "builds 2/3/4 + Portainer build 5 lifecycle-certified release + signed repository)"
+        "(reproducible UI builds 2/3/4/5 + UI v1.0.1 build 6 + UI v1.0.2 build 7 + "
+        "immutable Portainer builds 2/3/4 + Portainer build 5 lifecycle-certified release + "
+        "signed repository)"
     )
 
 

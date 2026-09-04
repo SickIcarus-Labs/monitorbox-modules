@@ -1,0 +1,123 @@
+/* MonitorBox UI v1.0.2 build 7 — compact Discoveries rows.
+ *
+ * Presentation only: canonical candidate identity, disposition, endpoint evidence,
+ * and provider metadata remain owned by Configuration/Bootstrap and providers.
+ */
+#results {
+  display: grid;
+  gap: 0;
+}
+
+#results .candidate {
+  margin: 0 !important;
+  padding: 7px 10px !important;
+  border-radius: 0 !important;
+  border-bottom-width: 0 !important;
+  align-items: start;
+  column-gap: 10px !important;
+  row-gap: 5px !important;
+}
+
+#results .candidate:first-child {
+  border-top-left-radius: 10px !important;
+  border-top-right-radius: 10px !important;
+}
+
+#results .candidate:last-child {
+  border-bottom-width: 1px !important;
+  border-bottom-left-radius: 10px !important;
+  border-bottom-right-radius: 10px !important;
+}
+
+#results .candidate .wide {
+  min-width: 0;
+}
+
+#results .candidate .wide > :first-child {
+  margin-top: 0;
+}
+
+#results .candidate .candidate-title {
+  margin-bottom: 4px;
+}
+
+#results .candidate .muted {
+  line-height: 1.25;
+}
+
+#results .candidate .row {
+  margin-top: 5px;
+}
+
+#results .candidate .provider-provenance {
+  margin-top: 3px !important;
+  font-size: 0.82rem;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+#results .candidate .connection-suggestion {
+  margin-top: 6px !important;
+  padding: 6px 8px !important;
+  border-radius: 7px !important;
+}
+
+#results .candidate .connection-suggestion .button {
+  margin-top: 5px !important;
+}
+
+#results .candidate label,
+#results .candidate .field {
+  margin-bottom: 0;
+}
+
+#results .candidate input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+}
+
+#results .candidate button,
+#results .candidate .button,
+#results .candidate select,
+#results .candidate input:not([type="checkbox"]) {
+  min-height: 40px;
+}
+
+#results .candidate button,
+#results .candidate .button {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+#results .candidate select {
+  padding-top: 7px;
+  padding-bottom: 7px;
+}
+
+@media (min-width: 760px) {
+  #results .candidate .provider-provenance {
+    display: inline-block;
+    margin-right: 10px;
+  }
+
+  #results .candidate .connection-suggestion {
+    max-width: 760px;
+  }
+}
+
+@media (max-width: 759px) {
+  #results .candidate {
+    padding: 10px 8px !important;
+  }
+
+  #results .candidate .row {
+    margin-top: 7px;
+  }
+
+  #results .candidate button,
+  #results .candidate .button,
+  #results .candidate select,
+  #results .candidate input:not([type="checkbox"]) {
+    min-height: 44px;
+  }
+}

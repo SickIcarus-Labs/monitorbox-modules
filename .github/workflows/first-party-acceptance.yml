@@ -12,6 +12,7 @@ on:
       - tools/accept_portainer_runtime.py
       - tools/accept_portainer_lifecycle.py
       - tools/accept_ui_compose_hierarchy.mjs
+      - tools/accept_ui_discovery_presentation.py
       - tools/accept_frozen_core.py
       - tools/accept_frozen_core_portainer.py
       - tools/build_repository.py
@@ -30,6 +31,7 @@ on:
       - tools/accept_portainer_runtime.py
       - tools/accept_portainer_lifecycle.py
       - tools/accept_ui_compose_hierarchy.mjs
+      - tools/accept_ui_discovery_presentation.py
       - tools/accept_frozen_core.py
       - tools/accept_frozen_core_portainer.py
       - tools/build_repository.py
@@ -47,8 +49,10 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
-      - name: Install repository signing dependency
-        run: python -m pip install --disable-pip-version-check cryptography==50.0.1
+      - name: Install repository and browser acceptance dependencies
+        run: |
+          python -m pip install --disable-pip-version-check cryptography==50.0.1 playwright==1.55.0
+          python -m playwright install --with-deps chromium
       - name: Build reproducible first-party packages
         run: |
           python tools/build_first_party_ui.py
@@ -64,5 +68,15 @@ jobs:
         run: python tools/accept_portainer_lifecycle.py
       - name: Verify UI Compose hierarchy preserves canonical child truth
         run: node tools/accept_ui_compose_hierarchy.mjs
+      - name: Verify provider-scale Discoveries presentation in Chromium
+        env:
+          UI_DISCOVERY_SCREENSHOT: /tmp/ui-discovery-presentation.png
+        run: python tools/accept_ui_discovery_presentation.py
+      - name: Upload Discoveries acceptance screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-discovery-presentation
+          path: /tmp/ui-discovery-presentation.png
+          if-no-files-found: error
       - name: Verify package shape, activation regression, and signed repository contract
         run: python tools/accept_repository.py
