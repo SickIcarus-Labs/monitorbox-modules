@@ -9,6 +9,7 @@ on:
       - tools/build_first_party_ui.py
       - tools/build_first_party_portainer.py
       - tools/accept_repository.py
+      - tools/accept_portainer_runtime.py
       - tools/accept_frozen_core.py
       - tools/build_repository.py
       - .github/workflows/first-party-acceptance.yml
@@ -23,6 +24,7 @@ on:
       - tools/build_first_party_ui.py
       - tools/build_first_party_portainer.py
       - tools/accept_repository.py
+      - tools/accept_portainer_runtime.py
       - tools/accept_frozen_core.py
       - tools/build_repository.py
       - .github/workflows/first-party-acceptance.yml
@@ -50,5 +52,7 @@ jobs:
           python tools/build_first_party_portainer.py
           sha256sum packages/com.sickicarus.monitorbox.ui-*.zip packages/com.sickicarus.monitorbox.portainer-*.zip > /tmp/first-party-packages.second
           diff -u /tmp/first-party-packages.first /tmp/first-party-packages.second
+      - name: Verify Portainer complete inventory and provider-loss truth
+        run: python tools/accept_portainer_runtime.py
       - name: Verify package shape and signed repository contract
         run: python tools/accept_repository.py
