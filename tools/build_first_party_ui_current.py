@@ -18,7 +18,7 @@ UI_BUILD = 8
 BUILD8_REFERENCE_SHA = "6f21dd60a7dee3b4545d89572375fa7d518d567c"
 BUILD8_SOURCE_BLOBS = {
     "discovery-coverage.js": "6f21dd60a7dee3b4545d89572375fa7d518d567c",
-    "discovery-coverage.css": "bfbdce2a073ba23697601833d280b7eac71d32b9",
+    "discovery-coverage.css": "c6d39f2145943a9991b5626ccdd363245a1e99a4",
 }
 RELEASE8 = stable.Release(build=UI_BUILD, certified_sha=BUILD8_REFERENCE_SHA, version=UI_VERSION)
 _STABLE_PACKAGE_FILES = stable._package_files
