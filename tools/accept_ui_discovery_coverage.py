@@ -175,12 +175,14 @@ def main() -> None:
         assert attention_section.locator('.discovery-section-count').inner_text() == "2"
 
         # Portainer's generic provider coverage must override a context-free
-        # server recommendation without provider-specific UI branching.
+        # server recommendation without provider-specific UI branching. The
+        # section is intentionally collapsed here, so inspect DOM text rather
+        # than rendered innerText.
         first_covered = covered_section.locator('.candidate').first
         covered_checkbox = first_covered.locator('input[type="checkbox"][data-id]')
         assert not covered_checkbox.is_checked(), "provider-covered workload must default to no canonical change"
-        assert "Already monitored via Portainer" in first_covered.inner_text()
-        assert "No change" in first_covered.locator('.discovery-proposed-action').inner_text()
+        assert "Already monitored via Portainer" in (first_covered.text_content() or "")
+        assert "No change" in (first_covered.locator('.discovery-proposed-action').text_content() or "")
 
         # Recommendation remains a separate concept from monitoring coverage.
         first_new = new_section.locator('.candidate').first
