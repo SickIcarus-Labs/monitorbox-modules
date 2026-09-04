@@ -263,11 +263,26 @@
     summary.textContent=`${candidates.length} discovered · ${covered} already monitored · ${unmonitored} not yet monitored${attention?` · ${attention} auxiliary/needs review`:''} · ${staged} configuration change${staged===1?'':'s'} selected. Canonical configuration is unchanged.`;
   }
 
+  function selectAllNotYetMonitored(){
+    for(const row of document.querySelectorAll('#results .candidate')){
+      const item=candidateForRow(row);
+      if(!item||sectionFor(item)!==NEW)continue;
+      const checkbox=row.querySelector('input[type="checkbox"][data-id]');
+      if(!checkbox||checkbox.disabled||checkbox.checked)continue;
+      checkbox.checked=true;
+      checkbox.dispatchEvent(new Event('change',{bubbles:true}));
+    }
+    renderManagedSummary();
+  }
+
   function applyManagedPresentation(){
     groupRows();
     renderManagedSummary();
     const selectNew=document.getElementById('selectNew');
-    if(selectNew)selectNew.textContent='Select all not yet monitored';
+    if(selectNew){
+      selectNew.textContent='Select all not yet monitored';
+      selectNew.onclick=selectAllNotYetMonitored;
+    }
   }
 
   function install(){
