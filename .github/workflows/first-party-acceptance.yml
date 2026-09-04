@@ -10,6 +10,7 @@ on:
       - tools/build_first_party_portainer.py
       - tools/accept_repository.py
       - tools/accept_portainer_runtime.py
+      - tools/accept_portainer_coverage.py
       - tools/accept_portainer_lifecycle.py
       - tools/accept_ui_compose_hierarchy.mjs
       - tools/accept_ui_discovery_presentation.py
@@ -29,6 +30,7 @@ on:
       - tools/build_first_party_portainer.py
       - tools/accept_repository.py
       - tools/accept_portainer_runtime.py
+      - tools/accept_portainer_coverage.py
       - tools/accept_portainer_lifecycle.py
       - tools/accept_ui_compose_hierarchy.mjs
       - tools/accept_ui_discovery_presentation.py
@@ -64,6 +66,8 @@ jobs:
           diff -u /tmp/first-party-packages.first /tmp/first-party-packages.second
       - name: Verify Portainer complete inventory and provider-loss truth
         run: python tools/accept_portainer_runtime.py
+      - name: Verify Portainer monitoring-coverage evidence
+        run: python tools/accept_portainer_coverage.py
       - name: Verify Portainer lifecycle and bounded diagnostics truth
         run: python tools/accept_portainer_lifecycle.py
       - name: Verify UI Compose hierarchy preserves canonical child truth
