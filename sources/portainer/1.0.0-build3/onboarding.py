@@ -124,12 +124,7 @@ def _looks_like_portainer(response: Any) -> bool:
 
 
 class PortainerIntegration:
-    """Provider-local Portainer discovery, onboarding identity and runtime intent.
-
-    During the parity checkpoint this implementation is deliberately not yet
-    registered for connection/runtime routing. Legacy ownership remains active
-    until module-local characterization is green.
-    """
+    """Provider-local Portainer discovery, onboarding identity, and runtime intent."""
 
     async def detect(self, request: DiscoveryRequest, context: FacetContext, probe) -> tuple[DiscoveryEvidence, ...]:
         del context
