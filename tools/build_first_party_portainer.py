@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
 """Build the current managed Portainer integration for frozen MonitorBox 2.3 Core.
 
-Portainer build 2 remains immutable release history in ``sources/`` and
-``packages/``. Build 3 is a verified optimization delta over build 2. Build 4 is
-a minimal activation hotfix delta over that effective build-3 source. Build 5 is
-the release-certified successor for #126: it preserves the effective build-4
-runtime while advancing immutable module identity after lifecycle acceptance.
-The builder verifies every generation before composing the complete
-generation-safe managed package.
+Portainer builds 2-5 remain immutable release history in ``sources/`` and
+``packages/``. Build 6 is the backwards-compatible v1.1.0 capability release for
+provider-backed monitoring-coverage evidence. The builder verifies every
+generation before composing the complete generation-safe managed package.
 """
 
 from __future__ import annotations
@@ -20,16 +17,14 @@ from pathlib import Path
 
 FIXED_ZIP_TIME = (1980, 1, 1, 0, 0, 0)
 MODULE_ID = "com.sickicarus.monitorbox.portainer"
-MODULE_VERSION = "1.0.0"
-MODULE_BUILD = 5
-IMPORT_PACKAGE = "monitorbox_portainer_b5"
+HISTORICAL_VERSION = "1.0.0"
+MODULE_VERSION = "1.1.0"
+MODULE_BUILD = 6
+IMPORT_PACKAGE = "monitorbox_portainer_b6"
 FILENAME = f"{MODULE_ID}-{MODULE_VERSION}-build{MODULE_BUILD}.zip"
 HISTORICAL_FILENAMES = frozenset(
-    {
-        f"{MODULE_ID}-{MODULE_VERSION}-build2.zip",
-        f"{MODULE_ID}-{MODULE_VERSION}-build3.zip",
-        f"{MODULE_ID}-{MODULE_VERSION}-build4.zip",
-    }
+    f"{MODULE_ID}-{HISTORICAL_VERSION}-build{build}.zip"
+    for build in range(2, 6)
 )
 
 BASE_SOURCE_BLOBS = {
@@ -63,6 +58,11 @@ BUILD5_OVERRIDE_BLOBS = {
     "__init__.py": "a4dca6fc485387c17bff564a689384b9b52295b2",
 }
 
+BUILD6_OVERRIDE_BLOBS = {
+    "__init__.py": "a9ae0f4d94dfd3c997c4a0e9ff426a4d7b0c7da2",
+    "suggestions.py": "a661c2423bf5faa00900f528cbf146058cd7932f",
+}
+
 _CORE_IMPORT_REWRITES = (
     ("from ...plugin_api", "from monitorbox.v2.plugin_api"),
     ("from ...canonical_config", "from monitorbox.v2.canonical_config"),
@@ -79,7 +79,7 @@ try:
     )
 except ImportError as exc:  # pragma: no cover - exercised against superseded Core
     raise ImportError(
-        "managed Portainer build 5 requires MonitorBox Core build 0545+ provider authority"
+        "managed Portainer build 6 requires MonitorBox Core build 0545+ provider authority"
     ) from exc
 else:
     del _managed_provider_authority
@@ -143,14 +143,20 @@ def _source_files(root: Path) -> dict[str, bytes]:
     build5 = _verified_directory(
         portainer_root / "1.0.0-build5",
         BUILD5_OVERRIDE_BLOBS,
-        label="Portainer build 5 release-certification delta",
+        label="immutable Portainer build 5 release-certification delta",
+    )
+    build6 = _verified_directory(
+        portainer_root / "1.1.0-build6",
+        BUILD6_OVERRIDE_BLOBS,
+        label="Portainer v1.1.0 build 6 monitoring-coverage delta",
     )
     result = dict(base)
     result.update(build3)
     result.update(build4)
     result.update(build5)
+    result.update(build6)
     if set(result) != set(BASE_SOURCE_BLOBS):
-        raise SystemExit("Portainer build 5 composed source set does not match build 2 shape")
+        raise SystemExit("Portainer build 6 composed source set does not match build 2 shape")
     return result
 
 
@@ -228,6 +234,7 @@ def build(root: Path, output_dir: Path) -> Path:
         f"base_build=2 build3_overrides={len(BUILD3_OVERRIDE_BLOBS)} "
         f"build4_overrides={len(BUILD4_OVERRIDE_BLOBS)} "
         f"build5_overrides={len(BUILD5_OVERRIDE_BLOBS)} "
+        f"build6_overrides={len(BUILD6_OVERRIDE_BLOBS)} "
         f"entrypoint={IMPORT_PACKAGE}:PLUGIN"
     )
     expected = set(HISTORICAL_FILENAMES) | {FILENAME}
