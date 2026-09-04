@@ -2,9 +2,10 @@
 """Build the current managed Portainer integration for frozen MonitorBox 2.3 Core.
 
 Portainer build 2 remains immutable release history in ``sources/`` and
-``packages/``. Build 3 is deliberately stored as a small changed-file delta over
-that verified source snapshot. The builder verifies both generations before
-composing the complete generation-safe managed package.
+``packages/``. Build 3 is a verified optimization delta over build 2. Build 4 is
+a minimal activation hotfix delta over that effective build-3 source. The
+builder verifies every generation before composing the complete generation-safe
+managed package.
 """
 
 from __future__ import annotations
@@ -18,11 +19,14 @@ from pathlib import Path
 FIXED_ZIP_TIME = (1980, 1, 1, 0, 0, 0)
 MODULE_ID = "com.sickicarus.monitorbox.portainer"
 MODULE_VERSION = "1.0.0"
-MODULE_BUILD = 3
-IMPORT_PACKAGE = "monitorbox_portainer_b3"
+MODULE_BUILD = 4
+IMPORT_PACKAGE = "monitorbox_portainer_b4"
 FILENAME = f"{MODULE_ID}-{MODULE_VERSION}-build{MODULE_BUILD}.zip"
 HISTORICAL_FILENAMES = frozenset(
-    {f"{MODULE_ID}-{MODULE_VERSION}-build2.zip"}
+    {
+        f"{MODULE_ID}-{MODULE_VERSION}-build2.zip",
+        f"{MODULE_ID}-{MODULE_VERSION}-build3.zip",
+    }
 )
 
 BASE_SOURCE_BLOBS = {
@@ -41,10 +45,15 @@ BASE_SOURCE_BLOBS = {
     "validation.py": "78f3011d8cf417ef55b225439a635df39bd634c6",
 }
 
-OVERRIDE_SOURCE_BLOBS = {
+BUILD3_OVERRIDE_BLOBS = {
     "__init__.py": "1e2914562205ff7302bb1785ab7111512ca211c1",
     "onboarding.py": "f1d4a9c356bb3b8a29be5a87995f6bcd972ccfa6",
     "runtime.py": "3d68cdb507b1f70248476f9fa4e3356ecf6781ef",
+}
+
+BUILD4_OVERRIDE_BLOBS = {
+    "__init__.py": "ada109385129e975e2c55dc4f1b2c840236a13f3",
+    "validation.py": "b6856089ce01cbe69818ff6a2abd6294a4305ee8",
 }
 
 _CORE_IMPORT_REWRITES = (
@@ -63,7 +72,7 @@ try:
     )
 except ImportError as exc:  # pragma: no cover - exercised against superseded Core
     raise ImportError(
-        "managed Portainer build 3 requires MonitorBox Core build 0545+ provider authority"
+        "managed Portainer build 4 requires MonitorBox Core build 0545+ provider authority"
     ) from exc
 else:
     del _managed_provider_authority
@@ -114,15 +123,21 @@ def _source_files(root: Path) -> dict[str, bytes]:
         BASE_SOURCE_BLOBS,
         label="immutable Portainer build 2",
     )
-    overrides = _verified_directory(
+    build3 = _verified_directory(
         portainer_root / "1.0.0-build3",
-        OVERRIDE_SOURCE_BLOBS,
-        label="Portainer build 3 delta",
+        BUILD3_OVERRIDE_BLOBS,
+        label="immutable Portainer build 3 delta",
+    )
+    build4 = _verified_directory(
+        portainer_root / "1.0.0-build4",
+        BUILD4_OVERRIDE_BLOBS,
+        label="Portainer build 4 activation-hotfix delta",
     )
     result = dict(base)
-    result.update(overrides)
+    result.update(build3)
+    result.update(build4)
     if set(result) != set(BASE_SOURCE_BLOBS):
-        raise SystemExit("Portainer build 3 composed source set does not match build 2 shape")
+        raise SystemExit("Portainer build 4 composed source set does not match build 2 shape")
     return result
 
 
@@ -197,7 +212,8 @@ def build(root: Path, output_dir: Path) -> Path:
     target.write_bytes(payload)
     print(
         f"built {target}: sha256={hashlib.sha256(payload).hexdigest()} "
-        f"base_build=2 overrides={len(OVERRIDE_SOURCE_BLOBS)} "
+        f"base_build=2 build3_overrides={len(BUILD3_OVERRIDE_BLOBS)} "
+        f"build4_overrides={len(BUILD4_OVERRIDE_BLOBS)} "
         f"entrypoint={IMPORT_PACKAGE}:PLUGIN"
     )
     expected = set(HISTORICAL_FILENAMES) | {FILENAME}

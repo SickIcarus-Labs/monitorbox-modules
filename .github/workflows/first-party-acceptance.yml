@@ -11,6 +11,7 @@ on:
       - tools/accept_repository.py
       - tools/accept_portainer_runtime.py
       - tools/accept_frozen_core.py
+      - tools/accept_frozen_core_portainer.py
       - tools/build_repository.py
       - .github/workflows/first-party-acceptance.yml
       - .github/workflows/publish.yml
@@ -26,6 +27,7 @@ on:
       - tools/accept_repository.py
       - tools/accept_portainer_runtime.py
       - tools/accept_frozen_core.py
+      - tools/accept_frozen_core_portainer.py
       - tools/build_repository.py
       - .github/workflows/first-party-acceptance.yml
       - .github/workflows/publish.yml
@@ -54,5 +56,5 @@ jobs:
           diff -u /tmp/first-party-packages.first /tmp/first-party-packages.second
       - name: Verify Portainer complete inventory and provider-loss truth
         run: python tools/accept_portainer_runtime.py
-      - name: Verify package shape and signed repository contract
+      - name: Verify package shape, activation regression, and signed repository contract
         run: python tools/accept_repository.py

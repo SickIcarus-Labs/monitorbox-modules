@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Exercise current managed Portainer through the exact certified Core provider-authority seam.
 
-This script is intended to run from an environment that supplies the certified
-MonitorBox Core runtime. The public module repository owns package/repository
-bytes only; Core remains the authority for admission, persistence, effective
-source composition, provider registry construction, and lifecycle transitions.
+This script must run with the accepted MonitorBox Core runtime importable. It
+proves the real packaged entrypoint can be admitted and imported by Core, then
+exercises the production-relevant build-2 -> build-4 update path. This catches
+cross-file/import failures that package syntax checks cannot detect.
 """
 
 from __future__ import annotations
@@ -29,15 +29,18 @@ DISPLAY_NAME = "MonitorBox Official"
 SIGNATURE_IDENTITY = "acceptance-ephemeral-ed25519"
 MODULE_ID = "com.sickicarus.monitorbox.portainer"
 MODULE_VERSION = "1.0.0"
-MODULE_BUILD = 3
-IMPORT_PACKAGE = "monitorbox_portainer_b3"
+BASE_BUILD = 2
+TARGET_BUILD = 4
 
 
 def _provider_registry(runtime: ModuleManagementRuntime):
     return load_provider_registry(runtime.effective_source(BundledModuleSource()))
 
 
-def _assert_managed_portainer(runtime: ModuleManagementRuntime) -> None:
+def _assert_managed_portainer(
+    runtime: ModuleManagementRuntime,
+    expected_build: int,
+) -> None:
     registry = _provider_registry(runtime)
     definition = registry.require("portainer")
     if registry.module_id_for_plugin("portainer") != MODULE_ID:
@@ -47,10 +50,11 @@ def _assert_managed_portainer(runtime: ModuleManagementRuntime) -> None:
     executor = definition.runtime_executor
     if executor is None:
         raise AssertionError("managed Portainer has no runtime executor")
-    if executor.__class__.__module__ != IMPORT_PACKAGE:
+    expected_package = f"monitorbox_portainer_b{expected_build}"
+    if executor.__class__.__module__ != expected_package:
         raise AssertionError(
-            f"Portainer executed through {executor.__class__.__module__!r}; "
-            f"expected generation-safe managed package {IMPORT_PACKAGE!r}"
+            f"Portainer build {expected_build} executed through "
+            f"{executor.__class__.__module__!r}; expected {expected_package!r}"
         )
     if definition.connection is None or definition.validation is None:
         raise AssertionError("managed Portainer omitted connection/validation ownership")
@@ -58,22 +62,31 @@ def _assert_managed_portainer(runtime: ModuleManagementRuntime) -> None:
         raise AssertionError("managed Portainer omitted discovery lifecycle ownership")
 
 
-async def _accept(root: Path) -> None:
-    source = json.loads((root / "catalog.source.json").read_text(encoding="utf-8"))
+def _release(source: dict, build: int) -> dict:
     release = next(
         (
             item
             for item in source["modules"]
             if item["manifest"]["module_id"] == MODULE_ID
             and item["manifest"]["version"] == MODULE_VERSION
-            and item["manifest"]["build"] == MODULE_BUILD
+            and item["manifest"]["build"] == build
         ),
         None,
     )
     if release is None:
-        raise AssertionError("Portainer build 3 is missing from catalog.source.json")
-    if release["manifest"]["entrypoints"] != {"integration": f"{IMPORT_PACKAGE}:PLUGIN"}:
-        raise AssertionError("Portainer catalog entrypoint is not generation-safe")
+        raise AssertionError(f"Portainer build {build} is missing from catalog.source.json")
+    expected_package = f"monitorbox_portainer_b{build}"
+    if release["manifest"]["entrypoints"] != {
+        "integration": f"{expected_package}:PLUGIN"
+    }:
+        raise AssertionError(f"Portainer build {build} catalog entrypoint is not generation-safe")
+    return release
+
+
+async def _accept(root: Path) -> None:
+    source = json.loads((root / "catalog.source.json").read_text(encoding="utf-8"))
+    _release(source, BASE_BUILD)
+    _release(source, TARGET_BUILD)
 
     with tempfile.TemporaryDirectory(prefix="monitorbox-portainer-module-") as directory:
         temp = Path(directory)
@@ -111,34 +124,52 @@ async def _accept(root: Path) -> None:
         )
 
         snapshot = await client.refresh(REPOSITORY_ID)
-        entry = next(
-            (
-                item
-                for item in snapshot.entries
-                if item.manifest.module_id == MODULE_ID
-                and item.manifest.version == MODULE_VERSION
-                and item.manifest.build == MODULE_BUILD
-            ),
-            None,
-        )
-        if entry is None:
-            raise AssertionError("signed catalog did not expose Portainer build 3")
+        entries = {
+            item.manifest.build: item
+            for item in snapshot.entries
+            if item.manifest.module_id == MODULE_ID
+            and item.manifest.version == MODULE_VERSION
+        }
+        if BASE_BUILD not in entries or TARGET_BUILD not in entries:
+            raise AssertionError(
+                f"signed catalog omitted required Portainer builds: {sorted(entries)}"
+            )
 
-        artifact, payload = await client.provide(entry)
-        installed = management.install_verified(artifact, payload)
-        if installed.active.manifest.module_id != MODULE_ID or installed.active.manifest.build != MODULE_BUILD:
-            raise AssertionError("Portainer build 3 did not become active managed authority")
-        if installed.previous is not None:
+        base_artifact, base_payload = await client.provide(entries[BASE_BUILD])
+        installed_base = management.install_verified(base_artifact, base_payload)
+        if installed_base.active.manifest.build != BASE_BUILD:
+            raise AssertionError("Portainer build 2 did not become active managed authority")
+        if installed_base.previous is not None:
             raise AssertionError("first managed Portainer install unexpectedly has a previous artifact")
-        _assert_managed_portainer(management)
+        _assert_managed_portainer(management, BASE_BUILD)
+
+        target_artifact, target_payload = await client.provide(entries[TARGET_BUILD])
+        installed_target = management.install_verified(target_artifact, target_payload)
+        if installed_target.active.manifest.build != TARGET_BUILD:
+            raise AssertionError("Portainer build 4 did not become active managed authority")
+        if installed_target.previous is None or installed_target.previous.manifest.build != BASE_BUILD:
+            raise AssertionError("Portainer build-2 -> build-4 update did not retain build 2 for rollback")
+        _assert_managed_portainer(management, TARGET_BUILD)
 
         restarted = ModuleManagementRuntime.for_root(temp / "appliance")
-        _assert_managed_portainer(restarted)
+        _assert_managed_portainer(restarted, TARGET_BUILD)
         record = next(
             item for item in restarted.state.installed_records() if item.module_id == MODULE_ID
         )
         if not record.enabled or record.lifecycle_state != "active":
-            raise AssertionError("managed Portainer authority did not persist across runtime reconstruction")
+            raise AssertionError("managed Portainer build 4 authority did not persist across restart")
+        if record.previous is None or record.previous.manifest.build != BASE_BUILD:
+            raise AssertionError("managed Portainer build 4 lost rollback state across restart")
+
+        rolled_back = restarted.manager.rollback(MODULE_ID)
+        if rolled_back.active.manifest.build != BASE_BUILD:
+            raise AssertionError("Portainer rollback did not restore build 2")
+        _assert_managed_portainer(restarted, BASE_BUILD)
+
+        reinstalled = restarted.install_verified(target_artifact, target_payload)
+        if reinstalled.active.manifest.build != TARGET_BUILD:
+            raise AssertionError("Portainer build 4 could not be reactivated after rollback")
+        _assert_managed_portainer(restarted, TARGET_BUILD)
 
         disabled = restarted.manager.set_enabled(MODULE_ID, False)
         if disabled.enabled or disabled.lifecycle_state != "disabled":
@@ -152,11 +183,11 @@ async def _accept(root: Path) -> None:
         reenabled = restarted.manager.set_enabled(MODULE_ID, True)
         if not reenabled.enabled or reenabled.lifecycle_state != "active":
             raise AssertionError("managed Portainer could not be re-enabled")
-        _assert_managed_portainer(restarted)
+        _assert_managed_portainer(restarted, TARGET_BUILD)
 
     print(
         "frozen Core managed Portainer acceptance: PASS "
-        "(build 3 install -> managed registry -> restart -> disabled suppression -> reactivate)"
+        "(build 2 -> build 4 -> restart -> rollback -> build 4 -> disable/reactivate)"
     )
 
 
