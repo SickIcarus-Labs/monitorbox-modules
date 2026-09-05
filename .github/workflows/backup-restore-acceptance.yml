@@ -1,0 +1,45 @@
+name: Backup Restore managed acceptance
+
+on:
+  pull_request:
+    paths:
+      - catalog.source.json
+      - sources/backup-restore/**
+      - tools/build_first_party_backup_restore.py
+      - tools/accept_repository_backup_restore.py
+      - tools/accept_backup_restore_behavior.py
+      - .github/workflows/backup-restore-acceptance.yml
+  push:
+    branches:
+      - 'publish/**'
+    paths:
+      - catalog.source.json
+      - sources/backup-restore/**
+      - tools/build_first_party_backup_restore.py
+      - tools/accept_repository_backup_restore.py
+      - tools/accept_backup_restore_behavior.py
+      - .github/workflows/backup-restore-acceptance.yml
+
+permissions:
+  contents: read
+
+jobs:
+  managed-behavior:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Install runtime test dependency
+        run: python -m pip install --disable-pip-version-check aiohttp==3.11.16
+      - name: Build Backup Restore releases reproducibly
+        run: |
+          python tools/build_first_party_backup_restore.py --output-dir /tmp/backup-first
+          python tools/build_first_party_backup_restore.py --output-dir /tmp/backup-second
+          sha256sum /tmp/backup-first/*.zip | sed 's#/tmp/backup-first/##' > /tmp/backup-first.sha
+          sha256sum /tmp/backup-second/*.zip | sed 's#/tmp/backup-second/##' > /tmp/backup-second.sha
+          diff -u /tmp/backup-first.sha /tmp/backup-second.sha
+          python tools/build_first_party_backup_restore.py
+      - name: Execute managed build without bundled factory implementation
+        run: python tools/accept_backup_restore_behavior.py
