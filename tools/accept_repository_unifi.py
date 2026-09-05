@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Extend first-party repository acceptance through UniFi Network v1.0.2 build 3."""
+"""Extend first-party repository acceptance through UniFi Network v1.0.3 build 4."""
 
 from __future__ import annotations
 
@@ -14,11 +14,13 @@ UNIFI_ID = "com.sickicarus.monitorbox.unifi"
 UNIFI_BUILD1 = (UNIFI_ID, "1.0.0", 1)
 UNIFI_BUILD2 = (UNIFI_ID, "1.0.1", 2)
 UNIFI_BUILD3 = (UNIFI_ID, "1.0.2", 3)
-UNIFI_RELEASES = {UNIFI_BUILD1, UNIFI_BUILD2, UNIFI_BUILD3}
+UNIFI_BUILD4 = (UNIFI_ID, "1.0.3", 4)
+UNIFI_RELEASES = {UNIFI_BUILD1, UNIFI_BUILD2, UNIFI_BUILD3, UNIFI_BUILD4}
 CURRENT_RELEASES = set(previous.CURRENT_RELEASES) | UNIFI_RELEASES
 IMPORT_BUILD1 = "monitorbox_unifi_b1"
 IMPORT_BUILD2 = "monitorbox_unifi_b2"
 IMPORT_BUILD3 = "monitorbox_unifi_b3"
+IMPORT_BUILD4 = "monitorbox_unifi_b4"
 
 
 def _release(source: dict, identity: tuple[str, str, int]) -> dict:
@@ -201,6 +203,29 @@ def _package_shape(root: Path, source: dict) -> None:
     if missing_backoff:
         raise AssertionError(
             f"UniFi 1.0.2 build 3 omitted auth-backoff markers: {missing_backoff}"
+        )
+
+    build4 = _package_texts(root, source, UNIFI_BUILD4, IMPORT_BUILD4)
+    _assert_common_contract(build4, version="1.0.3", build=4, import_package=IMPORT_BUILD4)
+    long_backoff_text = build4[f"{IMPORT_BUILD4}/discovery_runtime.py"]
+    long_backoff_required = (
+        "_AUTH_DENIAL_INITIAL_BACKOFF_SECONDS = 30.0",
+        "_AUTH_DENIAL_MAX_BACKOFF_SECONDS = 300.0",
+        "_RATE_LIMIT_BACKOFF_SECONDS = (60.0, 120.0, 240.0, 300.0, 600.0, 1200.0, 1800.0)",
+        "_next_rate_limit_backoff",
+        "_auth_cooldown",
+        "Retry-After",
+        "response.status == 429",
+        "UniFi authentication cooldown active",
+        '"failure_kind": "monitor_dependency"',
+        'state="unknown"',
+    )
+    missing_long_backoff = [
+        marker for marker in long_backoff_required if marker not in long_backoff_text
+    ]
+    if missing_long_backoff:
+        raise AssertionError(
+            f"UniFi 1.0.3 build 4 omitted long-backoff markers: {missing_long_backoff}"
         )
 
     prior = copy.deepcopy(source)

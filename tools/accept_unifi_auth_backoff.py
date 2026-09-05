@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regression acceptance for UniFi Network 1.0.2 build 3 auth backoff."""
+"""Regression acceptance for UniFi Network 1.0.3 build 4 auth backoff."""
 
 from __future__ import annotations
 
@@ -14,9 +14,10 @@ from typing import Any
 from accept_http_behavior import install_core_contract_stubs
 from accept_unifi_runtime import _install_unifi_contracts
 
-PACKAGE_NAME = "com.sickicarus.monitorbox.unifi-1.0.2-build3.zip"
-IMPORT_PACKAGE = "monitorbox_unifi_b3"
+PACKAGE_NAME = "com.sickicarus.monitorbox.unifi-1.0.3-build4.zip"
+IMPORT_PACKAGE = "monitorbox_unifi_b4"
 BASE_URL = "https://unifi.example.test"
+EXPECTED_429_SCHEDULE = (60.0, 120.0, 240.0, 300.0, 600.0, 1200.0, 1800.0, 1800.0)
 
 
 class FakeResponse:
@@ -117,8 +118,8 @@ async def accept() -> None:
 
     if managed.MODULE_ID != "com.sickicarus.monitorbox.unifi":
         raise AssertionError("UniFi durable module id changed")
-    if (managed.MODULE_VERSION, managed.MODULE_BUILD) != ("1.0.2", 3):
-        raise AssertionError("UniFi auth-backoff release identity changed")
+    if (managed.MODULE_VERSION, managed.MODULE_BUILD) != ("1.0.3", 4):
+        raise AssertionError("UniFi long-backoff release identity changed")
 
     os.environ["UNIFI_USER"] = "monitorbox"
     os.environ["UNIFI_PASSWORD"] = "acceptance-secret"
@@ -143,8 +144,8 @@ async def accept() -> None:
         options=options,
     )
 
-    # A provider 429 with Retry-After must collapse four waiting consumers into
-    # one network login and hold subsequent checks locally during the cooldown.
+    # Provider Retry-After remains authoritative and four waiting consumers must
+    # still collapse into one network login.
     limited = managed.UniFiRuntimeExecutor()
     limited.session = FakeSession(login_status=429, retry_after="120")
     await _fanout(limited, options, 1)
@@ -158,10 +159,9 @@ async def accept() -> None:
     if limited.session.login_count != 1:
         raise AssertionError("monitoring cadence bypassed the provider cooldown")
 
-    # Once the provider window expires, the same executor must be able to log in
-    # and return healthy evidence without restart/reload/credential mutation.
     _expire(limited, BASE_URL)
     limited.session.login_status = 200
+    limited.session.retry_after = None
     recovered = await limited.execute(request, context)
     if recovered.state != "healthy":
         raise AssertionError(f"UniFi did not recover after rate-limit expiry: {recovered!r}")
@@ -170,8 +170,8 @@ async def accept() -> None:
     if BASE_URL in limited._auth_cooldown:
         raise AssertionError("successful UniFi login did not clear auth cooldown state")
 
-    # 401/403 account denial must also collapse concurrent inventory fan-out so
-    # disabling a service account cannot itself drive the controller into 429.
+    # 401/403 account denial remains bounded separately and still collapses
+    # concurrent inventory fan-out.
     denied = managed.UniFiRuntimeExecutor()
     denied.session = FakeSession(login_status=403)
     await _fanout(denied, options, 1)
@@ -186,27 +186,31 @@ async def accept() -> None:
     if headers.get("Cookie") != denied.session.valid_cookie or denied.session.login_count != 2:
         raise AssertionError("same-executor recovery after auth-denial cooldown failed")
 
-    # Without Retry-After, repeated 429s must back off exponentially rather than
-    # retrying at monitoring cadence.
+    # Without Retry-After, repeated provider 429s must follow the conservative
+    # 60s -> 120s -> 240s -> 5m -> 10m -> 20m -> 30m schedule, then remain
+    # capped at 30 minutes. This is the physical Broad Leaf regression from #224.
     exponential = managed.UniFiRuntimeExecutor()
     exponential.session = FakeSession(login_status=429)
-    first = await asyncio.gather(exponential._login(options), return_exceptions=True)
-    if not isinstance(first[0], RuntimeError) or exponential.session.login_count != 1:
-        raise AssertionError("first 429 was not captured")
-    first_remaining, _ = exponential._cooldown_remaining(BASE_URL) or (0.0, "")
-    if first_remaining < 59.0:
-        raise AssertionError(f"default first 429 cooldown too short: {first_remaining}")
-    _expire(exponential, BASE_URL)
-    second = await asyncio.gather(exponential._login(options), return_exceptions=True)
-    if not isinstance(second[0], RuntimeError) or exponential.session.login_count != 2:
-        raise AssertionError("second 429 was not captured")
-    second_remaining, _ = exponential._cooldown_remaining(BASE_URL) or (0.0, "")
-    if second_remaining < 119.0:
-        raise AssertionError(f"429 backoff did not increase exponentially: {second_remaining}")
+    for attempt, expected in enumerate(EXPECTED_429_SCHEDULE, start=1):
+        result = await asyncio.gather(exponential._login(options), return_exceptions=True)
+        if not isinstance(result[0], RuntimeError):
+            raise AssertionError(f"429 attempt {attempt} unexpectedly succeeded: {result!r}")
+        if exponential.session.login_count != attempt:
+            raise AssertionError(
+                f"429 attempt count drifted: expected {attempt}, got {exponential.session.login_count}"
+            )
+        remaining, reason = exponential._cooldown_remaining(BASE_URL) or (0.0, "")
+        if remaining < expected - 1.0 or reason != "HTTP 429":
+            raise AssertionError(
+                f"429 backoff schedule mismatch at attempt {attempt}: "
+                f"expected~={expected}, remaining={remaining}, reason={reason!r}"
+            )
+        if attempt != len(EXPECTED_429_SCHEDULE):
+            _expire(exponential, BASE_URL)
 
     print(
-        "Managed UniFi Network 1.0.2 build 3: 429 Retry-After + concurrent login collapse + "
-        "auth-denial cooldown + same-executor recovery + exponential fallback backoff: PASS",
+        "Managed UniFi Network 1.0.3 build 4: Retry-After + single-flight auth + "
+        "UNKNOWN truth + same-executor recovery + 60/120/240/300/600/1200/1800s 429 backoff: PASS",
         flush=True,
     )
 
