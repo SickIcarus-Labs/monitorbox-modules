@@ -131,6 +131,18 @@ def _assert_no_secret(value: Any, where: str) -> None:
             raise AssertionError(f"{where} leaked protected SNMP material")
 
 
+def _assert_validation_public_scrubbed(result, where: str) -> None:
+    _assert_no_secret(
+        {
+            "state": result.state,
+            "summary": result.summary,
+            "observation": result.observation,
+            "metadata": result.metadata,
+        },
+        where,
+    )
+
+
 async def accept() -> None:
     root = Path(__file__).resolve().parent.parent
     package = root / "packages" / SNMP_PACKAGE
@@ -267,7 +279,11 @@ async def accept() -> None:
                 f"v2c rejected community {COMMUNITY}",
                 {"failure_kind": "monitor_dependency", "detail": COMMUNITY},
             ),
-            Observation(model.State.HEALTHY, "SNMPv1 healthy", {"transport": "snmp"}),
+            Observation(
+                model.State.HEALTHY,
+                f"SNMPv1 healthy with {COMMUNITY}",
+                {"transport": "snmp", "diagnostic": COMMUNITY},
+            ),
         ]
     )
     validating = managed.SnmpIntegration(runner_factory=lambda: fallback_runner)
@@ -278,11 +294,11 @@ async def accept() -> None:
         raise AssertionError(f"SNMP community version order changed: {result.metadata!r}")
     if result.observation.get("metadata", {}).get("snmp_validated_version") != "1":
         raise AssertionError("SNMPv1 fallback stopped recording the validated version")
-    if result.values.get("validated_version") != "1":
-        raise AssertionError("SNMPv1 validated version stopped flowing into planned values")
+    if result.values.get("validated_version") != "1" or result.values.get("community") != COMMUNITY:
+        raise AssertionError("SNMP validated values stopped carrying the credential into the planning handoff")
     if not str(result.summary).startswith("SNMPv1 validated after SNMPv2c failed:"):
         raise AssertionError("SNMPv1 fallback summary lost explicit provenance")
-    _assert_no_secret(result.__dict__, "SNMP validation result")
+    _assert_validation_public_scrubbed(result, "SNMP community public validation projection")
     if [check.options.get("version") for check in fallback_runner.checks] != ["2c", "1"]:
         raise AssertionError("SNMP community validation no longer isolates v2c and v1 attempts")
     if any(check.adapter != "snmp" or check.timeout_seconds != 10 for check in fallback_runner.checks):
@@ -318,6 +334,7 @@ async def accept() -> None:
         raise AssertionError("SNMP provider-loss diagnostics were discarded")
     if lost.metadata.get("attempted_versions") != ["2c", "1"]:
         raise AssertionError("SNMP provider loss stopped reporting attempted community versions")
+    _assert_validation_public_scrubbed(lost, "SNMP provider-loss public validation projection")
 
     v3_request = _v3_request(plugin_api)
     v3_plan = integration.plan(v3_request, context)
@@ -341,7 +358,18 @@ async def accept() -> None:
     _assert_no_secret(v3_plan.operations[0].capability_data, "SNMPv3 canonical capability")
 
     v3_runner = SequencedRunner(
-        [Observation(model.State.HEALTHY, "SNMPv3 healthy", {"transport": "snmp"})]
+        [
+            Observation(
+                model.State.HEALTHY,
+                f"SNMPv3 healthy {USERNAME} {AUTH_PASSWORD} {PRIVACY_PASSWORD}",
+                {
+                    "transport": "snmp",
+                    "username": USERNAME,
+                    "auth": AUTH_PASSWORD,
+                    "privacy": PRIVACY_PASSWORD,
+                },
+            )
+        ]
     )
     validating_v3 = managed.SnmpIntegration(runner_factory=lambda: v3_runner)
     v3_result = await validating_v3.validate(v3_request, context)
@@ -349,6 +377,8 @@ async def accept() -> None:
         raise AssertionError("healthy SNMPv3 validation stopped being accepted")
     if v3_result.metadata.get("attempted_versions") != [] or len(v3_runner.checks) != 1:
         raise AssertionError("SNMPv3 validation unexpectedly entered community fallback")
+    if v3_result.env_snapshots if hasattr(v3_result, "env_snapshots") else False:
+        raise AssertionError("validation result unexpectedly exposed runner internals")
     if v3_runner.env_snapshots != [
         {
             "username_env": USERNAME,
@@ -357,7 +387,14 @@ async def accept() -> None:
         }
     ]:
         raise AssertionError(f"SNMPv3 temporary credential bindings changed: {v3_runner.env_snapshots!r}")
-    _assert_no_secret(v3_result.__dict__, "SNMPv3 validation result")
+    for key, expected in (
+        ("username", USERNAME),
+        ("auth_password", AUTH_PASSWORD),
+        ("privacy_password", PRIVACY_PASSWORD),
+    ):
+        if v3_result.values.get(key) != expected:
+            raise AssertionError(f"SNMPv3 validated values lost {key} planning handoff")
+    _assert_validation_public_scrubbed(v3_result, "SNMPv3 public validation projection")
     for env_name in (
         v3_runner.checks[0].options["username_env"],
         v3_runner.checks[0].options["auth_password_env"],
