@@ -87,11 +87,12 @@ def _package_shape(root: Path, source: dict) -> None:
         "def install(",
         "SetupDraftUi(platform).install(app)",
         "SetupAwareConfigUi(platform, controller).install(app)",
+        "QuickAddUi(",
+        "plugin_registry=plugin_registry",
         "SetupAwareApplianceCredentialsUi(platform).install(app)",
         "AbilityDiscoveryUi(platform, controller).install(app)",
         "GuidedSetupUi(platform).install(app)",
         "PolicyUi(platform).install(app)",
-        "ui.onboarding.connections.summary_projector = ui.onboarding._summary",
     )
     missing = [marker for marker in required if marker not in text]
     if missing:
