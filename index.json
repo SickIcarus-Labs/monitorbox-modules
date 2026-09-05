@@ -3,8 +3,41 @@
   "signed": {
     "repository_id": "official",
     "display_name": "MonitorBox Official",
-    "generated_at": "2026-09-05T17:36:56.659127Z",
+    "generated_at": "2026-09-05T20:01:13.024718Z",
     "modules": [
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.backup-restore",
+          "display_name": "Backup / Restore",
+          "version": "1.0.0",
+          "build": 1,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "recovery",
+          "entrypoints": {
+            "recovery": "monitorbox_backup_restore_b1:install"
+          },
+          "requires_core": ">=2.3.0 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [
+            "recovery.snapshot",
+            "recovery.inspect",
+            "recovery.schedule",
+            "recovery.destination",
+            "saved-backup-vault"
+          ],
+          "lifecycle_policy": "optional"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.backup-restore-1.0.0-build1.zip",
+          "filename": "com.sickicarus.monitorbox.backup-restore-1.0.0-build1.zip",
+          "sha256": "aaf5073481b1776547f29109ddae3b8a9a3a5248f92365f9350f932f009459e2",
+          "signature_identity": "official-ed25519-1",
+          "signature": "HZeOtb6G2yfHYV3IrkWwUuUHo9emYK/iq9ugC2zPPPlQZVJq68S060aM3JaPgGqLSprLI7+S8r3JLxIfCzkaBw=="
+        }
+      },
       {
         "manifest": {
           "module_id": "com.sickicarus.monitorbox.configuration-bootstrap",
@@ -712,6 +745,6 @@
   "signature": {
     "algorithm": "ed25519",
     "identity": "official-ed25519-1",
-    "value": "ENKGvyhSr7V/jA5hmc3e/1Jd15sm2t0HV1l0RgfZve8jd5eqVrLTFMH+rJNo7D51VahMEC7LzPuEYM/2e+xNAQ=="
+    "value": "pge2i9+G8ZaqCWKiB4kz95yI76Gsm+Lkdppxtf7gfW1P/S0m/FdUfoKh/0DGcEbTZA8uaoui7sZyJK9F/9o6DQ=="
   }
 }
