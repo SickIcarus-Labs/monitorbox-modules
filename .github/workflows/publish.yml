@@ -14,6 +14,7 @@ on:
       - sources/snmp/**
       - sources/unifi/**
       - sources/scrypted/**
+      - sources/wol/**
       - tools/build_first_party_ui.py
       - tools/build_first_party_ui_current.py
       - tools/build_first_party_ui_build10.py
@@ -23,6 +24,7 @@ on:
       - tools/build_first_party_snmp.py
       - tools/build_first_party_unifi.py
       - tools/build_first_party_scrypted.py
+      - tools/build_first_party_wol.py
       - tools/build_repository.py
       - .github/workflows/publish.yml
 
@@ -50,6 +52,7 @@ jobs:
           python tools/build_first_party_snmp.py
           python tools/build_first_party_unifi.py
           python tools/build_first_party_scrypted.py
+          python tools/build_first_party_wol.py
       - run: python -m pip install --disable-pip-version-check cryptography
       - name: Build signed repository index
         env:
