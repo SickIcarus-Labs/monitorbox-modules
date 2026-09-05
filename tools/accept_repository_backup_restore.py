@@ -214,7 +214,7 @@ def _validate_build3(root: Path, source: dict) -> None:
         (entry, 'MODULE_VERSION = "1.0.2"'),
         (entry, "MODULE_BUILD = 3"),
         (entry, 'ADMIN_API_PREFIX = "/api/v2/config/backup-restore"'),
-        (entry, '/backups/{backup_id}/restore/preview'),
+        (entry, '/backups/{{backup_id}}/restore/preview'),
         (entry, "/restore/file/preview"),
         (entry, "/restore/confirm"),
         (entry, "/restore/status"),
