@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Extend first-party repository acceptance through Backup / Restore 1.0.1 build 2."""
+"""Extend first-party repository acceptance through Backup / Restore 1.0.2 build 3."""
 
 from __future__ import annotations
 
@@ -13,7 +13,8 @@ import accept_repository_configuration_bootstrap as previous
 MODULE_ID = "com.sickicarus.monitorbox.backup-restore"
 RELEASE_B1 = (MODULE_ID, "1.0.0", 1)
 RELEASE_B2 = (MODULE_ID, "1.0.1", 2)
-CURRENT_RELEASES = set(previous.CURRENT_RELEASES) | {RELEASE_B1, RELEASE_B2}
+RELEASE_B3 = (MODULE_ID, "1.0.2", 3)
+CURRENT_RELEASES = set(previous.CURRENT_RELEASES) | {RELEASE_B1, RELEASE_B2, RELEASE_B3}
 B1_SOURCE = "monitorbox_backup_restore_b1.py"
 B2_SOURCES = {
     "monitorbox_backup_restore_b2.py",
@@ -23,6 +24,15 @@ B2_SOURCES = {
     "monitorbox_backup_restore_b2_policy.py",
     "monitorbox_backup_restore_b2_scheduler.py",
     "monitorbox_backup_restore_b2_vault.py",
+}
+B3_SOURCES = {
+    "monitorbox_backup_restore_b3.py",
+    "monitorbox_backup_restore_b3_application.py",
+    "monitorbox_backup_restore_b3_destinations.py",
+    "monitorbox_backup_restore_b3_management.py",
+    "monitorbox_backup_restore_b3_policy.py",
+    "monitorbox_backup_restore_b3_scheduler.py",
+    "monitorbox_backup_restore_b3_vault.py",
 }
 
 
@@ -40,7 +50,13 @@ def _release(source: dict, identity: tuple[str, str, int]) -> dict:
     return item
 
 
-def _manifest(version: str, build: int, entrypoint: str) -> dict:
+def _manifest(
+    version: str,
+    build: int,
+    entrypoint: str,
+    *,
+    requires_core: str = ">=2.3.0 <3.0.0",
+) -> dict:
     return {
         "module_id": MODULE_ID,
         "display_name": "Backup / Restore",
@@ -50,7 +66,7 @@ def _manifest(version: str, build: int, entrypoint: str) -> dict:
         "state_schema": 1,
         "module_type": "recovery",
         "entrypoints": {"recovery": entrypoint},
-        "requires_core": ">=2.3.0 <3.0.0",
+        "requires_core": requires_core,
         "requires_runtime_api": ">=1 <2",
         "dependencies": [],
         "publisher_id": "com.sickicarus",
@@ -158,6 +174,96 @@ def _validate_build2(root: Path, source: dict) -> None:
         )
 
 
+def _validate_build3(root: Path, source: dict) -> None:
+    release = _release(source, RELEASE_B3)
+    expected_manifest = _manifest(
+        "1.0.2",
+        3,
+        "monitorbox_backup_restore_b3:install",
+        requires_core=">=2.3.1 <3.0.0",
+    )
+    if release.get("manifest") != expected_manifest:
+        raise AssertionError(f"Backup / Restore build 3 manifest mismatch: {release.get('manifest')!r}")
+
+    package_path = root / "packages" / release["package"]
+    expected_filename = "com.sickicarus.monitorbox.backup-restore-1.0.2-build3.zip"
+    if package_path.name != expected_filename or not package_path.is_file():
+        raise AssertionError("Backup / Restore build 3 package is missing or misnamed")
+
+    texts: dict[str, str] = {}
+    with zipfile.ZipFile(package_path) as archive:
+        names = set(archive.namelist())
+        if names != B3_SOURCES:
+            raise AssertionError(
+                "Backup / Restore build 3 must carry its complete managed runtime: "
+                f"expected={sorted(B3_SOURCES)}, actual={sorted(names)}"
+            )
+        if any(name.startswith("monitorbox/") for name in names):
+            raise AssertionError("managed Backup / Restore may not shadow Core's monitorbox namespace")
+        for name in sorted(names):
+            text = archive.read(name).decode("utf-8")
+            compile(text, name, "exec")
+            texts[name] = text
+
+    combined = "\n".join(texts.values())
+    entry = texts["monitorbox_backup_restore_b3.py"]
+    application = texts["monitorbox_backup_restore_b3_application.py"]
+    vault = texts["monitorbox_backup_restore_b3_vault.py"]
+
+    required = (
+        (entry, 'MODULE_VERSION = "1.0.2"'),
+        (entry, "MODULE_BUILD = 3"),
+        (entry, 'ADMIN_API_PREFIX = "/api/v2/config/backup-restore"'),
+        (entry, '/backups/{{backup_id}}/restore/preview'),
+        (entry, "/restore/file/preview"),
+        (entry, "/restore/confirm"),
+        (entry, "/restore/status"),
+        (application, "from monitorbox.v2.appliance_restore_handoff import ApplianceRestoreHandoff"),
+        (application, "Restore from file"),
+        (application, "Restore &amp; restart"),
+        (application, "acknowledgement"),
+        (vault, '_BACKUP_KINDS = frozenset({"manual", "scheduled", "copy"})'),
+        (vault, 'ARCHIVE_SUFFIX = ".zip"'),
+    )
+    missing = [marker for text, marker in required if marker not in text]
+    if missing:
+        raise AssertionError(f"Backup / Restore build 3 contract markers missing: {missing}")
+
+    forbidden = (
+        "monitorbox.v2.modules.backup_restore",
+        "factory_install",
+        ".mbbackup",
+        '"/api/v2/backup-restore',
+        "subprocess.",
+        "docker",
+        "ssh",
+    )
+    present = [marker for marker in forbidden if marker in combined]
+    if present:
+        raise AssertionError(
+            "Backup / Restore build 3 violates independent managed-module boundary: "
+            f"{present}"
+        )
+
+    removed_import_markers = (
+        "import_backup",
+        "import_file(",
+        'f"{prefix}/import"',
+        'id="import"',
+        'kind="imported"',
+    )
+    present_import = [
+        marker
+        for marker in removed_import_markers
+        if marker in application or marker in vault or marker in entry
+    ]
+    if present_import:
+        raise AssertionError(
+            "Backup / Restore build 3 resurrected removed Import semantics: "
+            f"{present_import}"
+        )
+
+
 def _package_shape(root: Path, source: dict) -> None:
     identities = {stable._release_identity(item) for item in source.get("modules", [])}
     if identities != CURRENT_RELEASES or len(source.get("modules", [])) != len(CURRENT_RELEASES):
@@ -167,12 +273,13 @@ def _package_shape(root: Path, source: dict) -> None:
 
     _validate_build1(root, source)
     _validate_build2(root, source)
+    _validate_build3(root, source)
 
     prior = copy.deepcopy(source)
     prior["modules"] = [
         item
         for item in prior.get("modules", [])
-        if stable._release_identity(item) not in {RELEASE_B1, RELEASE_B2}
+        if stable._release_identity(item) not in {RELEASE_B1, RELEASE_B2, RELEASE_B3}
     ]
     previous._package_shape(root, prior)
 

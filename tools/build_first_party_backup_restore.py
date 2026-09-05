@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build immutable Backup / Restore first-party releases for MonitorBox 2.3 Core."""
+"""Build immutable Backup / Restore first-party releases for MonitorBox Core."""
 
 from __future__ import annotations
 
@@ -50,6 +50,21 @@ RELEASES = (
             "monitorbox_backup_restore_b2_policy.py": "8ee5c90eec5978b87979b2f1f5020cff7c914805",
             "monitorbox_backup_restore_b2_scheduler.py": "67a91f00d895002b00f26be750c39dba2f44a2da",
             "monitorbox_backup_restore_b2_vault.py": "28293e5c9d62d99a8f7e3f62c69240cadf62b962",
+        },
+    ),
+    Release(
+        version="1.0.2",
+        build=3,
+        source_dir="1.0.2-build3",
+        entrypoint="monitorbox_backup_restore_b3:install",
+        source_blobs={
+            "monitorbox_backup_restore_b3.py": "5aae29328d46ab1f2ff4f9212508a48e5b351359",
+            "monitorbox_backup_restore_b3_application.py": "9acda5c769520bc9819625fa659740ef81c5e094",
+            "monitorbox_backup_restore_b3_destinations.py": "c015eaac8864eac57c986729aa00f1a88a59336c",
+            "monitorbox_backup_restore_b3_management.py": "7c4866d890bf184a9342f6adbfef4055e3627da1",
+            "monitorbox_backup_restore_b3_policy.py": "8ee5c90eec5978b87979b2f1f5020cff7c914805",
+            "monitorbox_backup_restore_b3_scheduler.py": "02f537e953ebe762453dace664d3e2eee4dab8fe",
+            "monitorbox_backup_restore_b3_vault.py": "46cdcfee909681d0904d8198162eb164286a9a1b",
         },
     ),
 )

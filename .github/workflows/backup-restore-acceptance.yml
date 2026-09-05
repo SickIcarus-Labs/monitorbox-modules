@@ -8,6 +8,7 @@ on:
       - tools/build_first_party_backup_restore.py
       - tools/accept_repository_backup_restore.py
       - tools/accept_backup_restore_behavior.py
+      - tools/accept_backup_restore_build3_behavior.py
       - .github/workflows/backup-restore-acceptance.yml
   push:
     branches:
@@ -18,6 +19,7 @@ on:
       - tools/build_first_party_backup_restore.py
       - tools/accept_repository_backup_restore.py
       - tools/accept_backup_restore_behavior.py
+      - tools/accept_backup_restore_build3_behavior.py
       - .github/workflows/backup-restore-acceptance.yml
 
 permissions:
@@ -41,5 +43,7 @@ jobs:
           sha256sum /tmp/backup-second/*.zip | sed 's#/tmp/backup-second/##' > /tmp/backup-second.sha
           diff -u /tmp/backup-first.sha /tmp/backup-second.sha
           python tools/build_first_party_backup_restore.py
-      - name: Execute managed build without bundled factory implementation
+      - name: Execute immutable build 2 without bundled factory implementation
         run: python tools/accept_backup_restore_behavior.py
+      - name: Execute build 3 restore workflow without bundled factory implementation
+        run: python tools/accept_backup_restore_build3_behavior.py
