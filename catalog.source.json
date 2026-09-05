@@ -347,6 +347,25 @@
     },
     {
       "manifest": {
+        "module_id": "com.sickicarus.monitorbox.snmp",
+        "display_name": "SNMP Integration",
+        "version": "1.0.2",
+        "build": 3,
+        "schema": 1,
+        "state_schema": 1,
+        "module_type": "integration",
+        "entrypoints": {"integration": "monitorbox_snmp_b3:PLUGIN"},
+        "requires_core": ">=2.3.0 <3.0.0",
+        "requires_runtime_api": ">=1 <2",
+        "dependencies": [],
+        "publisher_id": "com.sickicarus",
+        "permissions": [],
+        "lifecycle_policy": "optional"
+      },
+      "package": "com.sickicarus.monitorbox.snmp-1.0.2-build3.zip"
+    },
+    {
+      "manifest": {
         "module_id": "com.sickicarus.monitorbox.unifi",
         "display_name": "UniFi Network Integration",
         "version": "1.0.0",
