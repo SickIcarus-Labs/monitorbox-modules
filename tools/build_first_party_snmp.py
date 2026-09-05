@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Build the current independently managed SNMP integration for MonitorBox 2.3 Core.
 
-SNMP 1.0.0 build 1 remains immutable release history. 1.0.1 build 2 adds the
-module-owned runtime executor required to keep SNMP provider loss distinct from
-monitored-System failure while preserving assertion failures as actionable.
+SNMP 1.0.0 build 1 and 1.0.1 build 2 remain immutable release history.
+1.0.2 build 3 keeps provider-loss runtime truth and adds conservative QuTS hero
+storage-pool semantics: positively identified scrubbing is health-neutral, while
+unknown or profile-ambiguous vendor pool states remain UNKNOWN.
 """
 
 from __future__ import annotations
@@ -16,12 +17,16 @@ from pathlib import Path
 
 FIXED_ZIP_TIME = (1980, 1, 1, 0, 0, 0)
 MODULE_ID = "com.sickicarus.monitorbox.snmp"
-HISTORICAL_VERSION = "1.0.0"
-MODULE_VERSION = "1.0.1"
-MODULE_BUILD = 2
-IMPORT_PACKAGE = "monitorbox_snmp_b2"
+MODULE_VERSION = "1.0.2"
+MODULE_BUILD = 3
+IMPORT_PACKAGE = "monitorbox_snmp_b3"
 FILENAME = f"{MODULE_ID}-{MODULE_VERSION}-build{MODULE_BUILD}.zip"
-HISTORICAL_FILENAMES = frozenset({f"{MODULE_ID}-{HISTORICAL_VERSION}-build1.zip"})
+HISTORICAL_FILENAMES = frozenset(
+    {
+        f"{MODULE_ID}-1.0.0-build1.zip",
+        f"{MODULE_ID}-1.0.1-build2.zip",
+    }
+)
 
 BASE_SOURCE_BLOBS = {
     "__init__.py": "df242a51b7845c4e852bb15419360f8ac0abdf7e",
@@ -29,6 +34,10 @@ BASE_SOURCE_BLOBS = {
 
 BUILD2_SOURCE_BLOBS = {
     "runtime.py": "8467c756dcf502b48a40a7bac81f6113a48b88b6",
+}
+
+BUILD3_SOURCE_BLOBS = {
+    "runtime.py": "ae46133d246d1c235165fd52e26e7d83ec71661d",
 }
 
 _CORE_IMPORT_REWRITES = (
@@ -75,15 +84,21 @@ def _source_files(root: Path) -> dict[str, bytes]:
         BASE_SOURCE_BLOBS,
         label="immutable SNMP 1.0.0 build 1",
     )
-    build2 = _verified_directory(
+    # Build 2 is immutable history even though build 3 supersedes its runtime.
+    _verified_directory(
         snmp_root / "1.0.1-build2",
         BUILD2_SOURCE_BLOBS,
-        label="SNMP 1.0.1 build 2 runtime-truth delta",
+        label="immutable SNMP 1.0.1 build 2",
+    )
+    build3 = _verified_directory(
+        snmp_root / "1.0.2-build3",
+        BUILD3_SOURCE_BLOBS,
+        label="SNMP 1.0.2 build 3 QuTS hero maintenance delta",
     )
     result = dict(base)
-    result.update(build2)
+    result.update(build3)
     if set(result) != {"__init__.py", "runtime.py"}:
-        raise SystemExit("SNMP 1.0.1 build 2 composed source shape changed")
+        raise SystemExit("SNMP 1.0.2 build 3 composed source shape changed")
     return result
 
 
@@ -176,7 +191,7 @@ def build(root: Path, output_dir: Path) -> Path:
     print(
         f"built {target}: sha256={hashlib.sha256(payload).hexdigest()} "
         f"base_blob={BASE_SOURCE_BLOBS['__init__.py']} "
-        f"runtime_blob={BUILD2_SOURCE_BLOBS['runtime.py']} "
+        f"runtime_blob={BUILD3_SOURCE_BLOBS['runtime.py']} "
         f"entrypoint={IMPORT_PACKAGE}:PLUGIN"
     )
     expected = set(HISTORICAL_FILENAMES) | {FILENAME}

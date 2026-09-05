@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Extend first-party repository acceptance through SNMP v1.0.1 build 2."""
+"""Extend first-party repository acceptance through SNMP v1.0.2 build 3."""
 
 from __future__ import annotations
 
@@ -12,8 +12,9 @@ import accept_repository_nut as previous
 
 SNMP_ID = "com.sickicarus.monitorbox.snmp"
 SNMP_BUILD1 = (SNMP_ID, "1.0.0", 1)
-SNMP_RELEASE = (SNMP_ID, "1.0.1", 2)
-CURRENT_RELEASES = set(previous.CURRENT_RELEASES) | {SNMP_BUILD1, SNMP_RELEASE}
+SNMP_BUILD2 = (SNMP_ID, "1.0.1", 2)
+SNMP_RELEASE = (SNMP_ID, "1.0.2", 3)
+CURRENT_RELEASES = set(previous.CURRENT_RELEASES) | {SNMP_BUILD1, SNMP_BUILD2, SNMP_RELEASE}
 
 
 def _release(source: dict, identity: tuple[str, str, int]) -> dict:
@@ -82,16 +83,16 @@ def _accept_build1(root: Path, source: dict) -> None:
 
 
 def _accept_build2(root: Path, source: dict) -> None:
-    release = _release(source, SNMP_RELEASE)
+    release = _release(source, SNMP_BUILD2)
     manifest = release["manifest"]
     expected_manifest = _expected_manifest("1.0.1", 2, "monitorbox_snmp_b2:PLUGIN")
     if manifest != expected_manifest:
-        raise AssertionError(f"SNMP v1.0.1 build 2 manifest changed: {manifest!r}")
+        raise AssertionError(f"immutable SNMP v1.0.1 build 2 manifest changed: {manifest!r}")
 
     package_path = root / "packages" / release["package"]
     expected_filename = "com.sickicarus.monitorbox.snmp-1.0.1-build2.zip"
     if package_path.name != expected_filename or not package_path.is_file():
-        raise AssertionError("SNMP v1.0.1 build 2 generated package is missing or misnamed")
+        raise AssertionError("immutable SNMP v1.0.1 build 2 package is missing or misnamed")
 
     with zipfile.ZipFile(package_path) as archive:
         names = set(archive.namelist())
@@ -127,7 +128,7 @@ def _accept_build2(root: Path, source: dict) -> None:
     )
     missing = [marker for marker in required_root if marker not in source_text]
     if missing:
-        raise AssertionError(f"SNMP build 2 package root omitted contract markers: {missing}")
+        raise AssertionError(f"immutable SNMP build 2 package root omitted contract markers: {missing}")
 
     required_runtime = (
         "class SnmpRuntimeExecutor:",
@@ -141,7 +142,7 @@ def _accept_build2(root: Path, source: dict) -> None:
     )
     missing_runtime = [marker for marker in required_runtime if marker not in runtime_text]
     if missing_runtime:
-        raise AssertionError(f"SNMP build 2 runtime omitted truth/bound markers: {missing_runtime}")
+        raise AssertionError(f"immutable SNMP build 2 runtime omitted truth/bound markers: {missing_runtime}")
 
     forbidden = (
         "from ...adapters",
@@ -156,7 +157,91 @@ def _accept_build2(root: Path, source: dict) -> None:
         if marker in source_text or marker in runtime_text
     ]
     if present:
-        raise AssertionError(f"SNMP managed namespace rewrite is incomplete: {present}")
+        raise AssertionError(f"SNMP build 2 managed namespace rewrite is incomplete: {present}")
+
+
+def _accept_build3(root: Path, source: dict) -> None:
+    release = _release(source, SNMP_RELEASE)
+    manifest = release["manifest"]
+    expected_manifest = _expected_manifest("1.0.2", 3, "monitorbox_snmp_b3:PLUGIN")
+    if manifest != expected_manifest:
+        raise AssertionError(f"SNMP v1.0.2 build 3 manifest changed: {manifest!r}")
+
+    package_path = root / "packages" / release["package"]
+    expected_filename = "com.sickicarus.monitorbox.snmp-1.0.2-build3.zip"
+    if package_path.name != expected_filename or not package_path.is_file():
+        raise AssertionError("SNMP v1.0.2 build 3 generated package is missing or misnamed")
+
+    with zipfile.ZipFile(package_path) as archive:
+        names = set(archive.namelist())
+        expected_names = {
+            "monitorbox_snmp_b3/__init__.py",
+            "monitorbox_snmp_b3/runtime.py",
+        }
+        if names != expected_names:
+            raise AssertionError(
+                f"SNMP v1.0.2 build 3 package shape changed: "
+                f"missing={sorted(expected_names - names)}, extra={sorted(names - expected_names)}"
+            )
+        if any(name.startswith("monitorbox/") for name in names):
+            raise AssertionError("managed SNMP package may not shadow Core's monitorbox namespace")
+        stable._assert_python_syntax(archive, names, "monitorbox_snmp_b3/")
+        source_text = archive.read("monitorbox_snmp_b3/__init__.py").decode("utf-8")
+        runtime_text = archive.read("monitorbox_snmp_b3/runtime.py").decode("utf-8")
+
+    required_root = (
+        'MODULE_ID = "com.sickicarus.monitorbox.snmp"',
+        'MODULE_VERSION = "1.0.2"',
+        "MODULE_BUILD = 3",
+        "from monitorbox.v2.adapters import AdapterRunner",
+        "from monitorbox.v2.config import CheckConfig",
+        "from monitorbox.v2.model import State",
+        "from monitorbox.v2.plugin_api import (",
+        "from .runtime import SnmpRuntimeExecutor",
+        "runtime_executor=_SNMP_RUNTIME",
+        'runtime_adapter_kinds=("snmp",)',
+        'entrypoints={"integration": "monitorbox_snmp_b3:PLUGIN"}',
+        'requires_core=">=2.3.0 <3.0.0"',
+        'requires_runtime_api=">=1 <2"',
+    )
+    missing = [marker for marker in required_root if marker not in source_text]
+    if missing:
+        raise AssertionError(f"SNMP build 3 package root omitted contract markers: {missing}")
+
+    required_runtime = (
+        "class SnmpRuntimeExecutor:",
+        "RuntimeExecutionRequest",
+        "RuntimeExecutionResult",
+        'state="unknown"',
+        '"failure_kind": "monitor_dependency"',
+        'args += ["-v1", "-c", community]',
+        'args += ["-v2c", "-c", community]',
+        "asyncio.wait_for(",
+        '_QNAP_QUTSHERO_POOL_STATUS_PREFIX = "1.3.6.1.4.1.55062.2.10.7.1.5."',
+        '_QNAP_QUTSHERO_SCRUBBING = "4"',
+        'metadata["maintenance_health_neutral"] = True',
+        'metadata["maintenance_kind"] = "scrub"',
+        'metadata["failure_kind"] = "provider_semantics_unknown"',
+        'summary="QNAP storage maintenance: Scrubbing"',
+    )
+    missing_runtime = [marker for marker in required_runtime if marker not in runtime_text]
+    if missing_runtime:
+        raise AssertionError(f"SNMP build 3 runtime omitted truth/maintenance markers: {missing_runtime}")
+
+    forbidden = (
+        "from ...adapters",
+        "from ...config",
+        "from ...model",
+        "from ...plugin_api",
+        "monitorbox.v2.integrations.snmp:PLUGIN",
+    )
+    present = [
+        marker
+        for marker in forbidden
+        if marker in source_text or marker in runtime_text
+    ]
+    if present:
+        raise AssertionError(f"SNMP build 3 managed namespace rewrite is incomplete: {present}")
 
 
 def _package_shape(root: Path, source: dict) -> None:
@@ -168,12 +253,13 @@ def _package_shape(root: Path, source: dict) -> None:
 
     _accept_build1(root, source)
     _accept_build2(root, source)
+    _accept_build3(root, source)
 
     prior = copy.deepcopy(source)
     prior["modules"] = [
         item
         for item in prior.get("modules", [])
-        if stable._release_identity(item) not in {SNMP_BUILD1, SNMP_RELEASE}
+        if stable._release_identity(item) not in {SNMP_BUILD1, SNMP_BUILD2, SNMP_RELEASE}
     ]
     previous._package_shape(root, prior)
 
