@@ -3,8 +3,8 @@
 
 SNMP 1.0.0 build 1 and 1.0.1 build 2 remain immutable release history.
 1.0.2 build 3 keeps provider-loss runtime truth and adds conservative QuTS hero
-storage-pool semantics: documented scrubbing is health-neutral, while unknown
-vendor pool states remain UNKNOWN rather than fabricated hard failures.
+storage-pool semantics: positively identified scrubbing is health-neutral, while
+unknown or profile-ambiguous vendor pool states remain UNKNOWN.
 """
 
 from __future__ import annotations
@@ -37,7 +37,7 @@ BUILD2_SOURCE_BLOBS = {
 }
 
 BUILD3_SOURCE_BLOBS = {
-    "runtime.py": "330c01702ec461d2aee10d3397910455823b592a",
+    "runtime.py": "ae46133d246d1c235165fd52e26e7d83ec71661d",
 }
 
 _CORE_IMPORT_REWRITES = (
