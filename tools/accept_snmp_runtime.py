@@ -19,6 +19,7 @@ USERNAME = "runtime-v3-user-must-not-leak"
 AUTH_PASSWORD = "runtime-auth-must-not-leak"
 PRIVACY_PASSWORD = "runtime-privacy-must-not-leak"
 QNAP_POOL2_STATUS_OID = ".1.3.6.1.4.1.55062.2.10.7.1.5.2"
+QNAP_FIRMWARE_VERSION_OID = ".1.3.6.1.4.1.55062.2.12.6.0"
 
 
 def _install_runtime_contracts(plugin_api) -> None:
@@ -237,11 +238,13 @@ async def accept() -> None:
         if assertion.state != "failed" or "assertion failed" not in assertion.summary.casefold():
             raise AssertionError("SNMP target assertion mismatch stopped being actionable FAILED")
 
-        # QNAP's NAS.mib documents QuTS hero storagepoolStatus=4 as SCRUBBING.
-        # This exact provider/OID state is routine maintenance and must remain
-        # health-neutral while retaining raw metrics and maintenance evidence.
+        # QNAP's NAS.mib documents status 4 as SCRUBBING on QuTS hero but as
+        # REMOVING_TIER on QTS. The runtime must positively identify firmware
+        # from the same endpoint before neutralizing the maintenance state.
         async def qnap_scrubbing(*args: str, env=None):
-            del args, env
+            del env
+            if QNAP_FIRMWARE_VERSION_OID in args:
+                return 0, "h6.0.1.3564\n", ""
             return 0, "4\n", ""
 
         runtime_module._command = qnap_scrubbing
@@ -255,17 +258,43 @@ async def accept() -> None:
             context,
         )
         if scrub.state != "healthy" or "scrubbing" not in scrub.summary.casefold():
-            raise AssertionError(f"documented QuTS hero scrub was not health-neutral: {scrub!r}")
+            raise AssertionError(f"positively identified QuTS hero scrub was not health-neutral: {scrub!r}")
         if scrub.metrics.get("pool2_status") != 4.0:
             raise AssertionError(f"QuTS hero scrub lost raw pool status evidence: {scrub!r}")
         if scrub.metadata.get("maintenance_health_neutral") is not True:
             raise AssertionError(f"QuTS hero scrub lacks explicit neutral-maintenance evidence: {scrub!r}")
         if scrub.metadata.get("maintenance_kind") != "scrub":
             raise AssertionError(f"QuTS hero scrub maintenance kind changed: {scrub!r}")
+        if scrub.metadata.get("qnap_storage_profile") != "quts_hero":
+            raise AssertionError(f"QuTS hero scrub was neutralized without positive platform provenance: {scrub!r}")
+
+        # The same status value on non-hero QTS must not inherit the scrub rule.
+        async def qts_status_four(*args: str, env=None):
+            del env
+            if QNAP_FIRMWARE_VERSION_OID in args:
+                return 0, "5.2.9.3499\n", ""
+            return 0, "4\n", ""
+
+        runtime_module._command = qts_status_four
+        qts_four = await executor.execute(
+            _request(
+                plugin_api,
+                version="2c",
+                oids={"pool2_status": QNAP_POOL2_STATUS_OID},
+                expected={"pool2_status": 0},
+            ),
+            context,
+        )
+        if qts_four.state != "unknown" or qts_four.metadata.get("failure_kind") != "provider_semantics_unknown":
+            raise AssertionError(f"QTS status 4 was incorrectly treated as a QuTS hero scrub: {qts_four!r}")
 
         # Numeric 4 is not globally healthy. The exemption is bound to QNAP's
-        # exact QuTS hero storagepoolStatus table, not to arbitrary SNMP values.
-        runtime_module._command = qnap_scrubbing
+        # pool status table plus a positively identified QuTS hero profile.
+        async def arbitrary_four(*args: str, env=None):
+            del args, env
+            return 0, "4\n", ""
+
+        runtime_module._command = arbitrary_four
         non_qnap_four = await executor.execute(
             _request(
                 plugin_api,
@@ -278,8 +307,9 @@ async def accept() -> None:
         if non_qnap_four.state != "failed":
             raise AssertionError(f"numeric 4 was incorrectly whitelisted outside QNAP pool status: {non_qnap_four!r}")
 
-        # Documented non-ready QNAP states remain actionable. Build 3 only
-        # neutralizes SCRUBBING; it does not flatten WARNING/recovery/error.
+        # Documented non-ready QuTS hero states remain actionable. Build 3 only
+        # neutralizes positively identified SCRUBBING; it does not flatten
+        # WARNING/recovery/error states.
         async def qnap_warning(*args: str, env=None):
             del args, env
             return 0, "-1\n", ""
@@ -322,7 +352,8 @@ async def accept() -> None:
             raise AssertionError(f"unmapped QuTS hero pool state lost raw provider value: {unmapped!r}")
 
         # A real independent mismatch in the same query must override an active
-        # scrub. Maintenance must never mask a separate fault.
+        # maintenance value before any profile probe. Maintenance never masks a
+        # separate fault.
         async def scrub_plus_fault(*args: str, env=None):
             del args, env
             return 0, "4\nBad\n", ""
@@ -364,7 +395,7 @@ async def accept() -> None:
 
     print(
         "Managed SNMP 1.0.2 build 3 runtime: provider-loss UNKNOWN + bounded timeout + "
-        "v1/v2c/v3 credential transport + actionable assertions + QuTS hero scrub truth: PASS",
+        "v1/v2c/v3 credential transport + actionable assertions + profiled QuTS hero scrub truth: PASS",
         flush=True,
     )
 
