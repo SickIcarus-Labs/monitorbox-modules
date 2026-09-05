@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Runtime acceptance for managed SNMP v1.0.1 build 2."""
+"""Runtime acceptance for managed SNMP v1.0.2 build 3."""
 
 from __future__ import annotations
 
@@ -13,11 +13,12 @@ from typing import Any, Mapping
 
 from accept_http_behavior import install_core_contract_stubs
 
-PACKAGE_NAME = "com.sickicarus.monitorbox.snmp-1.0.1-build2.zip"
+PACKAGE_NAME = "com.sickicarus.monitorbox.snmp-1.0.2-build3.zip"
 COMMUNITY = "runtime-community-must-not-leak"
 USERNAME = "runtime-v3-user-must-not-leak"
 AUTH_PASSWORD = "runtime-auth-must-not-leak"
 PRIVACY_PASSWORD = "runtime-privacy-must-not-leak"
+QNAP_POOL2_STATUS_OID = ".1.3.6.1.4.1.55062.2.10.7.1.5.2"
 
 
 def _install_runtime_contracts(plugin_api) -> None:
@@ -79,13 +80,20 @@ def _install_runtime_contracts(plugin_api) -> None:
         setattr(plugin_api, value.__name__, value)
 
 
-def _request(plugin_api, *, version: str, timeout: float = 1.0, expected=None):
+def _request(
+    plugin_api,
+    *,
+    version: str,
+    timeout: float = 1.0,
+    expected=None,
+    oids: Mapping[str, str] | None = None,
+):
     options: dict[str, Any] = {
         "host": "192.0.2.10",
         "port": 161,
         "version": version,
         "retries": 1,
-        "oids": {"uptime": ".1.3.6.1.2.1.1.3.0"},
+        "oids": dict(oids or {"uptime": ".1.3.6.1.2.1.1.3.0"}),
     }
     if version in {"1", "2", "2c"}:
         options["community_env"] = "TEST_SNMP_COMMUNITY"
@@ -126,17 +134,17 @@ async def accept() -> None:
     plugin_api = install_core_contract_stubs()
     _install_runtime_contracts(plugin_api)
     sys.path.insert(0, str(package))
-    managed = importlib.import_module("monitorbox_snmp_b2")
-    runtime_module = importlib.import_module("monitorbox_snmp_b2.runtime")
+    managed = importlib.import_module("monitorbox_snmp_b3")
+    runtime_module = importlib.import_module("monitorbox_snmp_b3.runtime")
 
-    if (managed.MODULE_VERSION, managed.MODULE_BUILD) != ("1.0.1", 2):
+    if (managed.MODULE_VERSION, managed.MODULE_BUILD) != ("1.0.2", 3):
         raise AssertionError("managed SNMP runtime correction release identity changed")
-    if managed.MODULE_MANIFEST.entrypoints != {"integration": "monitorbox_snmp_b2:PLUGIN"}:
-        raise AssertionError("managed SNMP build 2 entrypoint is not generation-safe")
+    if managed.MODULE_MANIFEST.entrypoints != {"integration": "monitorbox_snmp_b3:PLUGIN"}:
+        raise AssertionError("managed SNMP build 3 entrypoint is not generation-safe")
     if managed.PLUGIN.runtime_executor is None:
-        raise AssertionError("SNMP build 2 did not claim module-owned runtime execution")
+        raise AssertionError("SNMP build 3 did not claim module-owned runtime execution")
     if managed.PLUGIN.runtime_adapter_kinds != ("snmp",):
-        raise AssertionError("SNMP build 2 did not claim only the snmp runtime adapter")
+        raise AssertionError("SNMP build 3 did not claim only the snmp runtime adapter")
 
     executor = managed.PLUGIN.runtime_executor
     context = plugin_api.RuntimeExecutionContext(
@@ -229,6 +237,112 @@ async def accept() -> None:
         if assertion.state != "failed" or "assertion failed" not in assertion.summary.casefold():
             raise AssertionError("SNMP target assertion mismatch stopped being actionable FAILED")
 
+        # QNAP's NAS.mib documents QuTS hero storagepoolStatus=4 as SCRUBBING.
+        # This exact provider/OID state is routine maintenance and must remain
+        # health-neutral while retaining raw metrics and maintenance evidence.
+        async def qnap_scrubbing(*args: str, env=None):
+            del args, env
+            return 0, "4\n", ""
+
+        runtime_module._command = qnap_scrubbing
+        scrub = await executor.execute(
+            _request(
+                plugin_api,
+                version="2c",
+                oids={"pool2_status": QNAP_POOL2_STATUS_OID},
+                expected={"pool2_status": 0},
+            ),
+            context,
+        )
+        if scrub.state != "healthy" or "scrubbing" not in scrub.summary.casefold():
+            raise AssertionError(f"documented QuTS hero scrub was not health-neutral: {scrub!r}")
+        if scrub.metrics.get("pool2_status") != 4.0:
+            raise AssertionError(f"QuTS hero scrub lost raw pool status evidence: {scrub!r}")
+        if scrub.metadata.get("maintenance_health_neutral") is not True:
+            raise AssertionError(f"QuTS hero scrub lacks explicit neutral-maintenance evidence: {scrub!r}")
+        if scrub.metadata.get("maintenance_kind") != "scrub":
+            raise AssertionError(f"QuTS hero scrub maintenance kind changed: {scrub!r}")
+
+        # Numeric 4 is not globally healthy. The exemption is bound to QNAP's
+        # exact QuTS hero storagepoolStatus table, not to arbitrary SNMP values.
+        runtime_module._command = qnap_scrubbing
+        non_qnap_four = await executor.execute(
+            _request(
+                plugin_api,
+                version="2c",
+                oids={"status": ".1.3.6.1.2.1.2.2.1.8.4"},
+                expected={"status": 0},
+            ),
+            context,
+        )
+        if non_qnap_four.state != "failed":
+            raise AssertionError(f"numeric 4 was incorrectly whitelisted outside QNAP pool status: {non_qnap_four!r}")
+
+        # Documented non-ready QNAP states remain actionable. Build 3 only
+        # neutralizes SCRUBBING; it does not flatten WARNING/recovery/error.
+        async def qnap_warning(*args: str, env=None):
+            del args, env
+            return 0, "-1\n", ""
+
+        runtime_module._command = qnap_warning
+        warning = await executor.execute(
+            _request(
+                plugin_api,
+                version="2c",
+                oids={"pool2_status": QNAP_POOL2_STATUS_OID},
+                expected={"pool2_status": 0},
+            ),
+            context,
+        )
+        if warning.state != "failed":
+            raise AssertionError(f"QuTS hero WARNING stopped being actionable: {warning!r}")
+
+        # Broad Leaf previously observed pool status 15 during online expansion,
+        # but the checked-in QNAP MIB does not define 15. Fail safe as UNKNOWN;
+        # do not invent either a healthy expansion mapping or a hard failure.
+        async def qnap_unmapped(*args: str, env=None):
+            del args, env
+            return 0, "15\n", ""
+
+        runtime_module._command = qnap_unmapped
+        unmapped = await executor.execute(
+            _request(
+                plugin_api,
+                version="2c",
+                oids={"pool2_status": QNAP_POOL2_STATUS_OID},
+                expected={"pool2_status": 0},
+            ),
+            context,
+        )
+        if unmapped.state != "unknown":
+            raise AssertionError(f"unmapped QuTS hero pool state was fabricated as known health: {unmapped!r}")
+        if unmapped.metadata.get("failure_kind") != "provider_semantics_unknown":
+            raise AssertionError(f"unmapped QuTS hero pool state lost semantic-unknown provenance: {unmapped!r}")
+        if unmapped.metrics.get("pool2_status") != 15.0:
+            raise AssertionError(f"unmapped QuTS hero pool state lost raw provider value: {unmapped!r}")
+
+        # A real independent mismatch in the same query must override an active
+        # scrub. Maintenance must never mask a separate fault.
+        async def scrub_plus_fault(*args: str, env=None):
+            del args, env
+            return 0, "4\nBad\n", ""
+
+        runtime_module._command = scrub_plus_fault
+        overridden = await executor.execute(
+            _request(
+                plugin_api,
+                version="2c",
+                oids={
+                    "pool2_status": QNAP_POOL2_STATUS_OID,
+                    "other_health": ".1.3.6.1.2.1.1.5.0",
+                },
+                expected={"pool2_status": 0, "other_health": "Good"},
+            ),
+            context,
+        )
+        if overridden.state != "failed" or "other_health=Bad" not in overridden.summary:
+            raise AssertionError(f"active scrub masked an independent assertion fault: {overridden!r}")
+
         async def rejected_query(*args: str, env=None):
             del args, env
             return 1, "", "Authentication failure"
@@ -249,8 +363,8 @@ async def accept() -> None:
             os.environ.pop(name, None)
 
     print(
-        "Managed SNMP 1.0.1 build 2 runtime: provider-loss UNKNOWN + bounded timeout + "
-        "v1/v2c/v3 credential transport + actionable assertions: PASS",
+        "Managed SNMP 1.0.2 build 3 runtime: provider-loss UNKNOWN + bounded timeout + "
+        "v1/v2c/v3 credential transport + actionable assertions + QuTS hero scrub truth: PASS",
         flush=True,
     )
 
