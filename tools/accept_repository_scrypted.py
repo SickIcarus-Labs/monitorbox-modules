@@ -99,7 +99,7 @@ def _package_shape(root: Path, source: dict) -> None:
         'MODULE_VERSION = "1.0.0"',
         "MODULE_BUILD = 1",
         '"failure_kind": "parent_unavailable"',
-        '"failure_kind": "monitor_dependency"',
+        '"monitor_dependency"',
         '"discovery_evidence": _camera_discovery_evidence(cameras)',
     )
     missing_runtime = [marker for marker in runtime_required if marker not in runtime_text]
