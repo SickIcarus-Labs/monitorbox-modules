@@ -10,6 +10,7 @@ on:
       - sources/nut/**
       - sources/snmp/**
       - sources/unifi/**
+      - sources/scrypted/**
       - tools/build_first_party_ui.py
       - tools/build_first_party_ui_current.py
       - tools/build_first_party_ui_build10.py
@@ -18,6 +19,7 @@ on:
       - tools/build_first_party_nut.py
       - tools/build_first_party_snmp.py
       - tools/build_first_party_unifi.py
+      - tools/build_first_party_scrypted.py
       - tools/accept_repository.py
       - tools/accept_repository_current.py
       - tools/accept_repository_build10.py
@@ -25,11 +27,13 @@ on:
       - tools/accept_repository_nut.py
       - tools/accept_repository_snmp.py
       - tools/accept_repository_unifi.py
+      - tools/accept_repository_scrypted.py
       - tools/accept_http_behavior.py
       - tools/accept_nut_behavior.py
       - tools/accept_snmp_behavior.py
       - tools/accept_snmp_runtime.py
       - tools/accept_unifi_runtime.py
+      - tools/accept_scrypted_runtime.py
       - tools/accept_portainer_runtime.py
       - tools/accept_portainer_coverage.py
       - tools/accept_portainer_lifecycle.py
@@ -55,6 +59,7 @@ on:
       - sources/nut/**
       - sources/snmp/**
       - sources/unifi/**
+      - sources/scrypted/**
       - tools/build_first_party_ui.py
       - tools/build_first_party_ui_current.py
       - tools/build_first_party_ui_build10.py
@@ -63,6 +68,7 @@ on:
       - tools/build_first_party_nut.py
       - tools/build_first_party_snmp.py
       - tools/build_first_party_unifi.py
+      - tools/build_first_party_scrypted.py
       - tools/accept_repository.py
       - tools/accept_repository_current.py
       - tools/accept_repository_build10.py
@@ -70,11 +76,13 @@ on:
       - tools/accept_repository_nut.py
       - tools/accept_repository_snmp.py
       - tools/accept_repository_unifi.py
+      - tools/accept_repository_scrypted.py
       - tools/accept_http_behavior.py
       - tools/accept_nut_behavior.py
       - tools/accept_snmp_behavior.py
       - tools/accept_snmp_runtime.py
       - tools/accept_unifi_runtime.py
+      - tools/accept_scrypted_runtime.py
       - tools/accept_portainer_runtime.py
       - tools/accept_portainer_coverage.py
       - tools/accept_portainer_lifecycle.py
@@ -113,14 +121,16 @@ jobs:
           python tools/build_first_party_nut.py
           python tools/build_first_party_snmp.py
           python tools/build_first_party_unifi.py
-          sha256sum packages/com.sickicarus.monitorbox.ui-*.zip packages/com.sickicarus.monitorbox.portainer-*.zip packages/com.sickicarus.monitorbox.http-*.zip packages/com.sickicarus.monitorbox.nut-*.zip packages/com.sickicarus.monitorbox.snmp-*.zip packages/com.sickicarus.monitorbox.unifi-*.zip > /tmp/first-party-packages.first
+          python tools/build_first_party_scrypted.py
+          sha256sum packages/com.sickicarus.monitorbox.ui-*.zip packages/com.sickicarus.monitorbox.portainer-*.zip packages/com.sickicarus.monitorbox.http-*.zip packages/com.sickicarus.monitorbox.nut-*.zip packages/com.sickicarus.monitorbox.snmp-*.zip packages/com.sickicarus.monitorbox.unifi-*.zip packages/com.sickicarus.monitorbox.scrypted-*.zip > /tmp/first-party-packages.first
           python tools/build_first_party_ui_build10.py
           python tools/build_first_party_portainer.py
           python tools/build_first_party_http.py
           python tools/build_first_party_nut.py
           python tools/build_first_party_snmp.py
           python tools/build_first_party_unifi.py
-          sha256sum packages/com.sickicarus.monitorbox.ui-*.zip packages/com.sickicarus.monitorbox.portainer-*.zip packages/com.sickicarus.monitorbox.http-*.zip packages/com.sickicarus.monitorbox.nut-*.zip packages/com.sickicarus.monitorbox.snmp-*.zip packages/com.sickicarus.monitorbox.unifi-*.zip > /tmp/first-party-packages.second
+          python tools/build_first_party_scrypted.py
+          sha256sum packages/com.sickicarus.monitorbox.ui-*.zip packages/com.sickicarus.monitorbox.portainer-*.zip packages/com.sickicarus.monitorbox.http-*.zip packages/com.sickicarus.monitorbox.nut-*.zip packages/com.sickicarus.monitorbox.snmp-*.zip packages/com.sickicarus.monitorbox.unifi-*.zip packages/com.sickicarus.monitorbox.scrypted-*.zip > /tmp/first-party-packages.second
           diff -u /tmp/first-party-packages.first /tmp/first-party-packages.second
       - name: Verify managed HTTP behavior
         run: python tools/accept_http_behavior.py
@@ -132,6 +142,8 @@ jobs:
         run: python tools/accept_snmp_runtime.py
       - name: Verify managed UniFi Network runtime and state continuity
         run: python tools/accept_unifi_runtime.py
+      - name: Verify managed Scrypted connection, camera runtime, and provider-loss recovery
+        run: python tools/accept_scrypted_runtime.py
       - name: Verify Portainer complete inventory and provider-loss truth
         run: python tools/accept_portainer_runtime.py
       - name: Verify Portainer monitoring-coverage evidence
@@ -163,4 +175,4 @@ jobs:
             /tmp/ui-discovery-coverage.png
           if-no-files-found: error
       - name: Verify package shape, activation regression, and signed repository contract
-        run: python tools/accept_repository_unifi.py
+        run: python tools/accept_repository_scrypted.py
