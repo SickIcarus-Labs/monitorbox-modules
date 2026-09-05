@@ -17,18 +17,6 @@ from monitorbox.v2.setup_config_ui import SetupAwareConfigUi
 from monitorbox.v2.setup_draft_ui import SetupDraftUi
 
 
-def _quick_add_ui(platform, controller, *, plugin_registry=None) -> QuickAddUi:
-    """Build recursive Quick Add with canonical existing-authority projection."""
-
-    ui = QuickAddUi(
-        platform,
-        controller,
-        plugin_registry=plugin_registry,
-    )
-    ui.onboarding.connections.summary_projector = ui.onboarding._summary
-    return ui
-
-
 def install(
     app: web.Application,
     *,
@@ -40,7 +28,7 @@ def install(
 
     SetupDraftUi(platform).install(app)
     SetupAwareConfigUi(platform, controller).install(app)
-    _quick_add_ui(
+    QuickAddUi(
         platform,
         controller,
         plugin_registry=plugin_registry,
