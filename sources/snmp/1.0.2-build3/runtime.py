@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re
 import tempfile
 import time
 from pathlib import Path
@@ -23,14 +24,13 @@ _TRANSPORT_FAILURE_MARKERS = (
     "unknown host",
 )
 
-# QNAP NAS.mib (QTS-MIB, QuTS hero storagepoolStatus) assigns this table to
-# 1.3.6.1.4.1.55062.2.10.7.1.5.<pool-index> and explicitly defines 4 as
-# SCRUBBING. Scrubbing is routine maintenance and is health-neutral by itself.
-# Other documented non-ready states retain exact-match failure semantics until
-# their individual health meaning is explicitly justified. A value outside the
-# documented QuTS hero enum is observer-visible but semantically unknown rather
-# than fabricated as a hard storage failure.
+# QNAP NAS.mib (QTS-MIB) exposes storagepoolStatus at this table for both QTS
+# and QuTS hero. The same numeric value can mean different things by platform:
+# status 4 is REMOVING_TIER on QTS but SCRUBBING on QuTS hero. Never classify
+# the number alone. firmwareVersion is under the same read-only QNAP MIB and
+# QuTS hero releases use the h<major>.<minor>... version identity.
 _QNAP_QUTSHERO_POOL_STATUS_PREFIX = "1.3.6.1.4.1.55062.2.10.7.1.5."
+_QNAP_FIRMWARE_VERSION_OID = ".1.3.6.1.4.1.55062.2.12.6.0"
 _QNAP_QUTSHERO_SCRUBBING = "4"
 _QNAP_QUTSHERO_KNOWN_POOL_STATUSES = frozenset(
     {
@@ -56,6 +56,7 @@ _QNAP_QUTSHERO_KNOWN_POOL_STATUSES = frozenset(
         "255", # NONE_STATUS (0xFF)
     }
 )
+_QUTSHERO_VERSION_RE = re.compile(r"(?:^|[^a-z0-9])h\d+\.", re.IGNORECASE)
 
 
 def _elapsed_ms(started: float) -> float:
@@ -104,7 +105,17 @@ def _is_qnap_qutshero_pool_status_oid(value: str | None) -> bool:
     return bool(index) and index.isdigit()
 
 
-def _record_scrub_metadata(metadata: dict[str, Any], fields: list[str]) -> None:
+def _looks_like_quts_hero_firmware(value: str) -> bool:
+    return bool(_QUTSHERO_VERSION_RE.search(value.strip()))
+
+
+def _record_scrub_metadata(
+    metadata: dict[str, Any],
+    fields: list[str],
+    firmware_version: str,
+) -> None:
+    metadata["qnap_storage_profile"] = "quts_hero"
+    metadata["qnap_firmware_version"] = firmware_version[:200]
     metadata["maintenance_kind"] = "scrub"
     metadata["maintenance_state"] = "Scrubbing"
     metadata["maintenance_health_neutral"] = True
@@ -126,8 +137,9 @@ class SnmpRuntimeExecutor:
     fabricated hard failure of the monitored System.
 
     QuTS hero pool status is the one vendor state machine interpreted here.
-    QNAP's documented SCRUBBING value is health-neutral; undocumented pool
-    values are UNKNOWN; every other assertion mismatch remains actionable.
+    QNAP's documented SCRUBBING value is health-neutral only after the same
+    endpoint positively identifies a QuTS hero firmware version. Undocumented
+    pool values are UNKNOWN; every other assertion mismatch remains actionable.
     """
 
     async def start(self, context: RuntimeExecutionContext) -> None:
@@ -248,21 +260,22 @@ class SnmpRuntimeExecutor:
                 metadata={"failure_kind": "monitor_configuration", "provider": "snmp"},
             )
 
-        args += [f"{host}:{port}", *oids.values()]
+        transport_args = tuple(args)
+        query_args = (*transport_args, f"{host}:{port}", *oids.values())
 
-        async def execute_command() -> tuple[int, str, str]:
+        async def execute_command(command_args: tuple[str, ...]) -> tuple[int, str, str]:
             if not secret_config:
-                return await _command(*args)
+                return await _command(*command_args)
             with tempfile.TemporaryDirectory(prefix="monitorbox-snmp-runtime-") as directory:
                 path = Path(directory) / "snmp.conf"
                 path.write_text("\n".join(secret_config) + "\n")
                 path.chmod(0o600)
                 command_env = {**os.environ, "SNMPCONFPATH": directory}
-                return await _command(*args, env=command_env)
+                return await _command(*command_args, env=command_env)
 
         try:
             code, stdout, stderr = await asyncio.wait_for(
-                execute_command(),
+                execute_command(query_args),
                 timeout=command_timeout,
             )
         except TimeoutError:
@@ -318,7 +331,7 @@ class SnmpRuntimeExecutor:
 
         failures: list[str] = []
         semantic_unknown: list[str] = []
-        scrubbing_fields: list[str] = []
+        status4_fields: list[str] = []
         for name, expected in dict(options.get("expected", {})).items():
             allowed = expected if isinstance(expected, list) else [expected]
             actual = normalized.get(name, "<missing>")
@@ -328,7 +341,7 @@ class SnmpRuntimeExecutor:
             oid = oids.get(name)
             if _is_qnap_qutshero_pool_status_oid(oid):
                 if actual == _QNAP_QUTSHERO_SCRUBBING:
-                    scrubbing_fields.append(name)
+                    status4_fields.append(name)
                     continue
                 if actual not in _QNAP_QUTSHERO_KNOWN_POOL_STATUSES:
                     semantic_unknown.append(f"{name}={actual[:80]}")
@@ -336,12 +349,9 @@ class SnmpRuntimeExecutor:
 
             failures.append(f"{name}={actual[:80]}")
 
-        if scrubbing_fields:
-            _record_scrub_metadata(metadata, scrubbing_fields)
-
         # A real assertion fault always wins over maintenance or semantic
-        # uncertainty. This prevents an active scrub from masking any other
-        # independently abnormal value in the same SNMP check.
+        # uncertainty. This prevents an active maintenance value from masking
+        # any other independently abnormal value in the same SNMP check.
         if failures:
             return RuntimeExecutionResult(
                 state="failed",
@@ -362,10 +372,52 @@ class SnmpRuntimeExecutor:
                 metadata=metadata,
             )
 
-        if scrubbing_fields:
+        if status4_fields:
+            # QNAP assigns status 4 different meanings on QTS and QuTS hero.
+            # Probe firmwareVersion from the same endpoint before calling it a
+            # scrub. This extra read happens only while status 4 is present and
+            # remains inside Core's provider-blind watchdog budget.
+            remaining = outer_timeout - (_elapsed_ms(started) / 1000.0)
+            firmware_version = ""
+            if remaining > 0.06:
+                firmware_args = (
+                    *transport_args,
+                    f"{host}:{port}",
+                    _QNAP_FIRMWARE_VERSION_OID,
+                )
+                try:
+                    firmware_code, firmware_stdout, _ = await asyncio.wait_for(
+                        execute_command(firmware_args),
+                        timeout=min(1.0, max(0.05, remaining * 0.8)),
+                    )
+                    if firmware_code == 0:
+                        firmware_values = firmware_stdout.splitlines()
+                        if len(firmware_values) == 1:
+                            firmware_version = firmware_values[0].strip().strip('"')
+                except (TimeoutError, OSError):
+                    firmware_version = ""
+
+            if firmware_version:
+                metadata["qnap_firmware_version"] = firmware_version[:200]
+            if firmware_version and _looks_like_quts_hero_firmware(firmware_version):
+                _record_scrub_metadata(metadata, status4_fields, firmware_version)
+                return RuntimeExecutionResult(
+                    state="healthy",
+                    summary="QNAP storage maintenance: Scrubbing",
+                    duration_ms=_elapsed_ms(started),
+                    metrics=metrics,
+                    metadata=metadata,
+                )
+
+            metadata["failure_kind"] = "provider_semantics_unknown"
+            metadata["qnap_pool_status_unresolved"] = [
+                f"{name}={_QNAP_QUTSHERO_SCRUBBING}" for name in status4_fields
+            ]
+            if firmware_version:
+                metadata["qnap_storage_profile"] = "non_quts_hero_or_unrecognized"
             return RuntimeExecutionResult(
-                state="healthy",
-                summary="QNAP storage maintenance: Scrubbing",
+                state="unknown",
+                summary="QNAP storage pool status 4 requires platform-specific interpretation",
                 duration_ms=_elapsed_ms(started),
                 metrics=metrics,
                 metadata=metadata,
