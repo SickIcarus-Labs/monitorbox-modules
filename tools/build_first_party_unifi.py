@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Build the current independently managed UniFi Network integration for MonitorBox 2.3 Core.
 
-UniFi 1.0.0 build 1 remains immutable release history. 1.0.1 build 2 adds
-provider-owned authentication/session recovery and provider-loss truth without a
-Core rebuild.
+UniFi 1.0.0 build 1 and 1.0.1 build 2 remain immutable release history.
+1.0.2 build 3 bounds authentication retries so provider-side rate limiting can
+expire and recover without a Core rebuild.
 """
 
 from __future__ import annotations
@@ -16,11 +16,16 @@ from pathlib import Path
 
 FIXED_ZIP_TIME = (1980, 1, 1, 0, 0, 0)
 MODULE_ID = "com.sickicarus.monitorbox.unifi"
-MODULE_VERSION = "1.0.1"
-MODULE_BUILD = 2
-IMPORT_PACKAGE = "monitorbox_unifi_b2"
+MODULE_VERSION = "1.0.2"
+MODULE_BUILD = 3
+IMPORT_PACKAGE = "monitorbox_unifi_b3"
 FILENAME = f"{MODULE_ID}-{MODULE_VERSION}-build{MODULE_BUILD}.zip"
-HISTORICAL_FILENAMES = frozenset({f"{MODULE_ID}-1.0.0-build1.zip"})
+HISTORICAL_FILENAMES = frozenset(
+    {
+        f"{MODULE_ID}-1.0.0-build1.zip",
+        f"{MODULE_ID}-1.0.1-build2.zip",
+    }
+)
 
 BASE_SOURCE_BLOBS = {
     "__init__.py": "7a6c9d622aa0ada3f3b5b4a31e3096ff228549bf",
@@ -34,6 +39,10 @@ BASE_SOURCE_BLOBS = {
 
 BUILD2_SOURCE_BLOBS = {
     "discovery_runtime.py": "301edf2e066b59ad0b1722c2d093c2f8d545535f",
+}
+
+BUILD3_SOURCE_BLOBS = {
+    "discovery_runtime.py": "3e9c904c1fbe68bde080a99f004992c8205e9843",
 }
 
 _CORE_IMPORT_REWRITES = (
@@ -83,15 +92,20 @@ def _source_files(root: Path) -> dict[str, bytes]:
         BASE_SOURCE_BLOBS,
         label="immutable UniFi 1.0.0 build 1",
     )
-    build2 = _verified_directory(
+    _verified_directory(
         unifi_root / "1.0.1-build2",
         BUILD2_SOURCE_BLOBS,
-        label="UniFi 1.0.1 build 2 auth-recovery delta",
+        label="immutable UniFi 1.0.1 build 2",
+    )
+    build3 = _verified_directory(
+        unifi_root / "1.0.2-build3",
+        BUILD3_SOURCE_BLOBS,
+        label="UniFi 1.0.2 build 3 auth-backoff delta",
     )
     result = dict(base)
-    result.update(build2)
+    result.update(build3)
     if set(result) != set(BASE_SOURCE_BLOBS):
-        raise SystemExit("UniFi 1.0.1 build 2 composed source shape changed")
+        raise SystemExit("UniFi 1.0.2 build 3 composed source shape changed")
     return result
 
 
@@ -170,7 +184,7 @@ def build(root: Path, output_dir: Path) -> Path:
     target.write_bytes(payload)
     print(
         f"built {target}: sha256={hashlib.sha256(payload).hexdigest()} "
-        f"build2_blob={BUILD2_SOURCE_BLOBS['discovery_runtime.py']} "
+        f"build3_blob={BUILD3_SOURCE_BLOBS['discovery_runtime.py']} "
         f"entrypoint={IMPORT_PACKAGE}:PLUGIN"
     )
     expected = set(HISTORICAL_FILENAMES) | {FILENAME}
