@@ -3,8 +3,35 @@
   "signed": {
     "repository_id": "official",
     "display_name": "MonitorBox Official",
-    "generated_at": "2026-09-05T07:50:12.330977Z",
+    "generated_at": "2026-09-05T17:36:56.659127Z",
     "modules": [
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.configuration-bootstrap",
+          "display_name": "Configuration / Bootstrap",
+          "version": "1.0.0",
+          "build": 1,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "configuration",
+          "entrypoints": {
+            "configuration": "monitorbox_configuration_bootstrap_b1:install"
+          },
+          "requires_core": ">=2.3.0 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "required"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.configuration-bootstrap-1.0.0-build1.zip",
+          "filename": "com.sickicarus.monitorbox.configuration-bootstrap-1.0.0-build1.zip",
+          "sha256": "d30543430443ddbbc4e6cf677281c0aea71fe891d2c922d491173a0d1755e143",
+          "signature_identity": "official-ed25519-1",
+          "signature": "sBkljiE6cksvZzWz6l5o2cQLwzXJIdFe5vezVlDs8ZykiLgCx0xNorknkLDVlVTtij/NGJtlmFfT6gYLsSanCA=="
+        }
+      },
       {
         "manifest": {
           "module_id": "com.sickicarus.monitorbox.http",
@@ -685,6 +712,6 @@
   "signature": {
     "algorithm": "ed25519",
     "identity": "official-ed25519-1",
-    "value": "Cw7jAPP/MsMSu4sUbt8ezx6FeSkueIJAHsjZcY2wB5QEuX2ay+2rnIpmdT1soyL/SW/HuD4FuTxAY+y2ZDRcDw=="
+    "value": "ENKGvyhSr7V/jA5hmc3e/1Jd15sm2t0HV1l0RgfZve8jd5eqVrLTFMH+rJNo7D51VahMEC7LzPuEYM/2e+xNAQ=="
   }
 }
