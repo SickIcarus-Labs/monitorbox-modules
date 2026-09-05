@@ -3,7 +3,7 @@
   "signed": {
     "repository_id": "official",
     "display_name": "MonitorBox Official",
-    "generated_at": "2026-09-05T05:55:08.889367Z",
+    "generated_at": "2026-09-05T07:05:14.482140Z",
     "modules": [
       {
         "manifest": {
@@ -574,6 +574,33 @@
       },
       {
         "manifest": {
+          "module_id": "com.sickicarus.monitorbox.unifi",
+          "display_name": "UniFi Network Integration",
+          "version": "1.0.1",
+          "build": 2,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "integration",
+          "entrypoints": {
+            "integration": "monitorbox_unifi_b2:PLUGIN"
+          },
+          "requires_core": ">=2.3.0 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "optional"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.unifi-1.0.1-build2.zip",
+          "filename": "com.sickicarus.monitorbox.unifi-1.0.1-build2.zip",
+          "sha256": "093cbf14746e8cd24c73aa7b1c9969ab984c9711d20539776141f2fbe0656439",
+          "signature_identity": "official-ed25519-1",
+          "signature": "2UdLRPuTrFIarLENnY28cedVXaYk1cxi5bHxqWsfYW07Kgjh2lL8gvfHIFj1ciFnyQT1b+4jRhyA0JZ64W7UCQ=="
+        }
+      },
+      {
+        "manifest": {
           "module_id": "com.sickicarus.monitorbox.wol",
           "display_name": "Wake-on-LAN Action",
           "version": "1.0.0",
@@ -604,6 +631,6 @@
   "signature": {
     "algorithm": "ed25519",
     "identity": "official-ed25519-1",
-    "value": "T9eSolf7Vlnp3BAfXjzDqnIqY76bc8X2kSSKuNroa/+WaPxOHc1y2oKhRKOglOtf9Av7T6uD8LLtogcKkr2jCA=="
+    "value": "E87w8kyc5mSHeg4ZH9eTNbygyLlSnk0tdAlC9/3/ai3CzsOyuRIqBekeMqrIoBzqJnF1EosXNqq7lLpu5DPODw=="
   }
 }
