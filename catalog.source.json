@@ -325,6 +325,25 @@
         "lifecycle_policy": "optional"
       },
       "package": "com.sickicarus.monitorbox.snmp-1.0.0-build1.zip"
+    },
+    {
+      "manifest": {
+        "module_id": "com.sickicarus.monitorbox.snmp",
+        "display_name": "SNMP Integration",
+        "version": "1.0.1",
+        "build": 2,
+        "schema": 1,
+        "state_schema": 1,
+        "module_type": "integration",
+        "entrypoints": {"integration": "monitorbox_snmp_b2:PLUGIN"},
+        "requires_core": ">=2.3.0 <3.0.0",
+        "requires_runtime_api": ">=1 <2",
+        "dependencies": [],
+        "publisher_id": "com.sickicarus",
+        "permissions": [],
+        "lifecycle_policy": "optional"
+      },
+      "package": "com.sickicarus.monitorbox.snmp-1.0.1-build2.zip"
     }
   ]
 }
