@@ -12,6 +12,7 @@ on:
       - sources/unifi/**
       - sources/scrypted/**
       - sources/wol/**
+      - sources/configuration-bootstrap/**
       - tools/build_first_party_ui.py
       - tools/build_first_party_ui_current.py
       - tools/build_first_party_ui_build10.py
@@ -22,6 +23,7 @@ on:
       - tools/build_first_party_unifi.py
       - tools/build_first_party_scrypted.py
       - tools/build_first_party_wol.py
+      - tools/build_first_party_configuration_bootstrap.py
       - tools/accept_repository.py
       - tools/accept_repository_current.py
       - tools/accept_repository_build10.py
@@ -31,6 +33,7 @@ on:
       - tools/accept_repository_unifi.py
       - tools/accept_repository_scrypted.py
       - tools/accept_repository_wol.py
+      - tools/accept_repository_configuration_bootstrap.py
       - tools/accept_http_behavior.py
       - tools/accept_nut_behavior.py
       - tools/accept_snmp_behavior.py
@@ -67,6 +70,7 @@ on:
       - sources/unifi/**
       - sources/scrypted/**
       - sources/wol/**
+      - sources/configuration-bootstrap/**
       - tools/build_first_party_ui.py
       - tools/build_first_party_ui_current.py
       - tools/build_first_party_ui_build10.py
@@ -77,6 +81,7 @@ on:
       - tools/build_first_party_unifi.py
       - tools/build_first_party_scrypted.py
       - tools/build_first_party_wol.py
+      - tools/build_first_party_configuration_bootstrap.py
       - tools/accept_repository.py
       - tools/accept_repository_current.py
       - tools/accept_repository_build10.py
@@ -86,6 +91,7 @@ on:
       - tools/accept_repository_unifi.py
       - tools/accept_repository_scrypted.py
       - tools/accept_repository_wol.py
+      - tools/accept_repository_configuration_bootstrap.py
       - tools/accept_http_behavior.py
       - tools/accept_nut_behavior.py
       - tools/accept_snmp_behavior.py
@@ -135,7 +141,8 @@ jobs:
           python tools/build_first_party_unifi.py
           python tools/build_first_party_scrypted.py
           python tools/build_first_party_wol.py
-          sha256sum packages/com.sickicarus.monitorbox.ui-*.zip packages/com.sickicarus.monitorbox.portainer-*.zip packages/com.sickicarus.monitorbox.http-*.zip packages/com.sickicarus.monitorbox.nut-*.zip packages/com.sickicarus.monitorbox.snmp-*.zip packages/com.sickicarus.monitorbox.unifi-*.zip packages/com.sickicarus.monitorbox.scrypted-*.zip packages/com.sickicarus.monitorbox.wol-*.zip > /tmp/first-party-packages.first
+          python tools/build_first_party_configuration_bootstrap.py
+          sha256sum packages/com.sickicarus.monitorbox.ui-*.zip packages/com.sickicarus.monitorbox.portainer-*.zip packages/com.sickicarus.monitorbox.http-*.zip packages/com.sickicarus.monitorbox.nut-*.zip packages/com.sickicarus.monitorbox.snmp-*.zip packages/com.sickicarus.monitorbox.unifi-*.zip packages/com.sickicarus.monitorbox.scrypted-*.zip packages/com.sickicarus.monitorbox.wol-*.zip packages/com.sickicarus.monitorbox.configuration-bootstrap-*.zip > /tmp/first-party-packages.first
           python tools/build_first_party_ui_build10.py
           python tools/build_first_party_portainer.py
           python tools/build_first_party_http.py
@@ -144,7 +151,8 @@ jobs:
           python tools/build_first_party_unifi.py
           python tools/build_first_party_scrypted.py
           python tools/build_first_party_wol.py
-          sha256sum packages/com.sickicarus.monitorbox.ui-*.zip packages/com.sickicarus.monitorbox.portainer-*.zip packages/com.sickicarus.monitorbox.http-*.zip packages/com.sickicarus.monitorbox.nut-*.zip packages/com.sickicarus.monitorbox.snmp-*.zip packages/com.sickicarus.monitorbox.unifi-*.zip packages/com.sickicarus.monitorbox.scrypted-*.zip packages/com.sickicarus.monitorbox.wol-*.zip > /tmp/first-party-packages.second
+          python tools/build_first_party_configuration_bootstrap.py
+          sha256sum packages/com.sickicarus.monitorbox.ui-*.zip packages/com.sickicarus.monitorbox.portainer-*.zip packages/com.sickicarus.monitorbox.http-*.zip packages/com.sickicarus.monitorbox.nut-*.zip packages/com.sickicarus.monitorbox.snmp-*.zip packages/com.sickicarus.monitorbox.unifi-*.zip packages/com.sickicarus.monitorbox.scrypted-*.zip packages/com.sickicarus.monitorbox.wol-*.zip packages/com.sickicarus.monitorbox.configuration-bootstrap-*.zip > /tmp/first-party-packages.second
           diff -u /tmp/first-party-packages.first /tmp/first-party-packages.second
       - name: Verify managed HTTP behavior
         run: python tools/accept_http_behavior.py
@@ -195,4 +203,4 @@ jobs:
             /tmp/ui-discovery-coverage.png
           if-no-files-found: error
       - name: Verify package shape, activation regression, and signed repository contract
-        run: python tools/accept_repository_wol.py
+        run: python tools/accept_repository_configuration_bootstrap.py
