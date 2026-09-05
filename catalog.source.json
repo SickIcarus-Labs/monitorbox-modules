@@ -12,9 +12,7 @@
         "schema": 1,
         "state_schema": 1,
         "module_type": "ui",
-        "entrypoints": {
-          "webui": "monitorbox_ui_b2:install"
-        },
+        "entrypoints": {"webui": "monitorbox_ui_b2:install"},
         "requires_core": ">=2.2.2 <3.0.0",
         "requires_runtime_api": ">=1 <2",
         "dependencies": [],
@@ -33,9 +31,7 @@
         "schema": 1,
         "state_schema": 1,
         "module_type": "ui",
-        "entrypoints": {
-          "webui": "monitorbox_ui_b3:install"
-        },
+        "entrypoints": {"webui": "monitorbox_ui_b3:install"},
         "requires_core": ">=2.2.2 <3.0.0",
         "requires_runtime_api": ">=1 <2",
         "dependencies": [],
@@ -54,9 +50,7 @@
         "schema": 1,
         "state_schema": 1,
         "module_type": "ui",
-        "entrypoints": {
-          "webui": "monitorbox_ui_b4:install"
-        },
+        "entrypoints": {"webui": "monitorbox_ui_b4:install"},
         "requires_core": ">=2.2.2 <3.0.0",
         "requires_runtime_api": ">=1 <2",
         "dependencies": [],
@@ -75,9 +69,7 @@
         "schema": 1,
         "state_schema": 1,
         "module_type": "ui",
-        "entrypoints": {
-          "webui": "monitorbox_ui_b5:install"
-        },
+        "entrypoints": {"webui": "monitorbox_ui_b5:install"},
         "requires_core": ">=2.2.2 <3.0.0",
         "requires_runtime_api": ">=1 <2",
         "dependencies": [],
@@ -96,9 +88,7 @@
         "schema": 1,
         "state_schema": 1,
         "module_type": "ui",
-        "entrypoints": {
-          "webui": "monitorbox_ui_b6:install"
-        },
+        "entrypoints": {"webui": "monitorbox_ui_b6:install"},
         "requires_core": ">=2.2.2 <3.0.0",
         "requires_runtime_api": ">=1 <2",
         "dependencies": [],
@@ -117,9 +107,7 @@
         "schema": 1,
         "state_schema": 1,
         "module_type": "ui",
-        "entrypoints": {
-          "webui": "monitorbox_ui_b7:install"
-        },
+        "entrypoints": {"webui": "monitorbox_ui_b7:install"},
         "requires_core": ">=2.2.2 <3.0.0",
         "requires_runtime_api": ">=1 <2",
         "dependencies": [],
@@ -138,9 +126,7 @@
         "schema": 1,
         "state_schema": 1,
         "module_type": "ui",
-        "entrypoints": {
-          "webui": "monitorbox_ui_b8:install"
-        },
+        "entrypoints": {"webui": "monitorbox_ui_b8:install"},
         "requires_core": ">=2.2.2 <3.0.0",
         "requires_runtime_api": ">=1 <2",
         "dependencies": [],
@@ -159,9 +145,7 @@
         "schema": 1,
         "state_schema": 1,
         "module_type": "ui",
-        "entrypoints": {
-          "webui": "monitorbox_ui_b9:install"
-        },
+        "entrypoints": {"webui": "monitorbox_ui_b9:install"},
         "requires_core": ">=2.2.2 <3.0.0",
         "requires_runtime_api": ">=1 <2",
         "dependencies": [],
@@ -180,9 +164,7 @@
         "schema": 1,
         "state_schema": 1,
         "module_type": "ui",
-        "entrypoints": {
-          "webui": "monitorbox_ui_b10:install"
-        },
+        "entrypoints": {"webui": "monitorbox_ui_b10:install"},
         "requires_core": ">=2.2.2 <3.0.0",
         "requires_runtime_api": ">=1 <2",
         "dependencies": [],
@@ -201,9 +183,7 @@
         "schema": 1,
         "state_schema": 1,
         "module_type": "integration",
-        "entrypoints": {
-          "integration": "monitorbox_portainer_b2:PLUGIN"
-        },
+        "entrypoints": {"integration": "monitorbox_portainer_b2:PLUGIN"},
         "requires_core": ">=2.3.0 <3.0.0",
         "requires_runtime_api": ">=1 <2",
         "dependencies": [],
@@ -222,9 +202,7 @@
         "schema": 1,
         "state_schema": 1,
         "module_type": "integration",
-        "entrypoints": {
-          "integration": "monitorbox_portainer_b3:PLUGIN"
-        },
+        "entrypoints": {"integration": "monitorbox_portainer_b3:PLUGIN"},
         "requires_core": ">=2.3.0 <3.0.0",
         "requires_runtime_api": ">=1 <2",
         "dependencies": [],
@@ -243,9 +221,7 @@
         "schema": 1,
         "state_schema": 1,
         "module_type": "integration",
-        "entrypoints": {
-          "integration": "monitorbox_portainer_b4:PLUGIN"
-        },
+        "entrypoints": {"integration": "monitorbox_portainer_b4:PLUGIN"},
         "requires_core": ">=2.3.0 <3.0.0",
         "requires_runtime_api": ">=1 <2",
         "dependencies": [],
@@ -264,9 +240,7 @@
         "schema": 1,
         "state_schema": 1,
         "module_type": "integration",
-        "entrypoints": {
-          "integration": "monitorbox_portainer_b5:PLUGIN"
-        },
+        "entrypoints": {"integration": "monitorbox_portainer_b5:PLUGIN"},
         "requires_core": ">=2.3.0 <3.0.0",
         "requires_runtime_api": ">=1 <2",
         "dependencies": [],
@@ -285,9 +259,7 @@
         "schema": 1,
         "state_schema": 1,
         "module_type": "integration",
-        "entrypoints": {
-          "integration": "monitorbox_portainer_b6:PLUGIN"
-        },
+        "entrypoints": {"integration": "monitorbox_portainer_b6:PLUGIN"},
         "requires_core": ">=2.3.0 <3.0.0",
         "requires_runtime_api": ">=1 <2",
         "dependencies": [],
@@ -306,9 +278,7 @@
         "schema": 1,
         "state_schema": 1,
         "module_type": "integration",
-        "entrypoints": {
-          "integration": "monitorbox_http_b1:PLUGIN"
-        },
+        "entrypoints": {"integration": "monitorbox_http_b1:PLUGIN"},
         "requires_core": ">=2.3.0 <3.0.0",
         "requires_runtime_api": ">=1 <2",
         "dependencies": [],
@@ -327,9 +297,7 @@
         "schema": 1,
         "state_schema": 1,
         "module_type": "integration",
-        "entrypoints": {
-          "integration": "monitorbox_nut_b1:PLUGIN"
-        },
+        "entrypoints": {"integration": "monitorbox_nut_b1:PLUGIN"},
         "requires_core": ">=2.3.0 <3.0.0",
         "requires_runtime_api": ">=1 <2",
         "dependencies": [],
@@ -348,9 +316,7 @@
         "schema": 1,
         "state_schema": 1,
         "module_type": "integration",
-        "entrypoints": {
-          "integration": "monitorbox_snmp_b1:PLUGIN"
-        },
+        "entrypoints": {"integration": "monitorbox_snmp_b1:PLUGIN"},
         "requires_core": ">=2.3.0 <3.0.0",
         "requires_runtime_api": ">=1 <2",
         "dependencies": [],
@@ -369,9 +335,7 @@
         "schema": 1,
         "state_schema": 1,
         "module_type": "integration",
-        "entrypoints": {
-          "integration": "monitorbox_snmp_b2:PLUGIN"
-        },
+        "entrypoints": {"integration": "monitorbox_snmp_b2:PLUGIN"},
         "requires_core": ">=2.3.0 <3.0.0",
         "requires_runtime_api": ">=1 <2",
         "dependencies": [],
@@ -390,9 +354,7 @@
         "schema": 1,
         "state_schema": 1,
         "module_type": "integration",
-        "entrypoints": {
-          "integration": "monitorbox_snmp_b3:PLUGIN"
-        },
+        "entrypoints": {"integration": "monitorbox_snmp_b3:PLUGIN"},
         "requires_core": ">=2.3.0 <3.0.0",
         "requires_runtime_api": ">=1 <2",
         "dependencies": [],
@@ -411,9 +373,7 @@
         "schema": 1,
         "state_schema": 1,
         "module_type": "integration",
-        "entrypoints": {
-          "integration": "monitorbox_unifi_b1:PLUGIN"
-        },
+        "entrypoints": {"integration": "monitorbox_unifi_b1:PLUGIN"},
         "requires_core": ">=2.3.0 <3.0.0",
         "requires_runtime_api": ">=1 <2",
         "dependencies": [],
@@ -432,9 +392,7 @@
         "schema": 1,
         "state_schema": 1,
         "module_type": "integration",
-        "entrypoints": {
-          "integration": "monitorbox_unifi_b2:PLUGIN"
-        },
+        "entrypoints": {"integration": "monitorbox_unifi_b2:PLUGIN"},
         "requires_core": ">=2.3.0 <3.0.0",
         "requires_runtime_api": ">=1 <2",
         "dependencies": [],
@@ -453,9 +411,7 @@
         "schema": 1,
         "state_schema": 1,
         "module_type": "integration",
-        "entrypoints": {
-          "integration": "monitorbox_unifi_b3:PLUGIN"
-        },
+        "entrypoints": {"integration": "monitorbox_unifi_b3:PLUGIN"},
         "requires_core": ">=2.3.0 <3.0.0",
         "requires_runtime_api": ">=1 <2",
         "dependencies": [],
@@ -474,9 +430,7 @@
         "schema": 1,
         "state_schema": 1,
         "module_type": "integration",
-        "entrypoints": {
-          "integration": "monitorbox_scrypted_b1:PLUGIN"
-        },
+        "entrypoints": {"integration": "monitorbox_scrypted_b1:PLUGIN"},
         "requires_core": ">=2.3.0 <3.0.0",
         "requires_runtime_api": ">=1 <2",
         "dependencies": [],
@@ -495,9 +449,7 @@
         "schema": 1,
         "state_schema": 1,
         "module_type": "integration",
-        "entrypoints": {
-          "integration": "monitorbox_wol_b1:PLUGIN"
-        },
+        "entrypoints": {"integration": "monitorbox_wol_b1:PLUGIN"},
         "requires_core": ">=2.3.0 <3.0.0",
         "requires_runtime_api": ">=1 <2",
         "dependencies": [],
