@@ -163,4 +163,4 @@ jobs:
             /tmp/ui-discovery-coverage.png
           if-no-files-found: error
       - name: Verify package shape, activation regression, and signed repository contract
-        run: python tools/accept_repository_snmp.py
+        run: python tools/accept_repository_unifi.py
