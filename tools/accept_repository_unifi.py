@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Extend first-party repository acceptance through UniFi Network v1.0.1 build 2."""
+"""Extend first-party repository acceptance through UniFi Network v1.0.2 build 3."""
 
 from __future__ import annotations
 
@@ -13,10 +13,12 @@ import accept_repository_snmp as previous
 UNIFI_ID = "com.sickicarus.monitorbox.unifi"
 UNIFI_BUILD1 = (UNIFI_ID, "1.0.0", 1)
 UNIFI_BUILD2 = (UNIFI_ID, "1.0.1", 2)
-UNIFI_RELEASES = {UNIFI_BUILD1, UNIFI_BUILD2}
+UNIFI_BUILD3 = (UNIFI_ID, "1.0.2", 3)
+UNIFI_RELEASES = {UNIFI_BUILD1, UNIFI_BUILD2, UNIFI_BUILD3}
 CURRENT_RELEASES = set(previous.CURRENT_RELEASES) | UNIFI_RELEASES
 IMPORT_BUILD1 = "monitorbox_unifi_b1"
 IMPORT_BUILD2 = "monitorbox_unifi_b2"
+IMPORT_BUILD3 = "monitorbox_unifi_b3"
 
 
 def _release(source: dict, identity: tuple[str, str, int]) -> dict:
@@ -179,6 +181,26 @@ def _package_shape(root: Path, source: dict) -> None:
     if missing_recovery:
         raise AssertionError(
             f"UniFi 1.0.1 build 2 omitted auth-recovery truth markers: {missing_recovery}"
+        )
+
+    build3 = _package_texts(root, source, UNIFI_BUILD3, IMPORT_BUILD3)
+    _assert_common_contract(build3, version="1.0.2", build=3, import_package=IMPORT_BUILD3)
+    backoff_text = build3[f"{IMPORT_BUILD3}/discovery_runtime.py"]
+    backoff_required = (
+        "_AUTH_DENIAL_INITIAL_BACKOFF_SECONDS = 30.0",
+        "_RATE_LIMIT_INITIAL_BACKOFF_SECONDS = 60.0",
+        "_MAX_AUTH_BACKOFF_SECONDS = 300.0",
+        "_auth_cooldown",
+        "Retry-After",
+        "response.status == 429",
+        "UniFi authentication cooldown active",
+        '"failure_kind": "monitor_dependency"',
+        'state="unknown"',
+    )
+    missing_backoff = [marker for marker in backoff_required if marker not in backoff_text]
+    if missing_backoff:
+        raise AssertionError(
+            f"UniFi 1.0.2 build 3 omitted auth-backoff markers: {missing_backoff}"
         )
 
     prior = copy.deepcopy(source)
