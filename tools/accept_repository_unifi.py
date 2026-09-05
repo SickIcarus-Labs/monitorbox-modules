@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Extend first-party repository acceptance through UniFi Network v1.0.0 build 1."""
+"""Extend first-party repository acceptance through UniFi Network v1.0.1 build 2."""
 
 from __future__ import annotations
 
@@ -11,42 +11,38 @@ import accept_repository as stable
 import accept_repository_snmp as previous
 
 UNIFI_ID = "com.sickicarus.monitorbox.unifi"
-UNIFI_RELEASE = (UNIFI_ID, "1.0.0", 1)
-CURRENT_RELEASES = set(previous.CURRENT_RELEASES) | {UNIFI_RELEASE}
-IMPORT_PACKAGE = "monitorbox_unifi_b1"
+UNIFI_BUILD1 = (UNIFI_ID, "1.0.0", 1)
+UNIFI_BUILD2 = (UNIFI_ID, "1.0.1", 2)
+UNIFI_RELEASES = {UNIFI_BUILD1, UNIFI_BUILD2}
+CURRENT_RELEASES = set(previous.CURRENT_RELEASES) | UNIFI_RELEASES
+IMPORT_BUILD1 = "monitorbox_unifi_b1"
+IMPORT_BUILD2 = "monitorbox_unifi_b2"
 
 
-def _release(source: dict) -> dict:
+def _release(source: dict, identity: tuple[str, str, int]) -> dict:
     item = next(
         (
             candidate
             for candidate in source.get("modules", [])
-            if stable._release_identity(candidate) == UNIFI_RELEASE
+            if stable._release_identity(candidate) == identity
         ),
         None,
     )
     if item is None:
-        raise AssertionError("current UniFi Network release is missing from catalog.source.json")
+        raise AssertionError(f"UniFi Network release is missing: {identity!r}")
     return item
 
 
-def _package_shape(root: Path, source: dict) -> None:
-    identities = {stable._release_identity(item) for item in source.get("modules", [])}
-    if identities != CURRENT_RELEASES or len(source.get("modules", [])) != len(CURRENT_RELEASES):
-        raise AssertionError(
-            f"expected current repository releases {sorted(CURRENT_RELEASES)}, got {sorted(identities)}"
-        )
-
-    release = _release(source)
-    expected_manifest = {
+def _expected_manifest(version: str, build: int, import_package: str) -> dict:
+    return {
         "module_id": UNIFI_ID,
         "display_name": "UniFi Network Integration",
-        "version": "1.0.0",
-        "build": 1,
+        "version": version,
+        "build": build,
         "schema": 1,
         "state_schema": 1,
         "module_type": "integration",
-        "entrypoints": {"integration": f"{IMPORT_PACKAGE}:PLUGIN"},
+        "entrypoints": {"integration": f"{import_package}:PLUGIN"},
         "requires_core": ">=2.3.0 <3.0.0",
         "requires_runtime_api": ">=1 <2",
         "dependencies": [],
@@ -54,46 +50,67 @@ def _package_shape(root: Path, source: dict) -> None:
         "permissions": [],
         "lifecycle_policy": "optional",
     }
-    if release.get("manifest") != expected_manifest:
-        raise AssertionError(f"UniFi Network manifest changed: {release.get('manifest')!r}")
 
+
+def _package_texts(
+    root: Path,
+    source: dict,
+    identity: tuple[str, str, int],
+    import_package: str,
+) -> dict[str, str]:
+    release = _release(source, identity)
+    version, build = identity[1], identity[2]
+    expected_manifest = _expected_manifest(version, build, import_package)
+    if release.get("manifest") != expected_manifest:
+        raise AssertionError(
+            f"UniFi Network {version} build {build} manifest changed: {release.get('manifest')!r}"
+        )
+
+    expected_filename = f"{UNIFI_ID}-{version}-build{build}.zip"
     package_path = root / "packages" / release["package"]
-    expected_filename = "com.sickicarus.monitorbox.unifi-1.0.0-build1.zip"
     if package_path.name != expected_filename or not package_path.is_file():
-        raise AssertionError("UniFi Network package is missing or misnamed")
+        raise AssertionError(
+            f"UniFi Network {version} build {build} package is missing or misnamed"
+        )
 
     expected_files = {
-        f"{IMPORT_PACKAGE}/__init__.py",
-        f"{IMPORT_PACKAGE}/adoption.py",
-        f"{IMPORT_PACKAGE}/discovery.py",
-        f"{IMPORT_PACKAGE}/discovery_runtime.py",
-        f"{IMPORT_PACKAGE}/onboarding.py",
-        f"{IMPORT_PACKAGE}/runtime.py",
-        f"{IMPORT_PACKAGE}/vertical_runtime.py",
+        f"{import_package}/__init__.py",
+        f"{import_package}/adoption.py",
+        f"{import_package}/discovery.py",
+        f"{import_package}/discovery_runtime.py",
+        f"{import_package}/onboarding.py",
+        f"{import_package}/runtime.py",
+        f"{import_package}/vertical_runtime.py",
     }
     with zipfile.ZipFile(package_path) as archive:
         names = set(archive.namelist())
         if names != expected_files:
             raise AssertionError(
-                "UniFi Network package shape changed: "
+                f"UniFi Network {version} build {build} package shape changed: "
                 f"missing={sorted(expected_files - names)}, extra={sorted(names - expected_files)}"
             )
         if any(name.startswith("monitorbox/") for name in names):
             raise AssertionError("managed UniFi package may not shadow Core's monitorbox namespace")
-        stable._assert_python_syntax(archive, names, f"{IMPORT_PACKAGE}/")
-        texts = {
-            name: archive.read(name).decode("utf-8")
-            for name in expected_files
-        }
+        stable._assert_python_syntax(archive, names, f"{import_package}/")
+        return {name: archive.read(name).decode("utf-8") for name in expected_files}
 
-    root_text = texts[f"{IMPORT_PACKAGE}/__init__.py"]
-    runtime_text = texts[f"{IMPORT_PACKAGE}/runtime.py"]
-    vertical_text = texts[f"{IMPORT_PACKAGE}/vertical_runtime.py"]
+
+def _assert_common_contract(
+    texts: dict[str, str],
+    *,
+    version: str,
+    build: int,
+    import_package: str,
+) -> None:
+    root_text = texts[f"{import_package}/__init__.py"]
+    runtime_text = texts[f"{import_package}/runtime.py"]
+    vertical_text = texts[f"{import_package}/vertical_runtime.py"]
+
     required = (
         'metadata=PluginMetadata(plugin_id="unifi", display_name="UniFi Network")',
         'runtime_adapter_kinds=("unifi",)',
         "candidate_adoption=_UNIFI_ADOPTION",
-        f'entrypoints={{"integration": "{IMPORT_PACKAGE}:PLUGIN"}}',
+        f'entrypoints={{"integration": "{import_package}:PLUGIN"}}',
         'requires_core=">=2.3.0 <3.0.0"',
     )
     missing = [marker for marker in required if marker not in root_text]
@@ -102,11 +119,11 @@ def _package_shape(root: Path, source: dict) -> None:
 
     runtime_required = (
         'MODULE_ID = "com.sickicarus.monitorbox.unifi"',
-        'MODULE_VERSION = "1.0.0"',
-        "MODULE_BUILD = 1",
+        f'MODULE_VERSION = "{version}"',
+        f"MODULE_BUILD = {build}",
         '_STATE_FILE = "link-expectations.json"',
         '"failure_kind": "unsupported_runtime_operation"',
-        f'entrypoints={{"integration": "{IMPORT_PACKAGE}:PLUGIN"}}',
+        f'entrypoints={{"integration": "{import_package}:PLUGIN"}}',
     )
     missing_runtime = [marker for marker in runtime_required if marker not in runtime_text]
     if missing_runtime:
@@ -137,11 +154,38 @@ def _package_shape(root: Path, source: dict) -> None:
     if present:
         raise AssertionError(f"UniFi managed namespace rewrite is incomplete: {present}")
 
+
+def _package_shape(root: Path, source: dict) -> None:
+    identities = {stable._release_identity(item) for item in source.get("modules", [])}
+    if identities != CURRENT_RELEASES or len(source.get("modules", [])) != len(CURRENT_RELEASES):
+        raise AssertionError(
+            f"expected current repository releases {sorted(CURRENT_RELEASES)}, got {sorted(identities)}"
+        )
+
+    build1 = _package_texts(root, source, UNIFI_BUILD1, IMPORT_BUILD1)
+    _assert_common_contract(build1, version="1.0.0", build=1, import_package=IMPORT_BUILD1)
+
+    build2 = _package_texts(root, source, UNIFI_BUILD2, IMPORT_BUILD2)
+    _assert_common_contract(build2, version="1.0.1", build=2, import_package=IMPORT_BUILD2)
+    recovery_text = build2[f"{IMPORT_BUILD2}/discovery_runtime.py"]
+    recovery_required = (
+        "_AUTH_DENIAL_HTTP_STATUSES = {401, 403}",
+        "self._invalidate_auth(options",
+        '"failure_kind": "monitor_dependency"',
+        '"authoritative": False',
+        'state="unknown"',
+    )
+    missing_recovery = [marker for marker in recovery_required if marker not in recovery_text]
+    if missing_recovery:
+        raise AssertionError(
+            f"UniFi 1.0.1 build 2 omitted auth-recovery truth markers: {missing_recovery}"
+        )
+
     prior = copy.deepcopy(source)
     prior["modules"] = [
         item
         for item in prior.get("modules", [])
-        if stable._release_identity(item) != UNIFI_RELEASE
+        if stable._release_identity(item) not in UNIFI_RELEASES
     ]
     previous._package_shape(root, prior)
 
