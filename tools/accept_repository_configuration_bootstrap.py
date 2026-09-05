@@ -84,20 +84,20 @@ def _package_shape(root: Path, source: dict) -> None:
         text = archive.read(SOURCE_NAME).decode("utf-8")
 
     required = (
+        "from monitorbox.v2.modules.configuration_bootstrap import (",
+        "from monitorbox.v2.modules.configuration_bootstrap import application as factory",
+        '"com.sickicarus.monitorbox.configuration-bootstrap"',
+        '"1.0.0"',
+        "FACTORY_BUILD",
+        "if (FACTORY_ID, FACTORY_VERSION, FACTORY_BUILD) != _EXPECTED_FACTORY:",
         "def install(",
-        "SetupDraftUi(platform).install(app)",
-        "SetupAwareConfigUi(platform, controller).install(app)",
-        "QuickAddUi(",
+        "factory.install(",
         "plugin_registry=plugin_registry",
-        "SetupAwareApplianceCredentialsUi(platform).install(app)",
-        "AbilityDiscoveryUi(platform, controller).install(app)",
-        "GuidedSetupUi(platform).install(app)",
-        "PolicyUi(platform).install(app)",
     )
     missing = [marker for marker in required if marker not in text]
     if missing:
         raise AssertionError(
-            f"Configuration/Bootstrap managed package omitted contract markers: {missing}"
+            f"Configuration/Bootstrap managed package omitted seed contract markers: {missing}"
         )
 
     forbidden = (
@@ -109,11 +109,17 @@ def _package_shape(root: Path, source: dict) -> None:
         "UniFi",
         "SNMP",
         "NUT",
+        "SetupDraftUi",
+        "SetupAwareConfigUi",
+        "QuickAddUi",
+        "AbilityDiscoveryUi",
+        "GuidedSetupUi",
+        "PolicyUi",
     )
     present = [marker for marker in forbidden if marker in text]
     if present:
         raise AssertionError(
-            "Configuration/Bootstrap package contains provider-specific policy: "
+            "managed Configuration/Bootstrap build bypasses its certified factory boundary: "
             f"{present}"
         )
 
