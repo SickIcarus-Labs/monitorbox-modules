@@ -36,6 +36,7 @@ on:
       - tools/accept_snmp_behavior.py
       - tools/accept_snmp_runtime.py
       - tools/accept_unifi_runtime.py
+      - tools/accept_unifi_auth_recovery.py
       - tools/accept_scrypted_runtime.py
       - tools/accept_wol_behavior.py
       - tools/accept_portainer_runtime.py
@@ -89,6 +90,7 @@ on:
       - tools/accept_snmp_behavior.py
       - tools/accept_snmp_runtime.py
       - tools/accept_unifi_runtime.py
+      - tools/accept_unifi_auth_recovery.py
       - tools/accept_scrypted_runtime.py
       - tools/accept_wol_behavior.py
       - tools/accept_portainer_runtime.py
@@ -152,6 +154,8 @@ jobs:
         run: python tools/accept_snmp_runtime.py
       - name: Verify managed UniFi Network runtime and state continuity
         run: python tools/accept_unifi_runtime.py
+      - name: Verify managed UniFi Network auth-loss recovery
+        run: python tools/accept_unifi_auth_recovery.py
       - name: Verify managed Scrypted connection, camera runtime, and provider-loss recovery
         run: python tools/accept_scrypted_runtime.py
       - name: Verify managed Wake-on-LAN action execution without network traffic
