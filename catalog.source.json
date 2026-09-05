@@ -477,6 +477,25 @@
         "lifecycle_policy": "optional"
       },
       "package": "com.sickicarus.monitorbox.wol-1.0.0-build1.zip"
+    },
+    {
+      "manifest": {
+        "module_id": "com.sickicarus.monitorbox.configuration-bootstrap",
+        "display_name": "Configuration / Bootstrap",
+        "version": "1.0.0",
+        "build": 1,
+        "schema": 1,
+        "state_schema": 1,
+        "module_type": "configuration",
+        "entrypoints": {"configuration": "monitorbox_configuration_bootstrap_b1:install"},
+        "requires_core": ">=2.3.0 <3.0.0",
+        "requires_runtime_api": ">=1 <2",
+        "dependencies": [],
+        "publisher_id": "com.sickicarus",
+        "permissions": [],
+        "lifecycle_policy": "required"
+      },
+      "package": "com.sickicarus.monitorbox.configuration-bootstrap-1.0.0-build1.zip"
     }
   ]
 }
