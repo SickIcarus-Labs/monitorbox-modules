@@ -9,6 +9,7 @@ on:
       - tools/accept_scrypted_runtime.py
       - tools/accept_scrypted_media.py
       - tools/accept_repository_scrypted.py
+      - tools/accept_scrypted_media_repository.py
       - .github/workflows/scrypted-media-acceptance.yml
   push:
     branches:
@@ -19,6 +20,7 @@ on:
       - tools/build_first_party_scrypted.py
       - tools/accept_scrypted_media.py
       - tools/accept_repository_scrypted.py
+      - tools/accept_scrypted_media_repository.py
       - .github/workflows/scrypted-media-acceptance.yml
 
 permissions:
@@ -45,5 +47,5 @@ jobs:
         run: python tools/accept_scrypted_runtime.py
       - name: Verify Scrypted 2.1 managed snapshot/live media
         run: python tools/accept_scrypted_media.py
-      - name: Verify Scrypted repository history and 2.1 package shape
-        run: python tools/accept_repository_scrypted.py
+      - name: Verify current Scrypted catalog and 2.1 package shape
+        run: python tools/accept_scrypted_media_repository.py
