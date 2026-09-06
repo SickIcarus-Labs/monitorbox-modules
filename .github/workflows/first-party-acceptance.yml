@@ -210,5 +210,6 @@ jobs:
             /tmp/ui-discovery-presentation.png
             /tmp/ui-discovery-coverage.png
           if-no-files-found: error
+          retention-days: 2
       - name: Verify package shape, activation regression, and signed repository contract
         run: python tools/accept_repository_backup_restore.py
