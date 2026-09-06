@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Validate Scrypted releases against the current complete first-party catalog."""
+"""Extend first-party repository acceptance through Scrypted v2.1.0 build 1."""
 
 from __future__ import annotations
 
+import copy
 import zipfile
 from pathlib import Path
 
@@ -13,18 +14,7 @@ SCRYPTED_ID = "com.sickicarus.monitorbox.scrypted"
 SCRYPTED_V1 = (SCRYPTED_ID, "1.0.0", 1)
 SCRYPTED_V2 = (SCRYPTED_ID, "2.0.0", 1)
 SCRYPTED_V21 = (SCRYPTED_ID, "2.1.0", 1)
-DOWNSTREAM_RELEASES = {
-    ("com.sickicarus.monitorbox.wol", "1.0.0", 1),
-    ("com.sickicarus.monitorbox.configuration-bootstrap", "1.0.0", 1),
-    ("com.sickicarus.monitorbox.backup-restore", "1.0.0", 1),
-    ("com.sickicarus.monitorbox.backup-restore", "1.0.1", 2),
-    ("com.sickicarus.monitorbox.backup-restore", "1.0.2", 3),
-}
-CURRENT_RELEASES = (
-    set(previous.CURRENT_RELEASES)
-    | {SCRYPTED_V1, SCRYPTED_V2, SCRYPTED_V21}
-    | DOWNSTREAM_RELEASES
-)
+CURRENT_RELEASES = set(previous.CURRENT_RELEASES) | {SCRYPTED_V1, SCRYPTED_V2, SCRYPTED_V21}
 IMPORT_V1 = "monitorbox_scrypted_b1"
 IMPORT_V2 = "monitorbox_scrypted_v2_b1"
 IMPORT_V21 = "monitorbox_scrypted_v21_b1"
@@ -131,10 +121,7 @@ def _validate_worker_release(
         f'requires_core="{requires_core}"',
     ]
     if media:
-        required_root.extend([
-            "ScryptedMediaExecutor",
-            "media_executor=_SCRYPTED_MEDIA",
-        ])
+        required_root.extend(["ScryptedMediaExecutor", "media_executor=_SCRYPTED_MEDIA"])
     missing_root = [marker for marker in required_root if marker not in root_text]
     if missing_root:
         raise AssertionError(f"Scrypted {version} root omitted markers: {missing_root}")
@@ -181,11 +168,19 @@ def _package_shape(root: Path, source: dict) -> None:
     identities = {stable._release_identity(item) for item in source.get("modules", [])}
     if identities != CURRENT_RELEASES or len(source.get("modules", [])) != len(CURRENT_RELEASES):
         raise AssertionError(
-            f"expected current repository releases {sorted(CURRENT_RELEASES)}, got {sorted(identities)}"
+            f"expected Scrypted catalog prefix {sorted(CURRENT_RELEASES)}, got {sorted(identities)}"
         )
     _validate_v1(root, source)
     _validate_worker_release(root, source, SCRYPTED_V2, IMPORT_V2, media=False)
     _validate_worker_release(root, source, SCRYPTED_V21, IMPORT_V21, media=True)
+
+    prior = copy.deepcopy(source)
+    prior["modules"] = [
+        item
+        for item in prior.get("modules", [])
+        if stable._release_identity(item) not in {SCRYPTED_V1, SCRYPTED_V2, SCRYPTED_V21}
+    ]
+    previous._package_shape(root, prior)
 
 
 def main() -> None:
