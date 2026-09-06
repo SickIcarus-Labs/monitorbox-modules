@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Behavioral/runtime acceptance for managed Scrypted v1.0.0 build 1."""
+"""Behavioral/runtime acceptance for managed Scrypted v2.0.0 build 1."""
 
 from __future__ import annotations
 
 import asyncio
 import importlib
 import json
+import os
+import stat
 import sys
 import tempfile
 from dataclasses import dataclass, field
@@ -13,12 +15,12 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Mapping
 
-from aiohttp import web
-
 from accept_http_behavior import install_core_contract_stubs
 
-PACKAGE_NAME = "com.sickicarus.monitorbox.scrypted-1.0.0-build1.zip"
-IMPORT_PACKAGE = "monitorbox_scrypted_b1"
+PACKAGE_NAME = "com.sickicarus.monitorbox.scrypted-2.0.0-build1.zip"
+IMPORT_PACKAGE = "monitorbox_scrypted_v2_b1"
+_USERNAME_ENV = "MONITORBOX_SCRYPTED_ACCEPT_USERNAME"
+_PASSWORD_ENV = "MONITORBOX_SCRYPTED_ACCEPT_PASSWORD"
 
 
 def _install_scrypted_contracts(plugin_api) -> None:
@@ -102,74 +104,94 @@ def _execution_context(plugin_api, managed, temp: Path):
     )
 
 
-def _request(plugin_api, socket: Path, *, operation: str, camera_id: str = ""):
+def _request(
+    plugin_api,
+    socket: Path,
+    *,
+    operation: str,
+    camera_id: str = "",
+    with_control: bool = False,
+):
     options: dict[str, Any] = {"socket": str(socket), "operation": operation}
     if camera_id:
         options["camera_id"] = camera_id
     if operation == "inventory":
         options["expected_camera_ids"] = ["front-door", "driveway"]
+    if with_control:
+        options.update(
+            {
+                "base_url": "https://scrypted.example.test:10443",
+                "username_env": _USERNAME_ENV,
+                "password_env": _PASSWORD_ENV,
+                "excluded_camera_names": ["Ignored Camera"],
+            }
+        )
     return plugin_api.RuntimeExecutionRequest(
         check_id=f"scrypted_{operation}",
         object_id=camera_id or "scrypted",
         adapter="scrypted",
-        timeout_seconds=2.0,
+        timeout_seconds=8.0,
         options=options,
     )
 
 
-async def _serve(socket: Path):
-    async def inventory(request):
-        del request
-        return web.json_response(
-            {
-                "serverVersion": "acceptance-1",
-                "cameras": [
-                    {
-                        "id": "front-door",
-                        "name": "Front Door",
-                        "type": "doorbell",
-                        "online": True,
-                        "interfaces": ["Camera", "VideoCamera"],
-                    },
-                    {
-                        "id": "driveway",
-                        "name": "Driveway",
-                        "type": "camera",
-                        "online": True,
-                        "interfaces": ["Camera", "VideoCamera"],
-                    },
-                    {
-                        "id": "front-door-package",
-                        "name": "Front Door Package Camera",
-                        "type": "camera",
-                        "online": True,
-                        "interfaces": ["Camera"],
-                    },
-                ],
-            }
-        )
+def _fake_node(path: Path) -> None:
+    program = f"""#!{sys.executable}
+import http.server
+import json
+import os
+import socketserver
+from urllib.parse import urlparse
 
-    async def state(request):
-        camera_id = request.match_info["camera_id"]
-        if camera_id == "front-door":
-            return web.json_response(
-                {
-                    "id": camera_id,
-                    "online": True,
-                    "interfaces": ["Camera", "VideoCamera"],
-                    "profiles": [],
-                }
-            )
-        return web.json_response({}, status=404)
+socket_path = os.environ["SCRYPTED_BRIDGE_SOCKET"]
+try:
+    os.unlink(socket_path)
+except FileNotFoundError:
+    pass
 
-    app = web.Application()
-    app.router.add_get("/v1/state", inventory)
-    app.router.add_get("/v1/cameras/{camera_id}/state", state)
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.UnixSite(runner, str(socket))
-    await site.start()
-    return runner
+cameras = [
+    {{"id":"front-door","name":"Front Door","type":"doorbell","online":True,"interfaces":["Camera","VideoCamera"]}},
+    {{"id":"driveway","name":"Driveway","type":"camera","online":True,"interfaces":["Camera","VideoCamera"]}},
+    {{"id":"front-door-package","name":"Front Door Package Camera","type":"camera","online":True,"interfaces":["Camera"]}},
+]
+
+class Handler(http.server.BaseHTTPRequestHandler):
+    def log_message(self, format, *args):
+        pass
+    def _json(self, status, payload):
+        body = json.dumps(payload).encode()
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+    def do_GET(self):
+        parsed = urlparse(self.path)
+        if parsed.path == "/v1/state":
+            self._json(200, {{"serverVersion":"acceptance-2","cameras":cameras}})
+            return
+        prefix = "/v1/cameras/"
+        suffix = "/state"
+        if parsed.path.startswith(prefix) and parsed.path.endswith(suffix):
+            camera_id = parsed.path[len(prefix):-len(suffix)]
+            if camera_id == "front-door":
+                self._json(200, {{"id":camera_id,"online":True,"interfaces":["Camera","VideoCamera"],"profiles":[]}})
+            else:
+                self._json(404, {{"error":"missing"}})
+            return
+        self._json(404, {{"error":"not found"}})
+    def do_POST(self):
+        self._json(200, {{"state":"healthy","latencyMs":5,"bytes":123,"profile":{{"video":{{"width":1280,"height":720,"codec":"h264"}}}}}})
+
+class Server(socketserver.UnixStreamServer):
+    allow_reuse_address = True
+
+with Server(socket_path, Handler) as server:
+    os.chmod(socket_path, 0o660)
+    server.serve_forever()
+"""
+    path.write_text(program, encoding="utf-8")
+    path.chmod(path.stat().st_mode | stat.S_IXUSR)
 
 
 async def accept() -> None:
@@ -185,7 +207,7 @@ async def accept() -> None:
 
     if managed.MODULE_ID != "com.sickicarus.monitorbox.scrypted":
         raise AssertionError("managed Scrypted durable module id changed")
-    if (managed.MODULE_VERSION, managed.MODULE_BUILD) != ("1.0.0", 1):
+    if (managed.MODULE_VERSION, managed.MODULE_BUILD) != ("2.0.0", 1):
         raise AssertionError("managed Scrypted release identity changed")
     manifest = managed.MODULE_MANIFEST
     if manifest.display_name != "Scrypted Integration":
@@ -200,6 +222,21 @@ async def accept() -> None:
         raise AssertionError("managed Scrypted stopped claiming only the scrypted adapter")
     if managed.PLUGIN.candidate_adoption is None:
         raise AssertionError("managed Scrypted lost provider-owned camera adoption")
+
+    import zipfile
+    with zipfile.ZipFile(package) as archive:
+        names = set(archive.namelist())
+    required_resources = {
+        f"{IMPORT_PACKAGE}/bridge/server.mjs",
+        f"{IMPORT_PACKAGE}/bridge/package.json",
+        f"{IMPORT_PACKAGE}/bridge/node_modules/@scrypted/client/package.json",
+        f"{IMPORT_PACKAGE}/bridge/node_modules/ws/package.json",
+    }
+    missing_resources = sorted(required_resources - names)
+    if missing_resources:
+        raise AssertionError(f"managed Scrypted worker resources missing: {missing_resources}")
+    if any(name.startswith("monitorbox/v2/integrations/scrypted") for name in names):
+        raise AssertionError("managed Scrypted package resurrected a Core integration namespace")
 
     candidate = plugin_api.DiscoveryEvidence(
         plugin_id="scrypted",
@@ -228,15 +265,16 @@ async def accept() -> None:
     if len(plan.operations) != 1 or len(plan.secret_writes) != 2:
         raise AssertionError("Scrypted connection plan stopped brokering both credentials")
     provider = plan.operations[0].object_data["capabilities"][0]["providers"][0]
-    if provider["adapter"] != "scrypted" or provider["config"]["operation"] != "inventory":
+    control = provider["config"]
+    if provider["adapter"] != "scrypted" or control["operation"] != "inventory":
         raise AssertionError("Scrypted canonical inventory provider identity changed")
+    for key in ("base_url", "username_env", "password_env", "socket"):
+        if not control.get(key):
+            raise AssertionError(f"Scrypted inventory lost module-owned worker control {key}")
     if "acceptance-secret" in json.dumps(plan.public(), sort_keys=True):
         raise AssertionError("Scrypted public connection plan leaked protected credentials")
 
-    camera_evidence = SimpleNamespace(
-        source="scrypted",
-        source_id="front-door",
-    )
+    camera_evidence = SimpleNamespace(source="scrypted", source_id="front-door")
     camera_candidate = SimpleNamespace(
         candidate_id="camera:front-door",
         kind="camera",
@@ -258,10 +296,7 @@ async def accept() -> None:
                                     {
                                         "adapter": "scrypted",
                                         "agent_id": "monitor",
-                                        "config": {
-                                            "operation": "inventory",
-                                            "socket": "/run/monitorbox-scrypted/bridge.sock",
-                                        },
+                                        "config": dict(control),
                                     }
                                 ]
                             }
@@ -279,55 +314,87 @@ async def accept() -> None:
         capabilities=("camera_state", "snapshot", "live_view"),
     )
     child = next(item for item in adopted["sites"][0]["objects"] if item["id"] == adopted_id)
-    adapters = {
-        p["adapter"]
+    child_providers = [
+        provider
         for capability in child["capabilities"]
-        for p in capability["providers"]
-    }
-    if adapters != {"scrypted"} or len(child["capabilities"]) != 3:
+        for provider in capability["providers"]
+    ]
+    if {provider["adapter"] for provider in child_providers} != {"scrypted"}:
         raise AssertionError("Scrypted camera adoption stopped reusing the managed provider")
+    if len(child["capabilities"]) != 3:
+        raise AssertionError("Scrypted camera adoption lost a supported ability")
+    for child_provider in child_providers:
+        child_config = child_provider["config"]
+        for key in ("socket", "base_url", "username_env", "password_env"):
+            if child_config.get(key) != control.get(key):
+                raise AssertionError(f"Scrypted adopted camera lost worker control {key}")
 
     with tempfile.TemporaryDirectory(prefix="monitorbox-scrypted-accept-") as raw:
         temp = Path(raw)
         socket = temp / "bridge.sock"
+        fake_node = temp / "node"
+        _fake_node(fake_node)
+        previous_node = os.environ.get("MONITORBOX_MODULE_NODE")
+        os.environ["MONITORBOX_MODULE_NODE"] = str(fake_node)
+        os.environ.pop(_USERNAME_ENV, None)
+        os.environ.pop(_PASSWORD_ENV, None)
         context = _execution_context(plugin_api, managed, temp)
         executor = managed.ScryptedRuntimeExecutor()
-
-        lost_inventory = await executor.execute(
-            _request(plugin_api, socket, operation="inventory"), context
-        )
-        if lost_inventory.state != "failed" or lost_inventory.metadata.get("failure_kind") != "monitor_dependency":
-            raise AssertionError(f"Scrypted inventory provider-loss truth changed: {lost_inventory!r}")
-        lost_camera = await executor.execute(
-            _request(plugin_api, socket, operation="camera_state", camera_id="front-door"), context
-        )
-        if lost_camera.state != "unknown" or lost_camera.metadata.get("failure_kind") != "parent_unavailable":
-            raise AssertionError(f"Scrypted child provider-loss truth changed: {lost_camera!r}")
-
-        runner = await _serve(socket)
         try:
-            recovered = await managed.ScryptedRuntimeExecutor().execute(
-                _request(plugin_api, socket, operation="inventory"), context
+            await executor.start(context)
+            lost_inventory = await executor.execute(
+                _request(plugin_api, socket, operation="inventory", with_control=True), context
+            )
+            if (
+                lost_inventory.state != "failed"
+                or lost_inventory.metadata.get("failure_kind") != "monitor_dependency"
+            ):
+                raise AssertionError(
+                    f"Scrypted credential-loss truth changed: {lost_inventory!r}"
+                )
+
+            os.environ[_USERNAME_ENV] = "monitorbox"
+            os.environ[_PASSWORD_ENV] = "acceptance-secret"
+            recovered = await executor.execute(
+                _request(plugin_api, socket, operation="inventory", with_control=True), context
             )
             if recovered.state != "healthy":
-                raise AssertionError(f"Scrypted did not recover after delayed provider availability: {recovered!r}")
+                raise AssertionError(
+                    f"Scrypted module-owned worker did not recover: {recovered!r}"
+                )
             evidence = recovered.metadata.get("discovery_evidence", [])
             by_id = {row.get("source_id"): row for row in evidence if isinstance(row, dict)}
             if set(by_id) != {"front-door", "driveway", "front-door-package"}:
                 raise AssertionError(f"Scrypted camera inventory evidence changed: {by_id!r}")
             if not by_id["front-door-package"].get("metadata", {}).get("auxiliary"):
-                raise AssertionError("Scrypted package/parcel auxiliary-camera classification changed")
-            camera = await managed.ScryptedRuntimeExecutor().execute(
-                _request(plugin_api, socket, operation="camera_state", camera_id="front-door"), context
+                raise AssertionError(
+                    "Scrypted package/parcel auxiliary-camera classification changed"
+                )
+
+            camera = await executor.execute(
+                _request(
+                    plugin_api,
+                    socket,
+                    operation="camera_state",
+                    camera_id="front-door",
+                    with_control=False,
+                ),
+                context,
             )
             if camera.state != "healthy" or camera.metadata.get("camera_status") != "online":
                 raise AssertionError(f"Scrypted camera-state runtime changed: {camera!r}")
         finally:
-            await runner.cleanup()
+            await executor.close(context)
+            os.environ.pop(_USERNAME_ENV, None)
+            os.environ.pop(_PASSWORD_ENV, None)
+            if previous_node is None:
+                os.environ.pop("MONITORBOX_MODULE_NODE", None)
+            else:
+                os.environ["MONITORBOX_MODULE_NODE"] = previous_node
 
     print(
-        "Managed Scrypted 1.0.0 build 1: connection + camera adoption + inventory + "
-        "provider-loss/recovery truth: PASS",
+        "Managed Scrypted 2.0.0 build 1: self-contained worker + credential-loss/recovery + "
+        "camera adoption/runtime truth: PASS",
         flush=True,
     )
 
