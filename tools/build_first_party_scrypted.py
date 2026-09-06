@@ -15,13 +15,14 @@ from pathlib import Path
 
 FIXED_ZIP_TIME = (1980, 1, 1, 0, 0, 0)
 MODULE_ID = "com.sickicarus.monitorbox.scrypted"
-MODULE_VERSION = "2.1.0"
-MODULE_BUILD = 1
-IMPORT_PACKAGE = "monitorbox_scrypted_v21_b1"
+MODULE_VERSION = "2.1.1"
+MODULE_BUILD = 2
+IMPORT_PACKAGE = "monitorbox_scrypted_v211_b2"
 FILENAME = f"{MODULE_ID}-{MODULE_VERSION}-build{MODULE_BUILD}.zip"
 PREVIOUS_FILENAMES = {
     f"{MODULE_ID}-1.0.0-build1.zip",
     f"{MODULE_ID}-2.0.0-build1.zip",
+    f"{MODULE_ID}-2.1.0-build1.zip",
 }
 
 BASE_PYTHON_SOURCE_NAMES = frozenset({
@@ -30,7 +31,8 @@ BASE_PYTHON_SOURCE_NAMES = frozenset({
     "onboarding.py",
     "runtime.py",
 })
-DELTA_PYTHON_SOURCE_NAMES = frozenset({"media.py"})
+MEDIA_SOURCE_NAMES = frozenset({"media.py"})
+HOTFIX_SOURCE_NAMES = frozenset({"runtime_socket.py"})
 BRIDGE_SOURCE_NAMES = frozenset({
     "package.json",
     "package-lock.json",
@@ -48,29 +50,33 @@ def _base_source_root(root: Path) -> Path:
     return root / "sources" / "scrypted" / "2.0.0-build1"
 
 
-def _delta_source_root(root: Path) -> Path:
+def _media_source_root(root: Path) -> Path:
     return root / "sources" / "scrypted" / "2.1.0-build1"
+
+
+def _hotfix_source_root(root: Path) -> Path:
+    return root / "sources" / "scrypted" / "2.1.1-build2"
+
+
+def _assert_source_shape(path: Path, expected: frozenset[str], label: str) -> None:
+    actual = {item.name for item in path.iterdir() if item.is_file()}
+    if actual != expected:
+        raise SystemExit(
+            f"{label} source shape changed: "
+            f"missing={sorted(expected - actual)}, extra={sorted(actual - expected)}"
+        )
 
 
 def _python_source_files(root: Path) -> dict[str, bytes]:
     base = _base_source_root(root)
-    actual_base = {path.name for path in base.iterdir() if path.is_file()}
-    if actual_base != BASE_PYTHON_SOURCE_NAMES:
-        raise SystemExit(
-            "Scrypted 2.0.0 base source shape changed: "
-            f"missing={sorted(BASE_PYTHON_SOURCE_NAMES - actual_base)}, "
-            f"extra={sorted(actual_base - BASE_PYTHON_SOURCE_NAMES)}"
-        )
-    delta = _delta_source_root(root)
-    actual_delta = {path.name for path in delta.iterdir() if path.is_file()}
-    if actual_delta != DELTA_PYTHON_SOURCE_NAMES:
-        raise SystemExit(
-            "Scrypted 2.1.0 delta source shape changed: "
-            f"missing={sorted(DELTA_PYTHON_SOURCE_NAMES - actual_delta)}, "
-            f"extra={sorted(actual_delta - DELTA_PYTHON_SOURCE_NAMES)}"
-        )
+    media = _media_source_root(root)
+    hotfix = _hotfix_source_root(root)
+    _assert_source_shape(base, BASE_PYTHON_SOURCE_NAMES, "Scrypted 2.0.0 base")
+    _assert_source_shape(media, MEDIA_SOURCE_NAMES, "Scrypted 2.1.0 media delta")
+    _assert_source_shape(hotfix, HOTFIX_SOURCE_NAMES, "Scrypted 2.1.1 hotfix")
     result = {name: (base / name).read_bytes() for name in sorted(BASE_PYTHON_SOURCE_NAMES)}
-    result.update({name: (delta / name).read_bytes() for name in sorted(DELTA_PYTHON_SOURCE_NAMES)})
+    result.update({name: (media / name).read_bytes() for name in sorted(MEDIA_SOURCE_NAMES)})
+    result.update({name: (hotfix / name).read_bytes() for name in sorted(HOTFIX_SOURCE_NAMES)})
     return result
 
 
@@ -92,6 +98,24 @@ def _rewrite_source(name: str, payload: bytes) -> bytes:
             'MODULE_VERSION = "2.0.0"',
             f'MODULE_VERSION = "{MODULE_VERSION}"',
             "Scrypted runtime version",
+        )
+        text = _replace_once(
+            text,
+            '_DEFAULT_SOCKET = "/run/monitorbox-scrypted/bridge.sock"',
+            'from .runtime_socket import DEFAULT_SOCKET as _DEFAULT_SOCKET, normalize_socket as _normalize_socket',
+            "Scrypted managed runtime socket import",
+        )
+        text = _replace_once(
+            text,
+            'socket = _required_text(options.get("socket", _DEFAULT_SOCKET), "Scrypted socket")',
+            'socket = _normalize_socket(options.get("socket", _DEFAULT_SOCKET))',
+            "Scrypted runtime socket normalization",
+        )
+        text = _replace_once(
+            text,
+            'if requested_socket not in (None, "") and str(requested_socket) != config.socket:',
+            'if requested_socket not in (None, "") and _normalize_socket(requested_socket) != config.socket:',
+            "Scrypted inherited socket normalization",
         )
 
     if name == "__init__.py":
