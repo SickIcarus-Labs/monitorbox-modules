@@ -3,7 +3,7 @@
   "signed": {
     "repository_id": "official",
     "display_name": "MonitorBox Official",
-    "generated_at": "2026-09-06T04:17:52.836007Z",
+    "generated_at": "2026-09-06T16:08:04.166188Z",
     "modules": [
       {
         "manifest": {
@@ -129,6 +129,33 @@
           "sha256": "d30543430443ddbbc4e6cf677281c0aea71fe891d2c922d491173a0d1755e143",
           "signature_identity": "official-ed25519-1",
           "signature": "sBkljiE6cksvZzWz6l5o2cQLwzXJIdFe5vezVlDs8ZykiLgCx0xNorknkLDVlVTtij/NGJtlmFfT6gYLsSanCA=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.configuration-bootstrap",
+          "display_name": "Configuration / Bootstrap",
+          "version": "1.0.1",
+          "build": 2,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "configuration",
+          "entrypoints": {
+            "configuration": "monitorbox_configuration_bootstrap_b2:install"
+          },
+          "requires_core": ">=2.3.0 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "required"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.configuration-bootstrap-1.0.1-build2.zip",
+          "filename": "com.sickicarus.monitorbox.configuration-bootstrap-1.0.1-build2.zip",
+          "sha256": "73f09864ff426ff7b9f64a0ae39e1db1d7123ddecdf41e5b0cf2548e4bb9af59",
+          "signature_identity": "official-ed25519-1",
+          "signature": "ot8Ra3HpRB2iHPiorehqM5tq7GJqyw8gvYYyjt2llC+vUQwMJpQEcgFCx5q27ZauOUoigZSFIgux8Anjt+pDAg=="
         }
       },
       {
@@ -865,6 +892,6 @@
   "signature": {
     "algorithm": "ed25519",
     "identity": "official-ed25519-1",
-    "value": "VF9iPHx7r2CT7K5rKGjXAzktFaQoClu3HHrXTAduSh2BkxnVQ3Q79GBSpy0zTtCpF3HPtBsncyV+uwx5x9PZDw=="
+    "value": "976trMJEV+tIW9XnIrgnQB7H1tc3dOSSTgNFYVsiECte2bFg/KR4n0xicrXSgIT1FwICByNfs+Uh/PG/iTkHBw=="
   }
 }
