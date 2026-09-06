@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Extend first-party repository acceptance through Scrypted v2.1.0 build 1."""
+"""Extend first-party repository acceptance through Scrypted v2.1.1 build 2."""
 
 from __future__ import annotations
 
@@ -14,10 +14,17 @@ SCRYPTED_ID = "com.sickicarus.monitorbox.scrypted"
 SCRYPTED_V1 = (SCRYPTED_ID, "1.0.0", 1)
 SCRYPTED_V2 = (SCRYPTED_ID, "2.0.0", 1)
 SCRYPTED_V21 = (SCRYPTED_ID, "2.1.0", 1)
-CURRENT_RELEASES = set(previous.CURRENT_RELEASES) | {SCRYPTED_V1, SCRYPTED_V2, SCRYPTED_V21}
+SCRYPTED_V211 = (SCRYPTED_ID, "2.1.1", 2)
+CURRENT_RELEASES = set(previous.CURRENT_RELEASES) | {
+    SCRYPTED_V1,
+    SCRYPTED_V2,
+    SCRYPTED_V21,
+    SCRYPTED_V211,
+}
 IMPORT_V1 = "monitorbox_scrypted_b1"
 IMPORT_V2 = "monitorbox_scrypted_v2_b1"
 IMPORT_V21 = "monitorbox_scrypted_v21_b1"
+IMPORT_V211 = "monitorbox_scrypted_v211_b2"
 
 
 def _release(source: dict, identity: tuple[str, str, int]) -> dict:
@@ -34,12 +41,18 @@ def _release(source: dict, identity: tuple[str, str, int]) -> dict:
     return item
 
 
-def _manifest(import_package: str, version: str, *, requires_core: str = ">=2.3.0 <3.0.0") -> dict:
+def _manifest(
+    import_package: str,
+    version: str,
+    *,
+    build: int = 1,
+    requires_core: str = ">=2.3.0 <3.0.0",
+) -> dict:
     return {
         "module_id": SCRYPTED_ID,
         "display_name": "Scrypted Integration",
         "version": version,
-        "build": 1,
+        "build": build,
         "schema": 1,
         "state_schema": 1,
         "module_type": "integration",
@@ -80,9 +93,15 @@ def _validate_worker_release(
     media: bool,
 ) -> None:
     version = identity[1]
+    build = identity[2]
     requires_core = ">=2.3.1 <3.0.0" if media else ">=2.3.0 <3.0.0"
     release = _release(source, identity)
-    expected_manifest = _manifest(import_package, version, requires_core=requires_core)
+    expected_manifest = _manifest(
+        import_package,
+        version,
+        build=build,
+        requires_core=requires_core,
+    )
     if release.get("manifest") != expected_manifest:
         raise AssertionError(f"Scrypted {version} manifest changed: {release.get('manifest')!r}")
     package_path = root / "packages" / release["package"]
@@ -94,6 +113,8 @@ def _validate_worker_release(
     }
     if media:
         python_files.add(f"{import_package}/media.py")
+    if identity == SCRYPTED_V211:
+        python_files.add(f"{import_package}/runtime_socket.py")
     required_worker_files = {
         f"{import_package}/bridge/server.mjs",
         f"{import_package}/bridge/package.json",
@@ -154,6 +175,25 @@ def _validate_worker_release(
         if missing_media:
             raise AssertionError(f"Scrypted {version} media facet omitted markers: {missing_media}")
 
+    if identity == SCRYPTED_V211:
+        socket_text = texts[f"{import_package}/runtime_socket.py"]
+        for marker in (
+            'LEGACY_DEFAULT_SOCKET = "/run/monitorbox-scrypted/bridge.sock"',
+            'DEFAULT_SOCKET = "/run/monitorbox-modules/scrypted/bridge.sock"',
+            "def normalize_socket(",
+        ):
+            if marker not in socket_text:
+                raise AssertionError(f"Scrypted 2.1.1 socket migration omitted marker: {marker}")
+        for marker in (
+            "from .runtime_socket import DEFAULT_SOCKET as _DEFAULT_SOCKET, normalize_socket as _normalize_socket",
+            '_normalize_socket(options.get("socket", _DEFAULT_SOCKET))',
+            "_normalize_socket(requested_socket) != config.socket",
+        ):
+            if marker not in runtime_text:
+                raise AssertionError(f"Scrypted 2.1.1 runtime omitted socket migration marker: {marker}")
+        if "/run/monitorbox-scrypted/bridge.sock" in runtime_text:
+            raise AssertionError("Scrypted 2.1.1 runtime still owns the legacy Core socket path")
+
     forbidden = (
         "from ...plugin_api",
         "monitorbox.v2.integrations.scrypted:PLUGIN",
@@ -173,12 +213,14 @@ def _package_shape(root: Path, source: dict) -> None:
     _validate_v1(root, source)
     _validate_worker_release(root, source, SCRYPTED_V2, IMPORT_V2, media=False)
     _validate_worker_release(root, source, SCRYPTED_V21, IMPORT_V21, media=True)
+    _validate_worker_release(root, source, SCRYPTED_V211, IMPORT_V211, media=True)
 
     prior = copy.deepcopy(source)
     prior["modules"] = [
         item
         for item in prior.get("modules", [])
-        if stable._release_identity(item) not in {SCRYPTED_V1, SCRYPTED_V2, SCRYPTED_V21}
+        if stable._release_identity(item)
+        not in {SCRYPTED_V1, SCRYPTED_V2, SCRYPTED_V21, SCRYPTED_V211}
     ]
     previous._package_shape(root, prior)
 
