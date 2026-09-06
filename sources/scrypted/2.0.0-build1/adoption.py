@@ -7,6 +7,13 @@ from typing import Any, Iterable, Mapping, Sequence
 from aiohttp import web
 
 _SLUG_RE = re.compile(r"[^a-z0-9_-]+")
+_CONTROL_KEYS = (
+    "socket",
+    "base_url",
+    "username_env",
+    "password_env",
+    "excluded_camera_names",
+)
 
 
 def _candidate_source(candidate: Any, source: str):
@@ -101,9 +108,7 @@ def _selected_capabilities(
     if isinstance(selected, (str, bytes)) or not all(
         isinstance(item, str) for item in selected
     ):
-        raise web.HTTPBadRequest(
-            text="selected discovery abilities must be a string list"
-        )
+        raise web.HTTPBadRequest(text="selected discovery abilities must be a string list")
     requested = set(selected)
     unknown = requested.difference(allowed)
     if unknown:
@@ -133,13 +138,13 @@ def _camera_object(
     agent_id, inventory_provider = _integration_provider(working, site_id)
     inventory_config = inventory_provider.get("config", {})
     if not isinstance(inventory_config, Mapping):
-        raise web.HTTPBadRequest(
-            text="scrypted inventory provider has invalid configuration"
-        )
-    socket = str(
-        inventory_config.get("socket")
-        or "/run/monitorbox-scrypted/bridge.sock"
-    )
+        raise web.HTTPBadRequest(text="scrypted inventory provider has invalid configuration")
+    control = {
+        key: copy.deepcopy(inventory_config[key])
+        for key in _CONTROL_KEYS
+        if key in inventory_config
+    }
+    control.setdefault("socket", "/run/monitorbox-scrypted/bridge.sock")
 
     def provider(
         capability: str,
@@ -157,7 +162,7 @@ def _camera_object(
             "interval_seconds": interval,
             "timeout_seconds": timeout,
             "config": {
-                "socket": socket,
+                **copy.deepcopy(control),
                 "operation": operation,
                 "camera_id": camera_id,
             },
@@ -252,9 +257,7 @@ class ScryptedCandidateAdoption:
                 )
             )
         if _candidate_source(candidate, "scrypted") is None:
-            raise web.HTTPBadRequest(
-                text="Scrypted discovery adoption requires Scrypted evidence"
-            )
+            raise web.HTTPBadRequest(text="Scrypted discovery adoption requires Scrypted evidence")
 
         working = copy.deepcopy(working)
         site = _site(working, site_id)
@@ -264,11 +267,7 @@ class ScryptedCandidateAdoption:
             if isinstance(obj, dict) and isinstance(obj.get("id"), str)
         }
         addresses = tuple(getattr(candidate, "addresses", ()) or ())
-        seed = (
-            addresses[0]
-            if addresses
-            else str(getattr(candidate, "candidate_id", "camera"))
-        )
+        seed = addresses[0] if addresses else str(getattr(candidate, "candidate_id", "camera"))
         object_id = _unique_object_id(label, seed, existing_ids)
         selected = _selected_capabilities(candidate, capabilities)
         obj = _camera_object(

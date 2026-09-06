@@ -4,6 +4,7 @@ import asyncio
 import copy
 import os
 import re
+import secrets
 import tempfile
 from pathlib import Path
 from typing import Any, Mapping
@@ -28,8 +29,6 @@ from ...plugin_api import (
 from .runtime import MODULE_ID, ScryptedRuntimeExecutor
 
 _ID_CLEAN_RE = re.compile(r"[^a-z0-9_-]+")
-_DEFAULT_PROGRAM = Path("/app/bridge/server.mjs")
-_STARTUP_TIMEOUT_SECONDS = 5.0
 _ACCEPTED_STATES = frozenset({"healthy", "degraded"})
 _PROBES: tuple[tuple[str, int, str], ...] = (
     ("https", 10443, "HTTPS service (possible Scrypted)"),
@@ -111,41 +110,6 @@ def _normalized(request: ConnectionRequest) -> dict[str, Any]:
     }
 
 
-def _worker_program() -> Path:
-    override = os.environ.get("MONITORBOX_ONBOARDING_SCRYPTED_WORKER")
-    return Path(override) if override else _DEFAULT_PROGRAM
-
-
-async def _wait_ready(
-    process: asyncio.subprocess.Process,
-    socket_path: Path,
-    *,
-    timeout_seconds: float = _STARTUP_TIMEOUT_SECONDS,
-) -> None:
-    loop = asyncio.get_running_loop()
-    deadline = loop.time() + timeout_seconds
-    while loop.time() < deadline:
-        if process.returncode is not None:
-            raise RuntimeError(
-                f"Scrypted validation worker exited with status {process.returncode} before becoming ready"
-            )
-        if socket_path.exists():
-            return
-        await asyncio.sleep(0.05)
-    raise TimeoutError("Scrypted validation worker did not become ready in time")
-
-
-async def _stop(process: asyncio.subprocess.Process | None) -> None:
-    if process is None or process.returncode is not None:
-        return
-    process.terminate()
-    try:
-        await asyncio.wait_for(process.wait(), timeout=3.0)
-    except TimeoutError:
-        process.kill()
-        await process.wait()
-
-
 def _scrub(value: Any, protected: tuple[str, ...]) -> Any:
     if isinstance(value, dict):
         return {str(key): _scrub(item, protected) for key, item in value.items()}
@@ -187,9 +151,6 @@ class ScryptedIntegration:
             if not await probe.tcp_open(host, port):
                 continue
             endpoint = f"{scheme}://{host}:{port}"
-            # 0540 intentionally treated an open common Scrypted port as only
-            # generic HTTP evidence. Preserve that confidence boundary while
-            # making the Scrypted module the owner of the detection policy.
             result.append(
                 DiscoveryEvidence(
                     plugin_id="scrypted",
@@ -284,61 +245,48 @@ class ScryptedIntegration:
         del context
         values = _normalized(request)
         protected = (values["username"], values["password"])
-        process: asyncio.subprocess.Process | None = None
+        token = secrets.token_hex(8).upper()
+        username_env = f"MONITORBOX_SCRYPTED_VALIDATE_USERNAME_{token}"
+        password_env = f"MONITORBOX_SCRYPTED_VALIDATE_PASSWORD_{token}"
+        os.environ[username_env] = values["username"]
+        os.environ[password_env] = values["password"]
+        executor = ScryptedRuntimeExecutor()
         with tempfile.TemporaryDirectory(prefix="monitorbox-onboarding-scrypted-", dir="/tmp") as raw_dir:
             temp = Path(raw_dir)
-            socket_path = temp / "bridge.sock"
-            environment = {
-                "PATH": os.environ.get("PATH", "/usr/local/bin:/usr/bin:/bin"),
-                "HOME": "/nonexistent",
-                "SCRYPTED_URL": values["base_url"],
-                "SCRYPTED_USERNAME": values["username"],
-                "SCRYPTED_PASSWORD": values["password"],
-                "SCRYPTED_EXCLUDED_CAMERA_NAMES": ",".join(values["excluded_camera_names"]),
-                "SCRYPTED_BRIDGE_SOCKET": str(socket_path),
-            }
+            execution_context = RuntimeExecutionContext(
+                module_id=MODULE_ID,
+                package_root=str(temp / "package"),
+                state_root=str(temp / "state"),
+            )
             try:
-                process = await asyncio.create_subprocess_exec(
-                    "node",
-                    str(_worker_program()),
-                    env=environment,
-                    stdout=asyncio.subprocess.DEVNULL,
-                    stderr=asyncio.subprocess.DEVNULL,
-                )
-                await _wait_ready(process, socket_path)
-                executor = ScryptedRuntimeExecutor()
-                execution_context = RuntimeExecutionContext(
-                    module_id=MODULE_ID,
-                    package_root=str(temp / "package"),
-                    state_root=str(temp / "state"),
-                )
                 await executor.start(execution_context)
+                execution = RuntimeExecutionRequest(
+                    check_id="scrypted_validation",
+                    object_id=request.candidate.system_id,
+                    adapter="scrypted",
+                    timeout_seconds=15,
+                    options={
+                        "socket": str(temp / "bridge.sock"),
+                        "operation": "inventory",
+                        "base_url": values["base_url"],
+                        "username_env": username_env,
+                        "password_env": password_env,
+                        "excluded_camera_names": list(values["excluded_camera_names"]),
+                    },
+                )
                 try:
-                    execution = RuntimeExecutionRequest(
-                        check_id="scrypted_validation",
-                        object_id=request.candidate.system_id,
-                        adapter="scrypted",
-                        timeout_seconds=15,
-                        options={
-                            "socket": str(socket_path),
-                            "operation": "inventory",
-                        },
-                    )
-                    try:
-                        async with asyncio.timeout(execution.timeout_seconds):
-                            result = await executor.execute(execution, execution_context)
-                    except TimeoutError:
-                        public: dict[str, Any] = {
-                            "state": "failed",
-                            "summary": "Timed out after 15s",
-                            "duration_ms": 15000,
-                            "metrics": {},
-                            "metadata": {},
-                        }
-                    else:
-                        public = result.public()
-                finally:
-                    await executor.close(execution_context)
+                    async with asyncio.timeout(execution.timeout_seconds):
+                        result = await executor.execute(execution, execution_context)
+                except TimeoutError:
+                    public: dict[str, Any] = {
+                        "state": "failed",
+                        "summary": "Timed out after 15s",
+                        "duration_ms": 15000,
+                        "metrics": {},
+                        "metadata": {},
+                    }
+                else:
+                    public = result.public()
             except Exception as exc:
                 public = {
                     "state": "failed",
@@ -351,7 +299,11 @@ class ScryptedIntegration:
                     "metadata": {"failure_kind": "validation_worker"},
                 }
             finally:
-                await _stop(process)
+                try:
+                    await executor.close(execution_context)
+                finally:
+                    os.environ.pop(username_env, None)
+                    os.environ.pop(password_env, None)
 
         public = _scrub(copy.deepcopy(public), protected)
         state = str(public.get("state") or "failed")
@@ -371,7 +323,7 @@ class ScryptedIntegration:
             state=state,
             summary=summary,
             observation=public,
-            metadata={"transport": "scrypted", "validation_worker": "isolated"},
+            metadata={"transport": "scrypted", "validation_worker": "module_owned"},
             values={
                 "base_url": values["base_url"],
                 "label": values["label"],
@@ -400,27 +352,10 @@ class ScryptedIntegration:
             plugin_id="scrypted",
             title="Scrypted cameras",
             fields=(
-                PresentationField(
-                    key="base_url",
-                    label="Scrypted server URL",
-                    required=True,
-                ),
-                PresentationField(
-                    key="username",
-                    label="Username",
-                    required=True,
-                    secret=True,
-                ),
-                PresentationField(
-                    key="password",
-                    label="Password",
-                    required=True,
-                    secret=True,
-                ),
-                PresentationField(
-                    key="excluded_camera_names",
-                    label="Excluded camera names",
-                ),
+                PresentationField(key="base_url", label="Scrypted server URL", required=True),
+                PresentationField(key="username", label="Username", required=True, secret=True),
+                PresentationField(key="password", label="Password", required=True, secret=True),
+                PresentationField(key="excluded_camera_names", label="Excluded camera names"),
             ),
             provenance_keys=("transport", "validation_worker"),
         )
