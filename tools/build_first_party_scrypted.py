@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the independently managed Scrypted integration for MonitorBox 2.3 Core."""
+"""Build independently managed Scrypted releases for MonitorBox 2.3 Core."""
 
 from __future__ import annotations
 
@@ -15,18 +15,22 @@ from pathlib import Path
 
 FIXED_ZIP_TIME = (1980, 1, 1, 0, 0, 0)
 MODULE_ID = "com.sickicarus.monitorbox.scrypted"
-MODULE_VERSION = "2.0.0"
+MODULE_VERSION = "2.1.0"
 MODULE_BUILD = 1
-IMPORT_PACKAGE = "monitorbox_scrypted_v2_b1"
+IMPORT_PACKAGE = "monitorbox_scrypted_v21_b1"
 FILENAME = f"{MODULE_ID}-{MODULE_VERSION}-build{MODULE_BUILD}.zip"
-PREVIOUS_FILENAME = f"{MODULE_ID}-1.0.0-build1.zip"
+PREVIOUS_FILENAMES = {
+    f"{MODULE_ID}-1.0.0-build1.zip",
+    f"{MODULE_ID}-2.0.0-build1.zip",
+}
 
-PYTHON_SOURCE_NAMES = frozenset({
+BASE_PYTHON_SOURCE_NAMES = frozenset({
     "__init__.py",
     "adoption.py",
     "onboarding.py",
     "runtime.py",
 })
+DELTA_PYTHON_SOURCE_NAMES = frozenset({"media.py"})
 BRIDGE_SOURCE_NAMES = frozenset({
     "package.json",
     "package-lock.json",
@@ -40,21 +44,41 @@ _BUNDLED_ENTRYPOINT = 'entrypoints={"integration": "monitorbox.v2.integrations.s
 _MANAGED_ENTRYPOINT = f'entrypoints={{"integration": "{IMPORT_PACKAGE}:PLUGIN"}}'
 
 
-def _source_root(root: Path) -> Path:
+def _base_source_root(root: Path) -> Path:
     return root / "sources" / "scrypted" / "2.0.0-build1"
 
 
+def _delta_source_root(root: Path) -> Path:
+    return root / "sources" / "scrypted" / "2.1.0-build1"
+
+
 def _python_source_files(root: Path) -> dict[str, bytes]:
-    source_root = _source_root(root)
-    actual_names = {path.name for path in source_root.iterdir() if path.is_file()}
-    if actual_names != PYTHON_SOURCE_NAMES:
-        missing = sorted(PYTHON_SOURCE_NAMES - actual_names)
-        extra = sorted(actual_names - PYTHON_SOURCE_NAMES)
+    base = _base_source_root(root)
+    actual_base = {path.name for path in base.iterdir() if path.is_file()}
+    if actual_base != BASE_PYTHON_SOURCE_NAMES:
         raise SystemExit(
-            f"Scrypted 2.0.0 build 1 Python source shape changed: "
-            f"missing={missing}, extra={extra}"
+            "Scrypted 2.0.0 base source shape changed: "
+            f"missing={sorted(BASE_PYTHON_SOURCE_NAMES - actual_base)}, "
+            f"extra={sorted(actual_base - BASE_PYTHON_SOURCE_NAMES)}"
         )
-    return {name: (source_root / name).read_bytes() for name in sorted(PYTHON_SOURCE_NAMES)}
+    delta = _delta_source_root(root)
+    actual_delta = {path.name for path in delta.iterdir() if path.is_file()}
+    if actual_delta != DELTA_PYTHON_SOURCE_NAMES:
+        raise SystemExit(
+            "Scrypted 2.1.0 delta source shape changed: "
+            f"missing={sorted(DELTA_PYTHON_SOURCE_NAMES - actual_delta)}, "
+            f"extra={sorted(actual_delta - DELTA_PYTHON_SOURCE_NAMES)}"
+        )
+    result = {name: (base / name).read_bytes() for name in sorted(BASE_PYTHON_SOURCE_NAMES)}
+    result.update({name: (delta / name).read_bytes() for name in sorted(DELTA_PYTHON_SOURCE_NAMES)})
+    return result
+
+
+def _replace_once(text: str, old: str, new: str, label: str) -> str:
+    count = text.count(old)
+    if count != 1:
+        raise SystemExit(f"{label}: expected one match, found {count}")
+    return text.replace(old, new, 1)
 
 
 def _rewrite_source(name: str, payload: bytes) -> bytes:
@@ -62,16 +86,53 @@ def _rewrite_source(name: str, payload: bytes) -> bytes:
     for old, new in _CORE_IMPORT_REWRITES:
         text = text.replace(old, new)
 
-    entrypoint_count = text.count(_BUNDLED_ENTRYPOINT)
+    if name == "runtime.py":
+        text = _replace_once(
+            text,
+            'MODULE_VERSION = "2.0.0"',
+            f'MODULE_VERSION = "{MODULE_VERSION}"',
+            "Scrypted runtime version",
+        )
+
     if name == "__init__.py":
-        if entrypoint_count != 1:
-            raise SystemExit(
-                f"Scrypted bundled entrypoint contract changed in {name}: "
-                f"found {entrypoint_count}"
-            )
-        text = text.replace(_BUNDLED_ENTRYPOINT, _MANAGED_ENTRYPOINT, 1)
-    elif entrypoint_count:
-        raise SystemExit(f"unexpected Scrypted manifest contract found in {name}")
+        text = _replace_once(
+            text,
+            "from .onboarding import ScryptedIntegration\n",
+            "from .onboarding import ScryptedIntegration\nfrom .media import ScryptedMediaExecutor\n",
+            "Scrypted media import",
+        )
+        text = _replace_once(
+            text,
+            "_SCRYPTED_RUNTIME = ScryptedRuntimeExecutor()\n",
+            "_SCRYPTED_RUNTIME = ScryptedRuntimeExecutor()\n_SCRYPTED_MEDIA = ScryptedMediaExecutor(_SCRYPTED_RUNTIME)\n",
+            "Scrypted media executor construction",
+        )
+        text = _replace_once(
+            text,
+            "    runtime_executor=_SCRYPTED_RUNTIME,\n",
+            "    runtime_executor=_SCRYPTED_RUNTIME,\n    media_executor=_SCRYPTED_MEDIA,\n",
+            "Scrypted media facet registration",
+        )
+        text = _replace_once(
+            text,
+            'requires_core=">=2.3.0 <3.0.0"',
+            'requires_core=">=2.3.1 <3.0.0"',
+            "Scrypted Core requirement",
+        )
+        text = _replace_once(
+            text,
+            '    "ScryptedIntegration",\n',
+            '    "ScryptedIntegration",\n    "ScryptedMediaExecutor",\n',
+            "Scrypted public media export",
+        )
+        text = _replace_once(
+            text,
+            _BUNDLED_ENTRYPOINT,
+            _MANAGED_ENTRYPOINT,
+            "Scrypted managed entrypoint",
+        )
+    elif _BUNDLED_ENTRYPOINT in text:
+        raise SystemExit(f"unexpected Scrypted manifest entrypoint in {name}")
 
     forbidden = (
         "from ...plugin_api",
@@ -85,14 +146,13 @@ def _rewrite_source(name: str, payload: bytes) -> bytes:
 
 
 def _bridge_files(root: Path) -> dict[str, bytes]:
-    source_bridge = _source_root(root) / "bridge"
+    source_bridge = _base_source_root(root) / "bridge"
     actual_names = {path.name for path in source_bridge.iterdir() if path.is_file()}
     if actual_names != BRIDGE_SOURCE_NAMES:
-        missing = sorted(BRIDGE_SOURCE_NAMES - actual_names)
-        extra = sorted(actual_names - BRIDGE_SOURCE_NAMES)
         raise SystemExit(
-            f"Scrypted 2.0.0 build 1 bridge source shape changed: "
-            f"missing={missing}, extra={extra}"
+            "Scrypted bridge source shape changed: "
+            f"missing={sorted(BRIDGE_SOURCE_NAMES - actual_names)}, "
+            f"extra={sorted(actual_names - BRIDGE_SOURCE_NAMES)}"
         )
 
     with tempfile.TemporaryDirectory(prefix="monitorbox-scrypted-build-") as raw_temp:
@@ -175,7 +235,7 @@ def build(root: Path, output_dir: Path) -> Path:
         f"built {target}: sha256={hashlib.sha256(payload).hexdigest()} "
         f"files={len(files)} entrypoint={IMPORT_PACKAGE}:PLUGIN"
     )
-    allowed = {PREVIOUS_FILENAME, FILENAME}
+    allowed = PREVIOUS_FILENAMES | {FILENAME}
     unexpected = sorted(
         path.name
         for path in output_dir.glob(f"{MODULE_ID}-*.zip")
