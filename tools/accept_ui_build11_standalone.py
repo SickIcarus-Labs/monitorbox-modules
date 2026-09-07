@@ -22,8 +22,8 @@ def _write_core_stub(root: Path) -> None:
     icons.mkdir(parents=True)
     (monitorbox / "__init__.py").write_text('__version__ = "2.3.1"\n', encoding="utf-8")
     (v2 / "__init__.py").write_text("", encoding="utf-8")
-    (v2 / "build_info.py").write_text(
-        """from dataclasses import dataclass\n\n"
+    stub = (
+        "from dataclasses import dataclass\n\n"
         "@dataclass(frozen=True, slots=True)\n"
         "class BuildIdentity:\n"
         "    version: str = '2.3.1'\n"
@@ -37,9 +37,8 @@ def _write_core_stub(root: Path) -> None:
         "        return {'version': self.version, 'build': self.build, 'channel': self.channel, 'git_sha': self.git_sha, 'short_git_sha': self.git_sha, 'display': self.display}\n\n"
         "def current_build_identity():\n"
         "    return BuildIdentity()\n"
-        """,
-        encoding="utf-8",
     )
+    (v2 / "build_info.py").write_text(stub, encoding="utf-8")
     (icons / "acceptance.svg").write_text(
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"></svg>\n',
         encoding="utf-8",
