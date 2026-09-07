@@ -27,7 +27,15 @@ jobs:
           parts = sorted((root / "transport").glob("part-*.txt"))
           if len(parts) != 45:
               raise SystemExit(f"expected 45 transport parts, found {len(parts)}")
-          encoded = "".join("".join(path.read_text(encoding="ascii").split()) for path in parts)
+          cleaned_parts = [(path, "".join(path.read_text(encoding="ascii").split())) for path in parts]
+          bad_lengths = [
+              (path.name, len(payload), 2816 if index == 44 else 3000)
+              for index, (path, payload) in enumerate(cleaned_parts)
+              if len(payload) != (2816 if index == 44 else 3000)
+          ]
+          if bad_lengths:
+              raise SystemExit(f"transport part length mismatch: {bad_lengths}")
+          encoded = "".join(payload for _, payload in cleaned_parts)
           if len(encoded) != 134816:
               raise SystemExit(f"expected 134816 encoded chars, got {len(encoded)}")
           archive_bytes = base64.b64decode(encoded, validate=True)
