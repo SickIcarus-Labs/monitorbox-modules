@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Build self-contained managed SNMP 1.0.3 build 4 for pruned Core.
+"""Build self-contained managed SNMP 1.0.4 build 5 for pruned Core.
 
-Historical builds remain immutable. Build 4 replaces the hidden Net-SNMP binary
-runtime dependency with pinned pure-Python PySNMP/PyASN1 packaged inside the
-signed module artifact. Core continues to provide only the generic Python module
-runtime and cryptography dependency used by multiple platform facilities.
+Historical builds remain immutable. Build 5 is a packaging-only hotfix over the
+1.0.3 build-4 runtime: PySNMP/PyASN1 remain pinned inside the signed module
+artifact, but implicit PySNMP namespace packages are materialized with explicit
+``__init__.py`` shims so Python's zipimport loader can resolve them from the
+installed module ZIP on the appliance.
 """
 
 from __future__ import annotations
@@ -20,15 +21,16 @@ from pathlib import Path
 
 FIXED_ZIP_TIME = (1980, 1, 1, 0, 0, 0)
 MODULE_ID = "com.sickicarus.monitorbox.snmp"
-MODULE_VERSION = "1.0.3"
-MODULE_BUILD = 4
-IMPORT_PACKAGE = "monitorbox_snmp_b4"
+MODULE_VERSION = "1.0.4"
+MODULE_BUILD = 5
+IMPORT_PACKAGE = "monitorbox_snmp_b5"
 FILENAME = f"{MODULE_ID}-{MODULE_VERSION}-build{MODULE_BUILD}.zip"
 HISTORICAL_FILENAMES = frozenset(
     {
         f"{MODULE_ID}-1.0.0-build1.zip",
         f"{MODULE_ID}-1.0.1-build2.zip",
         f"{MODULE_ID}-1.0.2-build3.zip",
+        f"{MODULE_ID}-1.0.3-build4.zip",
     }
 )
 
@@ -41,6 +43,14 @@ VENDOR_WHEELS = {
     "pysnmp-7.1.29-py3-none-any.whl": "6d08124574c474853870f20d728b54335b42fb1e68068bbb486ec077b3d052cf",
     "pyasn1-0.6.4-py3-none-any.whl": "deda9277cfd454080ec40b207fb6df82206a3a2688735233cdcd8d3d565f088b",
 }
+ZIPIMPORT_NAMESPACE_SHIMS = (
+    "pysnmp/__init__.py",
+    "pysnmp/hlapi/__init__.py",
+    "pysnmp/hlapi/v3arch/__init__.py",
+)
+ZIPIMPORT_SHIM = (
+    b'"""MonitorBox zipimport compatibility shim for vendored PySNMP namespace."""\n'
+)
 
 _CORE_IMPORT_REWRITES = (
     ("from ...adapters", "from monitorbox.v2.adapters"),
@@ -73,7 +83,7 @@ def _source_files(root: Path) -> dict[str, bytes]:
     base = _verified_directory(snmp_root / "1.0.0-build1", BASE_SOURCE_BLOBS, label="immutable SNMP 1.0.0 build 1")
     _verified_directory(snmp_root / "1.0.1-build2", BUILD2_SOURCE_BLOBS, label="immutable SNMP 1.0.1 build 2")
     _verified_directory(snmp_root / "1.0.2-build3", BUILD3_SOURCE_BLOBS, label="immutable SNMP 1.0.2 build 3")
-    build4 = _verified_directory(snmp_root / "1.0.3-build4", BUILD4_SOURCE_BLOBS, label="SNMP 1.0.3 build 4 runtime")
+    build4 = _verified_directory(snmp_root / "1.0.3-build4", BUILD4_SOURCE_BLOBS, label="immutable SNMP 1.0.3 build 4 runtime")
     result = dict(base)
     result.update(build4)
     return result
@@ -101,7 +111,13 @@ def _rewrite_source(name: str, payload: bytes) -> bytes:
             raise SystemExit("SNMP bundled entrypoint marker changed")
         text = text.replace(bundled, f'entrypoints={{"integration": "{IMPORT_PACKAGE}:PLUGIN"}}', 1)
         text = text.replace('requires_core=">=2.2.2 <3.0.0"', 'requires_core=">=2.3.1 <3.0.0"', 1)
-    forbidden = ("from ...adapters", "from ...config", "from ...model", "from ...plugin_api", "monitorbox.v2.integrations.snmp:PLUGIN")
+    forbidden = (
+        "from ...adapters",
+        "from ...config",
+        "from ...model",
+        "from ...plugin_api",
+        "monitorbox.v2.integrations.snmp:PLUGIN",
+    )
     remaining = [item for item in forbidden if item in text]
     if remaining:
         raise SystemExit(f"SNMP managed namespace rewrite incomplete in {name}: {remaining}")
@@ -148,6 +164,12 @@ def _vendor_files() -> dict[str, bytes]:
                         result[f"THIRD_PARTY_LICENSES/{filename}/{Path(member).name}"] = archive.read(member)
         if not any(path.startswith("pysnmp/") for path in result) or not any(path.startswith("pyasn1/") for path in result):
             raise SystemExit("SNMP vendor extraction did not contain both PySNMP and PyASN1")
+
+        # zipimport does not treat directory entries as PEP 420 namespace package
+        # portions. Materialize only namespace levels absent from the wheel; never
+        # replace a real upstream __init__.py if the wheel supplies one.
+        for path in ZIPIMPORT_NAMESPACE_SHIMS:
+            result.setdefault(path, ZIPIMPORT_SHIM)
         return result
 
 
@@ -177,10 +199,6 @@ def _zip_directories(files: dict[str, bytes]) -> tuple[str, ...]:
 def _zip_bytes(files: dict[str, bytes]) -> bytes:
     output = io.BytesIO()
     with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
-        # PySNMP intentionally uses implicit namespace packages (for example
-        # pysnmp/hlapi has no __init__.py). zipimport only discovers those
-        # namespaces when their directory entries exist, so preserve the wheel's
-        # directory topology explicitly in the signed module artifact.
         for path in _zip_directories(files):
             info = zipfile.ZipInfo(path, date_time=FIXED_ZIP_TIME)
             info.create_system = 3
