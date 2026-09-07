@@ -156,16 +156,36 @@ def _package_files(root: Path) -> dict[str, bytes]:
         f"{IMPORT_PACKAGE}/{name}": _rewrite_source(name, payload)
         for name, payload in _source_files(root).items()
     }
-    overlap = set(files) & set(_vendor_files())
+    vendor = _vendor_files()
+    overlap = set(files) & set(vendor)
     if overlap:
         raise SystemExit(f"SNMP vendor files collide with module files: {sorted(overlap)}")
-    files.update(_vendor_files())
+    files.update(vendor)
     return files
+
+
+def _zip_directories(files: dict[str, bytes]) -> tuple[str, ...]:
+    directories: set[str] = set()
+    for path in files:
+        parent = Path(path).parent
+        while parent != Path("."):
+            directories.add(parent.as_posix().rstrip("/") + "/")
+            parent = parent.parent
+    return tuple(sorted(directories))
 
 
 def _zip_bytes(files: dict[str, bytes]) -> bytes:
     output = io.BytesIO()
     with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
+        # PySNMP intentionally uses implicit namespace packages (for example
+        # pysnmp/hlapi has no __init__.py). zipimport only discovers those
+        # namespaces when their directory entries exist, so preserve the wheel's
+        # directory topology explicitly in the signed module artifact.
+        for path in _zip_directories(files):
+            info = zipfile.ZipInfo(path, date_time=FIXED_ZIP_TIME)
+            info.create_system = 3
+            info.external_attr = (0o40755 << 16) | 0x10
+            archive.writestr(info, b"")
         for path in sorted(files):
             info = zipfile.ZipInfo(path, date_time=FIXED_ZIP_TIME)
             info.compress_type = zipfile.ZIP_DEFLATED
