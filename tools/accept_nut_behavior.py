@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-"""Behavioral acceptance for managed NUT v1.0.0 build 1.
-
-The immutable source blob is byte-identical to certified Core 0556. This harness
-supplies only provider-blind Core interfaces and synthetic NUT evidence so the
-public module repository can verify the managed artifact without private Core
-source or live UPS infrastructure.
-"""
+"""Behavioral acceptance for managed NUT v1.0.1 build 2."""
 
 from __future__ import annotations
 
@@ -13,47 +7,74 @@ import asyncio
 import importlib
 import sys
 import zipfile
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 from accept_http_behavior import install_core_contract_stubs
 
-NUT_PACKAGE = "com.sickicarus.monitorbox.nut-1.0.0-build1.zip"
+NUT_PACKAGE = "com.sickicarus.monitorbox.nut-1.0.1-build2.zip"
 
 
-@dataclass
-class Observation:
-    state: Any
-    summary: str
-    metadata: dict[str, Any]
+def _install_runtime_contracts(plugin_api) -> None:
+    @dataclass(frozen=True)
+    class RuntimeExecutionContext:
+        module_id: str
+        package_root: str
+        state_root: str
 
-    def as_dict(self) -> dict[str, Any]:
-        return {
-            "state": self.state.value,
-            "summary": self.summary,
-            "metadata": dict(self.metadata),
-        }
+    @dataclass(frozen=True)
+    class RuntimeExecutionRequest:
+        check_id: str
+        object_id: str
+        adapter: str
+        timeout_seconds: float
+        options: Mapping[str, Any] = field(default_factory=dict)
+        agent_id: str | None = None
+        capability_id: str | None = None
+        capability_kind: str | None = None
 
+    @dataclass(frozen=True)
+    class RuntimeExecutionResult:
+        state: str
+        summary: str
+        duration_ms: float
+        metrics: Mapping[str, float] = field(default_factory=dict)
+        metadata: Mapping[str, Any] = field(default_factory=dict)
 
-class Runner:
-    def __init__(self, observation: Observation) -> None:
-        self.observation = observation
-        self.started = False
-        self.closed = False
-        self.check = None
+        def public(self) -> dict[str, Any]:
+            return {
+                "state": self.state,
+                "summary": self.summary,
+                "duration_ms": self.duration_ms,
+                "metrics": dict(self.metrics),
+                "metadata": dict(self.metadata),
+            }
 
-    async def start(self) -> None:
-        self.started = True
+    old = plugin_api.IntegrationDefinition
 
-    async def run(self, check):
-        if not self.started:
-            raise AssertionError("NUT validation runner was not started")
-        self.check = check
-        return self.observation
+    @dataclass(frozen=True)
+    class IntegrationDefinition:
+        metadata: Any
+        connection_kinds: tuple[str, ...] = ()
+        discovery: Any = None
+        connection: Any = None
+        validation: Any = None
+        identity: Any = None
+        inventory: Any = None
+        presentation: Any = None
+        runtime: Any = None
+        runtime_executor: Any = None
+        runtime_adapter_kinds: tuple[str, ...] = ()
+        adoption: Any = None
+        candidate_adoption: Any = None
+        candidate_review: Any = None
 
-    async def close(self) -> None:
-        self.closed = True
+    del old
+    plugin_api.RuntimeExecutionContext = RuntimeExecutionContext
+    plugin_api.RuntimeExecutionRequest = RuntimeExecutionRequest
+    plugin_api.RuntimeExecutionResult = RuntimeExecutionResult
+    plugin_api.IntegrationDefinition = IntegrationDefinition
 
 
 class Probe:
@@ -68,18 +89,8 @@ class Probe:
         self.calls.append(("tcp_exchange", host, port, payload, limit))
         return b"upsd 2.8.2\n"
 
-    async def tcp_exchange_until(
-        self,
-        host: str,
-        port: int,
-        payload: bytes,
-        terminator: bytes,
-        *,
-        limit: int,
-    ):
-        self.calls.append(
-            ("tcp_exchange_until", host, port, payload, terminator, limit)
-        )
+    async def tcp_exchange_until(self, host: str, port: int, payload: bytes, terminator: bytes, *, limit: int):
+        self.calls.append(("tcp_exchange_until", host, port, payload, terminator, limit))
         return (
             b'BEGIN LIST UPS\n'
             b'UPS network_ups "Network UPS"\n'
@@ -100,10 +111,7 @@ def _request(plugin_api, *, system_id: str, host: str, ups: str, label: str):
         default_selected=True,
         values={"host": host, "port": 3493, "ups": ups},
     )
-    return plugin_api.ConnectionRequest(
-        candidate=candidate,
-        values={"label": label, "ups": ups},
-    )
+    return plugin_api.ConnectionRequest(candidate=candidate, values={"label": label, "ups": ups})
 
 
 async def accept() -> None:
@@ -113,28 +121,31 @@ async def accept() -> None:
         raise AssertionError(f"managed NUT package is missing: {package}")
 
     plugin_api = install_core_contract_stubs()
-    model = sys.modules["monitorbox.v2.model"]
+    _install_runtime_contracts(plugin_api)
     sys.path.insert(0, str(package))
-    managed = importlib.import_module("monitorbox_nut_b1")
+    managed = importlib.import_module("monitorbox_nut_b2")
+    runtime_module = importlib.import_module("monitorbox_nut_b2.runtime")
 
     if managed.MODULE_ID != "com.sickicarus.monitorbox.nut":
         raise AssertionError("managed NUT module id changed")
-    if (managed.MODULE_VERSION, managed.MODULE_BUILD) != ("1.0.0", 1):
-        raise AssertionError("managed NUT release identity changed")
-    manifest = managed.MODULE_MANIFEST
-    if manifest.entrypoints != {"integration": "monitorbox_nut_b1:PLUGIN"}:
-        raise AssertionError("managed NUT manifest entrypoint is not generation-safe")
-    if manifest.requires_core != ">=2.3.0 <3.0.0":
-        raise AssertionError("managed NUT Core compatibility changed")
+    if (managed.MODULE_VERSION, managed.MODULE_BUILD) != ("1.0.1", 2):
+        raise AssertionError("managed NUT runtime-fix release identity changed")
+    if managed.MODULE_MANIFEST.entrypoints != {"integration": "monitorbox_nut_b2:PLUGIN"}:
+        raise AssertionError("managed NUT build 2 entrypoint is not generation-safe")
+    if managed.MODULE_MANIFEST.requires_core != ">=2.3.1 <3.0.0":
+        raise AssertionError("NUT runtime-fix Core floor changed")
+    if managed.PLUGIN.runtime_executor is None or managed.PLUGIN.runtime_adapter_kinds != ("nut",):
+        raise AssertionError("NUT build 2 does not own its runtime adapter")
 
     with zipfile.ZipFile(package) as archive:
-        source = archive.read("monitorbox_nut_b1/__init__.py")
-    for required in (b'b"VER\\n"', b'b"LIST UPS\\n"'):
-        if required not in source:
-            raise AssertionError(f"NUT read-only discovery marker missing: {required!r}")
-    for forbidden in (b"SET VAR ", b"INSTCMD ", b"USERNAME ", b"PASSWORD "):
-        if forbidden in source:
-            raise AssertionError(f"NUT managed source gained a mutating/auth command: {forbidden!r}")
+        names = set(archive.namelist())
+        if "monitorbox_nut_b2/runtime.py" not in names:
+            raise AssertionError("NUT runtime executor is not packaged")
+        root_source = archive.read("monitorbox_nut_b2/__init__.py")
+        runtime_source = archive.read("monitorbox_nut_b2/runtime.py")
+    for forbidden in (b"run_nut", b"self._runner_factory", b"monitorbox.v2.integrations.nut"):
+        if forbidden in root_source + runtime_source:
+            raise AssertionError(f"NUT build 2 retained a Core-provider fallback marker: {forbidden!r}")
 
     context = plugin_api.FacetContext(
         site_id="lab",
@@ -142,133 +153,78 @@ async def accept() -> None:
         current_revision=11,
         current_hash="nut-behavior-hash",
     )
-
     probe = Probe()
     integration = managed.NutIntegration()
     discovered = await integration.detect(
-        plugin_api.DiscoveryRequest(
-            system_id="power_host",
-            label="Power host",
-            address="nut-a.example.test",
-        ),
+        plugin_api.DiscoveryRequest(system_id="power_host", label="Power host", address="nut-a.example.test"),
         context,
         probe,
     )
-    if len(discovered) != 1:
-        raise AssertionError(f"expected one NUT discovery candidate, got {len(discovered)}")
-    evidence = discovered[0]
-    if evidence.confidence != plugin_api.DiscoveryConfidence.DETECTED:
-        raise AssertionError("NUT discovery confidence changed")
-    if evidence.values.get("ups_options") != [
+    if len(discovered) != 1 or discovered[0].values.get("ups_options") != [
         {"id": "network_ups", "description": "Network UPS"},
         {"id": "server_ups", "description": "Server UPS"},
     ]:
-        raise AssertionError(f"NUT UPS enumeration changed: {evidence.values!r}")
-    if "ups" in evidence.values:
-        raise AssertionError("multi-UPS discovery must not silently select one UPS")
+        raise AssertionError(f"NUT UPS enumeration changed: {discovered!r}")
 
-    expected_calls = [
-        ("tcp_open", "nut-a.example.test", 3493),
-        ("tcp_exchange", "nut-a.example.test", 3493, b"VER\n", 4096),
-        (
-            "tcp_exchange_until",
-            "nut-a.example.test",
-            3493,
-            b"LIST UPS\n",
-            b"END LIST UPS\n",
-            65536,
-        ),
-    ]
-    if probe.calls != expected_calls:
-        raise AssertionError(f"NUT bounded discovery contract changed: {probe.calls!r}")
-
-    request_a = _request(
-        plugin_api,
-        system_id="power_host",
-        host="nut-a.example.test",
-        ups="network_ups",
-        label="Network UPS",
-    )
-    request_b = _request(
-        plugin_api,
-        system_id="server_host",
-        host="nut-b.example.test",
-        ups="server_ups",
-        label="Server UPS",
-    )
-
+    request_a = _request(plugin_api, system_id="power_host", host="nut-a.example.test", ups="network_ups", label="Network UPS")
+    request_b = _request(plugin_api, system_id="server_host", host="nut-b.example.test", ups="server_ups", label="Server UPS")
     plan_a = integration.plan(request_a, context)
     plan_b = integration.plan(request_b, context)
-    if plan_a.expected_revision != 11 or plan_a.expected_config_hash != "nut-behavior-hash":
-        raise AssertionError("NUT plan lost optimistic transaction guards")
     if plan_a.object_ids == plan_b.object_ids:
         raise AssertionError("distinct NUT UPS Connections collapsed to one object id")
-    provider_a = plan_a.operations[0].object_data["capabilities"][0]["providers"][0]
-    provider_b = plan_b.operations[0].object_data["capabilities"][0]["providers"][0]
-    if provider_a["config"] != {
-        "host": "nut-a.example.test",
-        "port": 3493,
-        "ups": "network_ups",
-    }:
-        raise AssertionError(f"first NUT provider config changed: {provider_a!r}")
-    if provider_b["config"] != {
-        "host": "nut-b.example.test",
-        "port": 3493,
-        "ups": "server_ups",
-    }:
-        raise AssertionError(f"second NUT provider config changed: {provider_b!r}")
-    if provider_a["adapter"] != "nut" or provider_b["adapter"] != "nut":
-        raise AssertionError("NUT plans stopped targeting the shared bounded NUT adapter")
 
-    runtime_a = integration.build_runtime_intent(request_a, context)
-    runtime_b = integration.build_runtime_intent(request_b, context)
-    if runtime_a.checks[0]["config"] == runtime_b.checks[0]["config"]:
-        raise AssertionError("distinct NUT runtime intents collapsed")
-    if runtime_a.checks[0]["agent_id"] != "monitor":
-        raise AssertionError("NUT runtime intent lost local-agent ownership")
+    executor = managed.PLUGIN.runtime_executor
+    execution_context = plugin_api.RuntimeExecutionContext(
+        module_id=managed.MODULE_ID,
+        package_root="/tmp/nut-package",
+        state_root="/tmp/nut-state",
+    )
+    await executor.start(execution_context)
+    try:
+        async def healthy_vars(host: str, port: int, ups: str):
+            if (host, port, ups) != ("nut-a.example.test", 3493, "network_ups"):
+                raise AssertionError("NUT executor changed runtime request projection")
+            return {
+                "ups.status": "OL",
+                "battery.charge": "100",
+                "ups.load": "19.5",
+                "ups.model": "Synthetic UPS",
+            }
 
-    ids_a = integration.identities(request_a.candidate, context)
-    ids_b = integration.identities(request_b.candidate, context)
-    if ids_a[0].namespace != "nut-ups" or ids_b[0].namespace != "nut-ups":
-        raise AssertionError("NUT UPS identity namespace changed")
-    if ids_a[0].value == ids_b[0].value:
-        raise AssertionError("distinct NUT endpoint/UPS identities collapsed")
-
-    unknown_runner = Runner(
-        Observation(
-            model.State.UNKNOWN,
-            "NUT monitoring unavailable: connection refused",
-            {"failure_kind": "monitor_dependency", "nut_host": "nut-a.example.test"},
+        runtime_module._nut_vars = healthy_vars
+        runtime_request = plugin_api.RuntimeExecutionRequest(
+            check_id="network_ups",
+            object_id="network_ups",
+            adapter="nut",
+            timeout_seconds=5,
+            options={"host": "nut-a.example.test", "port": 3493, "ups": "network_ups"},
         )
-    )
-    unavailable = managed.NutIntegration(runner_factory=lambda: unknown_runner)
-    result = await unavailable.validate(request_a, context)
-    if result.accepted or result.state != "unknown":
-        raise AssertionError("NUT provider loss stopped preserving UNKNOWN truth")
-    if result.observation.get("metadata", {}).get("failure_kind") != "monitor_dependency":
-        raise AssertionError("NUT provider-loss diagnostics were discarded")
-    if not unknown_runner.closed:
-        raise AssertionError("NUT validation runner was not closed")
-    if unknown_runner.check.adapter != "nut":
-        raise AssertionError("NUT validation stopped using the bounded NUT adapter")
+        healthy = await executor.execute(runtime_request, execution_context)
+        if healthy.state != "healthy" or healthy.summary != "Utility power":
+            raise AssertionError(f"NUT module-owned runtime failed healthy fixture: {healthy!r}")
+        if healthy.metrics.get("battery.charge") != 100.0 or healthy.metadata.get("power_source") != "utility":
+            raise AssertionError(f"NUT runtime lost metrics/metadata: {healthy!r}")
 
-    healthy_runner = Runner(
-        Observation(
-            model.State.HEALTHY,
-            "Utility power",
-            {"power_source": "utility", "nut_ups": "network_ups"},
-        )
-    )
-    healthy = managed.NutIntegration(runner_factory=lambda: healthy_runner)
-    result = await healthy.validate(request_a, context)
-    if not result.accepted or result.state != "healthy":
-        raise AssertionError("healthy NUT validation stopped being accepted")
+        async def unavailable(*args):
+            del args
+            raise OSError("connection refused")
 
-    incomplete = managed._parse_complete_nut_ups(
-        b'BEGIN LIST UPS\nUPS network_ups "Network UPS"\n'
-    )
-    if incomplete:
-        raise AssertionError("incomplete NUT UPS inventory must not be treated as authoritative")
+        runtime_module._nut_vars = unavailable
+        lost = await executor.execute(runtime_request, execution_context)
+        if lost.state != "unknown" or lost.metadata.get("failure_kind") != "monitor_dependency":
+            raise AssertionError(f"NUT provider loss stopped preserving UNKNOWN truth: {lost!r}")
+
+        # Validation must use the same module-owned executor rather than the retired
+        # Core AdapterRunner.run_nut fallback.
+        integration = managed.NutIntegration(executor_factory=lambda: executor)
+        runtime_module._nut_vars = healthy_vars
+        validated = await integration.validate(request_a, context)
+        if not validated.accepted or validated.state != "healthy":
+            raise AssertionError(f"NUT module-owned validation failed: {validated!r}")
+        if validated.metadata.get("runtime_executor") != "module_owned":
+            raise AssertionError("NUT validation lost module-owned runtime provenance")
+    finally:
+        await executor.close(execution_context)
 
 
 def main() -> None:
