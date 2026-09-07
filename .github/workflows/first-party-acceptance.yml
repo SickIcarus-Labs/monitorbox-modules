@@ -17,6 +17,7 @@ on:
       - tools/build_first_party_ui.py
       - tools/build_first_party_ui_current.py
       - tools/build_first_party_ui_build10.py
+      - tools/build_first_party_ui_build11.py
       - tools/build_first_party_portainer.py
       - tools/build_first_party_http.py
       - tools/build_first_party_nut.py
@@ -29,6 +30,7 @@ on:
       - tools/accept_repository.py
       - tools/accept_repository_current.py
       - tools/accept_repository_build10.py
+      - tools/accept_repository_ui_build11.py
       - tools/accept_repository_http.py
       - tools/accept_repository_nut.py
       - tools/accept_repository_snmp.py
@@ -52,6 +54,7 @@ on:
       - tools/accept_ui_compose_hierarchy.mjs
       - tools/accept_ui_build9_interactions.mjs
       - tools/accept_ui_build10_physical.mjs
+      - tools/accept_ui_build11_standalone.py
       - tools/accept_ui_network_traffic.mjs
       - tools/accept_ui_discovery_presentation.py
       - tools/accept_ui_discovery_coverage.py
@@ -78,6 +81,7 @@ on:
       - tools/build_first_party_ui.py
       - tools/build_first_party_ui_current.py
       - tools/build_first_party_ui_build10.py
+      - tools/build_first_party_ui_build11.py
       - tools/build_first_party_portainer.py
       - tools/build_first_party_http.py
       - tools/build_first_party_nut.py
@@ -90,6 +94,7 @@ on:
       - tools/accept_repository.py
       - tools/accept_repository_current.py
       - tools/accept_repository_build10.py
+      - tools/accept_repository_ui_build11.py
       - tools/accept_repository_http.py
       - tools/accept_repository_nut.py
       - tools/accept_repository_snmp.py
@@ -113,6 +118,7 @@ on:
       - tools/accept_ui_compose_hierarchy.mjs
       - tools/accept_ui_build9_interactions.mjs
       - tools/accept_ui_build10_physical.mjs
+      - tools/accept_ui_build11_standalone.py
       - tools/accept_ui_network_traffic.mjs
       - tools/accept_ui_discovery_presentation.py
       - tools/accept_ui_discovery_coverage.py
@@ -139,7 +145,7 @@ jobs:
           python -m playwright install --with-deps chromium
       - name: Build reproducible first-party packages
         run: |
-          python tools/build_first_party_ui_build10.py
+          python tools/build_first_party_ui_build11.py
           python tools/build_first_party_portainer.py
           python tools/build_first_party_http.py
           python tools/build_first_party_nut.py
@@ -150,7 +156,7 @@ jobs:
           python tools/build_first_party_configuration_bootstrap.py
           python tools/build_first_party_backup_restore.py
           sha256sum packages/com.sickicarus.monitorbox.ui-*.zip packages/com.sickicarus.monitorbox.portainer-*.zip packages/com.sickicarus.monitorbox.http-*.zip packages/com.sickicarus.monitorbox.nut-*.zip packages/com.sickicarus.monitorbox.snmp-*.zip packages/com.sickicarus.monitorbox.unifi-*.zip packages/com.sickicarus.monitorbox.scrypted-*.zip packages/com.sickicarus.monitorbox.wol-*.zip packages/com.sickicarus.monitorbox.configuration-bootstrap-*.zip packages/com.sickicarus.monitorbox.backup-restore-*.zip > /tmp/first-party-packages.first
-          python tools/build_first_party_ui_build10.py
+          python tools/build_first_party_ui_build11.py
           python tools/build_first_party_portainer.py
           python tools/build_first_party_http.py
           python tools/build_first_party_nut.py
@@ -186,6 +192,8 @@ jobs:
         run: python tools/accept_portainer_coverage.py
       - name: Verify Portainer lifecycle and bounded diagnostics truth
         run: python tools/accept_portainer_lifecycle.py
+      - name: Verify standalone UI build-11 Core boundary
+        run: python tools/accept_ui_build11_standalone.py
       - name: Verify UI Compose hierarchy preserves canonical child truth
         run: node tools/accept_ui_compose_hierarchy.mjs
       - name: Verify UI build-9 hierarchy interactions
@@ -212,4 +220,4 @@ jobs:
           if-no-files-found: error
           retention-days: 2
       - name: Verify package shape, activation regression, and signed repository contract
-        run: python tools/accept_repository_backup_restore.py
+        run: python tools/accept_repository_ui_build11.py

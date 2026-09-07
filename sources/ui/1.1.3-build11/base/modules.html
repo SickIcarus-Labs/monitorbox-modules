@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#07111f">
+  <title>MonitorBox Modules</title>
+  <link rel="stylesheet" href="/static/dashboard.css">
+  <link rel="stylesheet" href="/static/v22-shell.css">
+  <link rel="stylesheet" href="/static/modules.css">
+</head>
+<body class="modules-page" data-monitorbox-build="__MONITORBOX_BUILD_LABEL__">
+  <header class="modules-topbar">
+    <a class="modules-back" href="/">← Dashboard</a>
+    <div>
+      <strong>MonitorBox Modules</strong>
+      <span>__MONITORBOX_BUILD_LABEL__</span>
+    </div>
+  </header>
+
+  <main class="modules-shell">
+    <section class="modules-heading">
+      <div>
+        <span class="eyebrow">Module Management</span>
+        <h1>Installed modules and updates</h1>
+        <p>Lifecycle authority is owned by MonitorBox Core. This page is an operator client of the protected module-management API.</p>
+      </div>
+      <div class="modules-actions">
+        <button id="modules-check-updates" class="button secondary" type="button">Check for Updates</button>
+        <button id="modules-update-all" class="button" type="button" disabled>Update All</button>
+      </div>
+    </section>
+
+    <section id="modules-capabilities" class="modules-capabilities" aria-live="polite">
+      <strong>Loading module capabilities…</strong>
+    </section>
+
+    <section id="modules-auth" class="modules-auth" aria-labelledby="modules-auth-heading">
+      <div>
+        <span class="eyebrow">Protected writes</span>
+        <h2 id="modules-auth-heading">Administrator authentication</h2>
+        <p id="modules-auth-state">Checking configuration-admin session…</p>
+      </div>
+      <form id="modules-login-form" class="modules-login-form">
+        <label for="modules-password">Administrator password</label>
+        <div>
+          <input id="modules-password" type="password" autocomplete="current-password" required>
+          <button class="button" type="submit">Authenticate</button>
+        </div>
+      </form>
+    </section>
+
+    <section aria-labelledby="modules-repositories-heading">
+      <div class="modules-section-heading">
+        <div>
+          <span class="eyebrow">Sources</span>
+          <h2 id="modules-repositories-heading">Repositories</h2>
+        </div>
+      </div>
+      <div id="modules-repositories" class="modules-repositories"></div>
+      <details id="modules-add-repository" class="modules-repository-add">
+        <summary>Add compatible repository</summary>
+        <p>
+          Repository trust is explicit. Verify the publisher's HTTPS index URL,
+          Ed25519 signing identity, and public key before adding it. In-process
+          third-party modules execute with MonitorBox process privileges.
+        </p>
+        <form id="modules-repository-form" class="modules-repository-form">
+          <label>Repository ID<input id="modules-repository-id" required pattern="[a-z0-9][a-z0-9._-]{0,95}" placeholder="example.modules"></label>
+          <label>Display name<input id="modules-repository-name" required placeholder="Example Modules"></label>
+          <label class="wide">Repository index URL<input id="modules-repository-url" type="url" required placeholder="https://example.invalid/index.json"></label>
+          <label>Signing identity<input id="modules-repository-key-id" required placeholder="example-ed25519-1"></label>
+          <label>Ed25519 public key (base64)<input id="modules-repository-public-key" required autocomplete="off"></label>
+          <label class="wide">Credential handle (optional)<input id="modules-repository-credential" pattern="cred_[0-9a-f]{32}" placeholder="cred_…"></label>
+          <div class="wide modules-repository-submit"><button class="button" type="submit">Add Repository</button></div>
+        </form>
+      </details>
+    </section>
+
+    <section aria-labelledby="modules-list-heading">
+      <div class="modules-section-heading">
+        <div>
+          <span class="eyebrow">Lifecycle</span>
+          <h2 id="modules-list-heading">Modules</h2>
+        </div>
+      </div>
+      <div id="modules-list" class="modules-list" aria-live="polite"></div>
+    </section>
+
+    <p id="modules-status" class="modules-status" role="status"></p>
+  </main>
+
+  <script src="/static/modules.js" defer></script>
+</body>
+</html>

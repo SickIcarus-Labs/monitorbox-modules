@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#07111f">
+  <title>MonitorBox</title>
+  <link rel="stylesheet" href="/static/dashboard.css">
+  <link rel="stylesheet" href="/static/service-presentation.css">
+  <link rel="stylesheet" href="/static/v1-parity.css">
+  <link rel="stylesheet" href="/static/v1-detail-parity.css">
+  <link rel="stylesheet" href="/static/v1-beta-polish.css">
+  <link rel="stylesheet" href="/static/v1-beta-hotfix.css">
+  <link rel="stylesheet" href="/static/global-debug.css">
+  <link rel="stylesheet" href="/static/v22-shell.css">
+</head>
+<body data-monitorbox-build="__MONITORBOX_BUILD_LABEL__">
+  <header class="v22-topbar">
+    <button id="v22-menu-button" class="v22-menu-button" type="button" aria-label="Open MonitorBox menu" aria-expanded="false">☰</button>
+    <div class="v22-product" aria-label="MonitorBox build identity">
+      <strong>MonitorBox</strong>
+      <span id="build-id">__MONITORBOX_BUILD_LABEL__</span>
+    </div>
+    <div class="v22-site" id="v22-site-name">Site</div>
+    <span class="sync v22-sync"><i id="sync-dot"></i><span id="sync-label">Loading</span></span>
+    <button id="reload" class="button secondary" type="button" hidden aria-hidden="true" tabindex="-1">Reload status</button>
+    <button id="debug-toggle" class="button secondary" type="button" hidden aria-pressed="false">Debug</button>
+    <a id="v22-discoveries" class="button secondary v22-discoveries" href="/settings/discover" hidden aria-label="Discoveries">
+      <span class="v22-discoveries-label">Discoveries</span>
+      <span id="v22-discoveries-count" class="v22-discoveries-count" aria-hidden="true">0</span>
+    </a>
+    <button id="check-all" class="button v22-refresh" type="button">Refresh</button>
+  </header>
+  <nav id="v22-menu" class="v22-menu" hidden aria-label="MonitorBox">
+    <a href="/settings">Configure</a>
+    <a href="/settings#connections">Connections</a>
+    <a href="/settings/discover">Discoveries</a>
+    <a href="/settings/dashboard">Dashboard / Graphs</a>
+    <a href="/modules">Modules</a>
+    <a href="/settings/policy">Actions</a>
+    <a href="/settings/appliance">Appliance</a>
+    <a href="/settings/recovery">Backup &amp; Restore</a>
+  </nav>
+
+  <main class="v1-shell">
+    <h1 id="title" class="v22-visually-hidden">MonitorBox</h1>
+    <button id="global" class="global parity-global unknown" type="button" aria-live="polite" aria-label="Open overall health details">
+      <div>
+        <span class="eyebrow">Overall health</span>
+        <h2 id="global-title">Loading MonitorBox…</h2>
+        <p id="global-copy">Waiting for canonical controller state.</p>
+      </div>
+      <div id="global-state" class="state-pill unknown">Unknown</div>
+    </button>
+
+    <section id="operation" class="operation hidden" aria-live="polite">
+      <div><strong id="operation-title">Refreshing</strong><span id="operation-copy">Fresh observations are being collected.</span></div>
+      <div class="progress"><i id="operation-progress"></i></div>
+    </section>
+
+    <section class="parity-section" aria-labelledby="core-heading">
+      <div class="parity-section-heading">
+        <div><span class="eyebrow">At a glance</span><h2 id="core-heading">Core infrastructure</h2></div>
+        <span class="parity-section-note">Tap an object to inspect it</span>
+      </div>
+      <div id="core-grid" class="parity-core-grid"></div>
+    </section>
+
+    <section class="parity-section" aria-labelledby="services-heading">
+      <div class="parity-section-heading">
+        <div><span class="eyebrow">Availability</span><h2 id="services-heading">Services</h2></div>
+        <span class="parity-section-note" id="services-summary">Waiting for state</span>
+      </div>
+      <div id="services-grid" class="parity-services-grid"></div>
+    </section>
+
+    <section id="live-overview" class="live-overview parity-live-overview hidden" aria-labelledby="network-heading">
+      <header>
+        <div><span class="eyebrow">Last five minutes</span><h2 id="network-heading">Network activity</h2></div>
+        <span class="live-diagnostic-label">● LIVE</span>
+      </header>
+      <div id="live-overview-grid" class="live-overview-grid"></div>
+    </section>
+
+    <div id="sites" class="sites hidden" aria-hidden="true"></div>
+
+    <footer class="parity-footer"><span>Independent monitoring</span><span id="footer-state">Waiting for state</span></footer>
+  </main>
+
+  <dialog id="drawer" class="drawer">
+    <div class="drawer-frame">
+      <header>
+        <button id="drawer-back" class="drawer-header-back" type="button" hidden>← Back</button>
+        <div class="drawer-heading">
+          <span id="drawer-eyebrow" class="eyebrow"></span>
+          <h2 id="drawer-title"></h2>
+        </div>
+        <button id="drawer-close" class="icon-button" type="button" aria-label="Close details">×</button>
+      </header>
+      <div id="drawer-state" class="state-pill unknown" hidden aria-hidden="true">Unknown</div>
+      <div id="drawer-body" class="drawer-body"></div>
+    </div>
+  </dialog>
+
+  <aside id="debug-console" class="debug-console" hidden aria-label="MonitorBox live debug console">
+    <header>
+      <div class="debug-console-heading">
+        <div><span class="eyebrow">Live diagnostics</span><h2>MonitorBox debug</h2></div>
+        <span id="debug-connection" class="debug-connection">Paused</span>
+      </div>
+      <button id="debug-close" class="icon-button" type="button" aria-label="Close debug console">×</button>
+    </header>
+    <div class="debug-toolbar">
+      <label class="debug-field"><span>Filter</span><select id="debug-filter">
+        <option value="all">All events</option>
+        <option value="errors">Warnings / errors</option>
+        <option value="ui">UI</option>
+        <option value="controller">Controller</option>
+        <option value="agent">Agents</option>
+        <option value="checks">Checks</option>
+        <option value="actions">Actions</option>
+        <option value="policy">Policy</option>
+        <option value="telemetry">Telemetry</option>
+        <option value="network">Network</option>
+        <option value="camera">Cameras</option>
+        <option value="integration">Integrations</option>
+      </select></label>
+      <label class="debug-field"><span>Search</span><input id="debug-search" type="search" autocomplete="off" placeholder="check, host, error…"></label>
+      <button id="debug-copy" class="button secondary" type="button">Copy log</button>
+      <button id="debug-clear" class="button secondary" type="button">Clear</button>
+    </div>
+    <pre id="debug-log" class="debug-log" aria-live="polite">Debug stream paused.</pre>
+    <footer><span>Sanitized structured diagnostics · secrets and raw signaling payloads omitted</span><span id="debug-count">0 events</span></footer>
+  </aside>
+
+  <div id="toast" class="toast" role="status"></div>
+  <script src="/static/dashboard.js" defer></script>
+  <script src="/static/conceptual-presentation.js" defer></script>
+  <script src="/static/service-presentation.js" defer></script>
+  <script src="/static/v1-parity.js" defer></script>
+  <script src="/static/operation-progress.js" defer></script>
+  <script src="/static/live-ping.js" defer></script>
+  <script src="/static/live-telemetry.js" defer></script>
+  <script src="/static/dashboard-widgets.js" defer></script>
+  <script src="/static/v1-detail-parity.js" defer></script>
+  <script src="/static/v1-global-diagnostics.js" defer></script>
+  <script src="/static/v1-beta-polish.js" defer></script>
+  <script src="/static/v1-beta-hotfix.js" defer></script>
+  <script src="/static/global-debug.js" defer></script>
+  <script src="/static/v22-shell.js" defer></script>
+</body>
+</html>
