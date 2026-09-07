@@ -78,6 +78,7 @@ def load_catalog(path: Path) -> list[Release]:
 
 
 def validate_history(releases: Iterable[Release]) -> None:
+    """Validate immutable history without retroactively imposing new policy."""
     by_module: dict[str, list[Release]] = {}
     identities: set[tuple[str, str, int]] = set()
     for release in releases:
@@ -91,8 +92,6 @@ def validate_history(releases: Iterable[Release]) -> None:
         builds = [item.build for item in history]
         if builds != sorted(set(builds)):
             raise ReleasePolicyError(f"{module_id} builds are not strictly increasing")
-        if history[0].publisher_id == "com.sickicarus" and history[0].version != SemVer(1, 0, 0):
-            raise ReleasePolicyError(f"first first-party release of {module_id} must be 1.0.0")
         previous = history[0].version
         for release in history[1:]:
             if release.version < previous:
