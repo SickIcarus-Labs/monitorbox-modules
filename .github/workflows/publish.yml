@@ -25,7 +25,9 @@ on:
       - tools/build_first_party_http.py
       - tools/build_first_party_nut.py
       - tools/build_first_party_snmp.py
+      - tools/build_first_party_snmp_mib_hotfix.py
       - tools/stage_snmp_zipimport_hotfix.py
+      - tools/stage_snmp_mib_zipimport_hotfix.py
       - tools/build_first_party_unifi.py
       - tools/build_first_party_scrypted.py
       - tools/build_first_party_wol.py
@@ -50,14 +52,16 @@ jobs:
         with:
           python-version: '3.13'
       - name: Stage catalog migrations
-        run: python tools/stage_snmp_zipimport_hotfix.py
+        run: |
+          python tools/stage_snmp_zipimport_hotfix.py
+          python tools/stage_snmp_mib_zipimport_hotfix.py
       - name: Build immutable first-party packages
         run: |
           python tools/build_first_party_ui_build11.py
           python tools/build_first_party_portainer.py
           python tools/build_first_party_http.py
           python tools/build_first_party_nut.py
-          python tools/build_first_party_snmp.py
+          python tools/build_first_party_snmp_mib_hotfix.py
           python tools/build_first_party_unifi.py
           python tools/build_first_party_scrypted.py
           python tools/build_first_party_wol.py
