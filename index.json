@@ -3,7 +3,7 @@
   "signed": {
     "repository_id": "official",
     "display_name": "MonitorBox Official",
-    "generated_at": "2026-09-07T15:06:24.199426Z",
+    "generated_at": "2026-09-07T15:59:28.956564Z",
     "modules": [
       {
         "manifest": {
@@ -484,6 +484,33 @@
       },
       {
         "manifest": {
+          "module_id": "com.sickicarus.monitorbox.scrypted",
+          "display_name": "Scrypted Integration",
+          "version": "2.1.2",
+          "build": 3,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "integration",
+          "entrypoints": {
+            "integration": "monitorbox_scrypted_v212_b3:PLUGIN"
+          },
+          "requires_core": ">=2.3.1 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "optional"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.scrypted-2.1.2-build3.zip",
+          "filename": "com.sickicarus.monitorbox.scrypted-2.1.2-build3.zip",
+          "sha256": "a5688c999bb4c2b60e3236172662b92a2462f0da30b8ccdade5b74f9f7b5081d",
+          "signature_identity": "official-ed25519-1",
+          "signature": "WLsZCUMcMUfD079eUST8C37cnBZ34kt/WvI/FxpwVEAAbn/Ze0sZyxECB4nVBkAk58zHj/FLLsltUA/bVTRBCg=="
+        }
+      },
+      {
+        "manifest": {
           "module_id": "com.sickicarus.monitorbox.snmp",
           "display_name": "SNMP Integration",
           "version": "1.0.0",
@@ -642,6 +669,33 @@
           "sha256": "cfa9fb22a41ee12f1e00fcd442bb2da6f71e8a683e284023635c47436939c1b0",
           "signature_identity": "official-ed25519-1",
           "signature": "ZTgV2JXl6Hpq0GNlQuAd72E877vsYehFxyVaUQAJikMrWKYDyoQlBObVA6KyE6vLjGu7eMjaZapiUrS6vaKbCg=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.snmp",
+          "display_name": "SNMP Integration",
+          "version": "1.0.5",
+          "build": 7,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "integration",
+          "entrypoints": {
+            "integration": "monitorbox_snmp_v105_b7:PLUGIN"
+          },
+          "requires_core": ">=2.3.1 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "optional"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.snmp-1.0.5-build7.zip",
+          "filename": "com.sickicarus.monitorbox.snmp-1.0.5-build7.zip",
+          "sha256": "2fec436e8f2da91fbdc94fc3e2a221e728eea57b1504c98eff71d74f79b5a3b0",
+          "signature_identity": "official-ed25519-1",
+          "signature": "me4PyTXv79kUjOE5qSY7yP5FqUUW2pELqxUgGvYO7RfWH3idwHsUCXUVNFqFwGPWjy+0NchRFT9yHReLRU2FAw=="
         }
       },
       {
@@ -1054,6 +1108,6 @@
   "signature": {
     "algorithm": "ed25519",
     "identity": "official-ed25519-1",
-    "value": "WLhvcXfm60NWecJzqL81YIrKgD1dh1+EJIFGIG/DzKty7Euc/Gl30sH/2Qyp2/SOkdJQprfC+ZmC349UmIwKCQ=="
+    "value": "1VYp/c/V7DvsMahFOHb8DQYD2++4R6jELF8W9iQBli1opS2jTQzmmrsSCwf5WWEGmGmDuyMcHZT3edL0KZ9oCQ=="
   }
 }
