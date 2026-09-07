@@ -1,0 +1,28 @@
+/* Narrow b27 corrections recovered directly from production-v1 behavior. */
+.external-action{
+  min-height:48px;
+  padding:8px 13px;
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  border:1px solid rgba(101,169,255,.28);
+  border-radius:12px;
+  color:#dbeeff;
+  background:rgba(101,169,255,.09);
+  text-decoration:none;
+  font-weight:700;
+}
+.external-action:hover{background:rgba(101,169,255,.16)}
+.external-action:focus-visible{outline:2px solid #8be6c5;outline-offset:2px}
+.external-action .service-icon{
+  box-sizing:border-box;
+  width:34px;
+  height:34px;
+  min-width:34px;
+  min-height:34px;
+  padding:5px;
+  border-radius:9px;
+  background:#e7eef2;
+  color:#07111f;
+}
+.external-action .service-icon img{max-width:24px;max-height:24px;margin:auto}
