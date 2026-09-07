@@ -78,7 +78,7 @@ def load_catalog(path: Path) -> list[Release]:
 
 
 def validate_history(releases: Iterable[Release]) -> None:
-    """Validate immutable history without retroactively imposing new policy."""
+    """Validate preserved history without retroactively imposing Phase-1 build rules."""
     by_module: dict[str, list[Release]] = {}
     identities: set[tuple[str, str, int]] = set()
     for release in releases:
@@ -87,16 +87,16 @@ def validate_history(releases: Iterable[Release]) -> None:
         identities.add(release.identity)
         by_module.setdefault(release.module_id, []).append(release)
 
+    # Existing signed history is grandfathered, including historical same-semver
+    # packages and build-number resets. We only require semantic history not to run
+    # backwards in catalog order; Phase-1 monotonic build policy starts with the next
+    # candidate and is enforced against the highest preserved build below.
     for module_id, history in by_module.items():
-        history.sort(key=lambda item: item.build)
-        builds = [item.build for item in history]
-        if builds != sorted(set(builds)):
-            raise ReleasePolicyError(f"{module_id} builds are not strictly increasing")
         previous = history[0].version
         for release in history[1:]:
             if release.version < previous:
                 raise ReleasePolicyError(
-                    f"{module_id} semantic version regressed at build {release.build}: {release.version} < {previous}"
+                    f"{module_id} semantic version regressed in preserved catalog: {release.version} < {previous}"
                 )
             previous = release.version
 
@@ -143,12 +143,23 @@ def changed_paths(base_ref: str) -> list[str]:
     return [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
 
+def _module_history(module_id: str, releases: list[Release]) -> list[Release]:
+    return [release for release in releases if release.module_id == module_id]
+
+
 def _previous_for(module_id: str, releases: list[Release]) -> Release | None:
-    matches = [release for release in releases if release.module_id == module_id]
-    return max(matches, key=lambda item: item.build) if matches else None
+    matches = _module_history(module_id, releases)
+    return max(matches, key=lambda item: (item.version, item.build)) if matches else None
 
 
-def _check_bump(previous: Release | None, candidate: Release, intent: dict[str, Any], source_changed: bool) -> None:
+def _check_bump(
+    previous: Release | None,
+    candidate: Release,
+    intent: dict[str, Any],
+    source_changed: bool,
+    *,
+    highest_previous_build: int,
+) -> None:
     change_class = intent["change_class"]
     expected_version = SemVer.parse(intent["version"])
     if candidate.version != expected_version or candidate.build != intent["build"]:
@@ -160,8 +171,10 @@ def _check_bump(previous: Release | None, candidate: Release, intent: dict[str, 
         if candidate.publisher_id == "com.sickicarus" and candidate.version != SemVer(1, 0, 0):
             raise ReleasePolicyError(f"new first-party module {candidate.module_id} must start at 1.0.0")
         return
-    if candidate.build <= previous.build:
-        raise ReleasePolicyError(f"{candidate.module_id} build must increase beyond {previous.build}")
+    if candidate.build <= highest_previous_build:
+        raise ReleasePolicyError(
+            f"{candidate.module_id} build {candidate.build} must increase beyond preserved maximum {highest_previous_build}"
+        )
 
     if change_class == "packaging-only":
         if candidate.version != previous.version:
@@ -215,8 +228,15 @@ def validate_release(
         if intent is None:
             raise ReleasePolicyError(f"new release {release.identity} has no release-intents metadata")
         source_changed = any(path.startswith(intent["source_prefix"]) for path in path_list)
+        history = _module_history(release.module_id, baseline)
         previous = _previous_for(release.module_id, baseline)
-        _check_bump(previous, release, intent, source_changed)
+        _check_bump(
+            previous,
+            release,
+            intent,
+            source_changed,
+            highest_previous_build=max((item.build for item in history), default=0),
+        )
         if require_packages and not (root / "packages" / release.package).is_file():
             raise ReleasePolicyError(f"candidate package packages/{release.package} was not built")
         print(
