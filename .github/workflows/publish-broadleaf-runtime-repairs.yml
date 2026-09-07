@@ -12,6 +12,7 @@ on:
       - tools/accept_snmp_v3_isolation.py
       - tools/accept_scrypted_managed_state.py
       - tools/stage_broadleaf_runtime_repairs.py
+      - tools/release_policy.py
       - .github/workflows/publish-broadleaf-runtime-repairs.yml
 
 permissions:
@@ -26,9 +27,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 2
       - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
+      - id: base
+        name: Capture pre-publication authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="HEAD^"
+          git show "$base:catalog.source.json" > "$RUNNER_TEMP/catalog.before.json"
+          echo "ref=$base" >> "$GITHUB_OUTPUT"
       - name: Stage exact successor releases
         run: python tools/stage_broadleaf_runtime_repairs.py
       - name: Build immutable successor packages
@@ -40,6 +51,13 @@ jobs:
           python -m pip install --disable-pip-version-check aiohttp==3.11.16 cryptography==50.0.1
           python tools/accept_snmp_v3_isolation.py
           python tools/accept_scrypted_managed_state.py
+      - name: Enforce semantic module release authority before signing
+        run: >-
+          python tools/release_policy.py validate
+          --base-catalog "$RUNNER_TEMP/catalog.before.json"
+          --candidate-catalog catalog.source.json
+          --base-ref '${{ steps.base.outputs.ref }}'
+          --require-packages
       - name: Build signed repository index
         env:
           SIGNING_KEY: ${{ secrets.MONITORBOX_MODULE_SIGNING_KEY }}

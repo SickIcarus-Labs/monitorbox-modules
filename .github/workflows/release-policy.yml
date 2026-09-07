@@ -1,0 +1,64 @@
+name: Module release policy
+
+# Unique, cheap release-readiness gate. This does not sign or publish anything.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - release-intents/**
+      - sources/**
+      - catalog.source.json
+      - tools/build_first_party_*.py
+      - tools/stage_*.py
+      - tools/release_policy.py
+      - tools/accept_release_policy.py
+      - VERSIONING.md
+      - .github/workflows/publish.yml
+      - .github/workflows/publish-broadleaf-runtime-repairs.yml
+      - .github/workflows/release-policy.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: module-release-policy-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  policy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Run semantic policy acceptance matrix
+        run: python tools/accept_release_policy.py
+      - id: base
+        name: Resolve comparison base
+        shell: bash
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          if [[ -n "$BASE_REF" ]]; then
+            git fetch --no-tags origin "$BASE_REF:refs/remotes/origin/$BASE_REF"
+            ref="refs/remotes/origin/$BASE_REF"
+          else
+            ref="HEAD^"
+          fi
+          git show "$ref:catalog.source.json" > "$RUNNER_TEMP/catalog.before.json"
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+      - name: Build any declared release candidate exactly as publication will
+        run: python tools/release_policy.py run-intents --base-ref '${{ steps.base.outputs.ref }}'
+      - name: Enforce semantic version/build authority
+        run: >-
+          python tools/release_policy.py validate
+          --base-catalog "$RUNNER_TEMP/catalog.before.json"
+          --candidate-catalog catalog.source.json
+          --base-ref '${{ steps.base.outputs.ref }}'
+          --require-packages

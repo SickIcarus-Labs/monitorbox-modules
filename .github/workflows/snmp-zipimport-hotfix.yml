@@ -9,8 +9,6 @@ on:
       - tools/accept_snmp_mib_zipimport.py
       - tools/stage_snmp_zipimport_hotfix.py
       - tools/stage_snmp_mib_zipimport_hotfix.py
-      - .github/workflows/publish.yml
-      - .github/workflows/snmp-zipimport-hotfix.yml
   push:
     branches: [main]
     paths:
@@ -21,8 +19,6 @@ on:
       - tools/accept_snmp_mib_zipimport.py
       - tools/stage_snmp_zipimport_hotfix.py
       - tools/stage_snmp_mib_zipimport_hotfix.py
-      - .github/workflows/publish.yml
-      - .github/workflows/snmp-zipimport-hotfix.yml
 
 permissions:
   contents: read
