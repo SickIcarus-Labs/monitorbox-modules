@@ -5,6 +5,7 @@ on:
     branches: [codex/core-prune-standalone-ui-build11]
     paths:
       - .github/workflows/tmp-finalize-ui-build11.yml
+      - tools/accept_ui_build11_standalone.py
 
 permissions:
   contents: write
