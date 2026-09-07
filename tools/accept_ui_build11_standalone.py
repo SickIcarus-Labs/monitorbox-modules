@@ -19,7 +19,8 @@ def _write_core_stub(root: Path) -> None:
     monitorbox = root / "monitorbox"
     v2 = monitorbox / "v2"
     icons = monitorbox / "static" / "icons"
-    icons.mkdir(parents=True)
+    v2.mkdir(parents=True, exist_ok=True)
+    icons.mkdir(parents=True, exist_ok=True)
     (monitorbox / "__init__.py").write_text('__version__ = "2.3.1"\n', encoding="utf-8")
     (v2 / "__init__.py").write_text("", encoding="utf-8")
     stub = (
