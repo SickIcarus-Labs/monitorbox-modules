@@ -153,7 +153,7 @@ def _accept_snmp(root: Path, source: dict) -> None:
         'requires_core=">=2.3.1 <3.0.0"',
         "from pysnmp.hlapi.v3arch import asyncio as hlapi",
         '"transport": "pysnmp"',
-        '"failure_kind": "provider_semantics_unknown"',
+        'metadata["failure_kind"] = "provider_semantics_unknown"',
         'summary="QNAP storage maintenance: Scrubbing"',
     )
     missing = [marker for marker in required if marker not in root_text + runtime_text]

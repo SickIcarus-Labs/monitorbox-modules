@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Focused current-catalog acceptance for Scrypted 2.1 media release."""
+"""Focused current-catalog acceptance for managed Scrypted media releases."""
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
+import accept_repository_provider_repairs as repairs
 import accept_repository_scrypted as scrypted
 
 
@@ -17,7 +18,12 @@ def main() -> None:
         for item in source.get("modules", [])
         if item.get("manifest", {}).get("module_id") == scrypted.SCRYPTED_ID
     }
-    expected = {scrypted.SCRYPTED_V1, scrypted.SCRYPTED_V2, scrypted.SCRYPTED_V21}
+    expected = {
+        scrypted.SCRYPTED_V1,
+        scrypted.SCRYPTED_V2,
+        scrypted.SCRYPTED_V21,
+        repairs.SCRYPTED_RELEASE,
+    }
     if identities != expected:
         raise AssertionError(
             f"expected current Scrypted releases {sorted(expected)}, got {sorted(identities)}"
@@ -37,7 +43,8 @@ def main() -> None:
         scrypted.IMPORT_V21,
         media=True,
     )
-    print("Current Scrypted catalog + 2.1 media package shape: PASS", flush=True)
+    repairs._accept_scrypted(root, source)
+    print("Current Scrypted catalog + 2.1/2.1.1 media package shape: PASS", flush=True)
 
 
 if __name__ == "__main__":
