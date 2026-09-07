@@ -1,0 +1,121 @@
+name: Temporary materialize standalone UI build11 base
+
+on:
+  push:
+    branches: [codex/core-prune-standalone-ui-build11]
+    paths:
+      - .github/workflows/tmp-materialize-ui-build11-base.yml
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Reconstruct and verify frozen pre-prune UI payload
+        run: |
+          python - <<'PY'
+          import base64
+          import hashlib
+          import io
+          from pathlib import Path
+          import zipfile
+
+          root = Path("sources/ui/1.1.3-build11")
+          parts = sorted((root / "transport").glob("part-*.txt"))
+          if len(parts) != 45:
+              raise SystemExit(f"expected 45 transport parts, found {len(parts)}")
+          encoded = "".join("".join(path.read_text(encoding="ascii").split()) for path in parts)
+          if len(encoded) != 134816:
+              raise SystemExit(f"expected 134816 encoded chars, got {len(encoded)}")
+          archive_bytes = base64.b64decode(encoded, validate=True)
+          if len(archive_bytes) != 101111:
+              raise SystemExit(f"expected 101111 zip bytes, got {len(archive_bytes)}")
+
+          expected_names = {
+              "advanced-dirty-state.js",
+              "advanced-v22-polish.js",
+              "conceptual-presentation.js",
+              "dashboard-widgets.js",
+              "dashboard.css",
+              "dashboard.html",
+              "dashboard.js",
+              "followup-beta-polish.js",
+              "global-debug.css",
+              "global-debug.js",
+              "http-v22-polish.js",
+              "live-ping.js",
+              "live-telemetry.js",
+              "modules.css",
+              "modules.html",
+              "modules.js",
+              "onboarding-v22-acceptance.js",
+              "operation-progress.js",
+              "policy-ui.js",
+              "quick-add.js",
+              "settings-v22-shell.js",
+              "v1-beta-hotfix.css",
+              "v1-beta-hotfix.js",
+              "v1-beta-polish.css",
+              "v1-beta-polish.js",
+              "v1-detail-parity.css",
+              "v1-detail-parity.js",
+              "v1-global-diagnostics.js",
+              "v1-parity.css",
+              "v1-parity.js",
+              "v22-shell.css",
+              "v22-shell.js",
+              "workspace-finish.js",
+              "workspace-state.js",
+          }
+          with zipfile.ZipFile(io.BytesIO(archive_bytes)) as archive:
+              actual_names = set(archive.namelist())
+              if actual_names != expected_names:
+                  raise SystemExit(
+                      f"archive shape mismatch: missing={sorted(expected_names-actual_names)}, "
+                      f"extra={sorted(actual_names-expected_names)}"
+                  )
+              out = root / "base"
+              out.mkdir(parents=True, exist_ok=True)
+              for name in sorted(expected_names):
+                  payload = archive.read(name)
+                  target = out / name
+                  if target.exists() and target.read_bytes() != payload:
+                      raise SystemExit(f"existing frozen base mismatch for {name}")
+                  target.write_bytes(payload)
+
+          print(f"verified frozen UI archive sha256={hashlib.sha256(archive_bytes).hexdigest()}")
+          print(f"materialized {len(expected_names)} assets")
+          PY
+      - name: Verify standalone build11 builder against materialized base
+        run: |
+          python tools/build_first_party_ui_build11.py --output-dir /tmp/ui-build11-packages
+          python - <<'PY'
+          from pathlib import Path
+          import zipfile
+
+          package = Path('/tmp/ui-build11-packages/com.sickicarus.monitorbox.ui-1.1.3-build11.zip')
+          if not package.is_file():
+              raise SystemExit('build11 package was not produced')
+          forbidden = b'monitorbox.v2.modules.ui'
+          with zipfile.ZipFile(package) as archive:
+              offenders = [
+                  name for name in archive.namelist()
+                  if name.endswith('.py') and forbidden in archive.read(name)
+              ]
+              if offenders:
+                  raise SystemExit(f'retired Core UI import remains: {offenders}')
+          print(f'verified standalone package: {package} ({package.stat().st_size} bytes)')
+          PY
+      - name: Commit frozen base assets
+        run: |
+          if git diff --quiet -- sources/ui/1.1.3-build11/base && test -z "$(git status --porcelain --untracked-files=all sources/ui/1.1.3-build11/base)"; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add sources/ui/1.1.3-build11/base
+          git commit -m "ui: materialize frozen standalone build11 base"
+          git push
