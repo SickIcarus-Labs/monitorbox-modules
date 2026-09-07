@@ -4,63 +4,9 @@ on:
   pull_request:
     paths:
       - catalog.source.json
-      - sources/ui/**
-      - sources/portainer/**
-      - sources/http/**
-      - sources/nut/**
-      - sources/snmp/**
-      - sources/unifi/**
-      - sources/scrypted/**
-      - sources/wol/**
-      - sources/configuration-bootstrap/**
-      - sources/backup-restore/**
-      - tools/build_first_party_ui.py
-      - tools/build_first_party_ui_current.py
-      - tools/build_first_party_ui_build10.py
-      - tools/build_first_party_ui_build11.py
-      - tools/build_first_party_portainer.py
-      - tools/build_first_party_http.py
-      - tools/build_first_party_nut.py
-      - tools/build_first_party_snmp.py
-      - tools/build_first_party_unifi.py
-      - tools/build_first_party_scrypted.py
-      - tools/build_first_party_wol.py
-      - tools/build_first_party_configuration_bootstrap.py
-      - tools/build_first_party_backup_restore.py
-      - tools/accept_repository.py
-      - tools/accept_repository_current.py
-      - tools/accept_repository_build10.py
-      - tools/accept_repository_ui_build11.py
-      - tools/accept_repository_provider_repairs.py
-      - tools/accept_repository_http.py
-      - tools/accept_repository_nut.py
-      - tools/accept_repository_snmp.py
-      - tools/accept_repository_unifi.py
-      - tools/accept_repository_scrypted.py
-      - tools/accept_repository_wol.py
-      - tools/accept_repository_configuration_bootstrap.py
-      - tools/accept_repository_backup_restore.py
-      - tools/accept_http_behavior.py
-      - tools/accept_nut_behavior.py
-      - tools/accept_snmp_behavior.py
-      - tools/accept_snmp_runtime.py
-      - tools/accept_unifi_runtime.py
-      - tools/accept_unifi_auth_recovery.py
-      - tools/accept_unifi_auth_backoff.py
-      - tools/accept_scrypted_runtime.py
-      - tools/accept_wol_behavior.py
-      - tools/accept_portainer_runtime.py
-      - tools/accept_portainer_coverage.py
-      - tools/accept_portainer_lifecycle.py
-      - tools/accept_ui_compose_hierarchy.mjs
-      - tools/accept_ui_build9_interactions.mjs
-      - tools/accept_ui_build10_physical.mjs
-      - tools/accept_ui_build11_standalone.py
-      - tools/accept_ui_network_traffic.mjs
-      - tools/accept_ui_discovery_presentation.py
-      - tools/accept_ui_discovery_coverage.py
-      - tools/accept_frozen_core.py
-      - tools/accept_frozen_core_portainer.py
+      - sources/**
+      - tools/build_first_party_*.py
+      - tools/accept_*.py
       - tools/build_repository.py
       - .github/workflows/first-party-acceptance.yml
       - .github/workflows/publish.yml
@@ -69,63 +15,9 @@ on:
       - 'publish/**'
     paths:
       - catalog.source.json
-      - sources/ui/**
-      - sources/portainer/**
-      - sources/http/**
-      - sources/nut/**
-      - sources/snmp/**
-      - sources/unifi/**
-      - sources/scrypted/**
-      - sources/wol/**
-      - sources/configuration-bootstrap/**
-      - sources/backup-restore/**
-      - tools/build_first_party_ui.py
-      - tools/build_first_party_ui_current.py
-      - tools/build_first_party_ui_build10.py
-      - tools/build_first_party_ui_build11.py
-      - tools/build_first_party_portainer.py
-      - tools/build_first_party_http.py
-      - tools/build_first_party_nut.py
-      - tools/build_first_party_snmp.py
-      - tools/build_first_party_unifi.py
-      - tools/build_first_party_scrypted.py
-      - tools/build_first_party_wol.py
-      - tools/build_first_party_configuration_bootstrap.py
-      - tools/build_first_party_backup_restore.py
-      - tools/accept_repository.py
-      - tools/accept_repository_current.py
-      - tools/accept_repository_build10.py
-      - tools/accept_repository_ui_build11.py
-      - tools/accept_repository_provider_repairs.py
-      - tools/accept_repository_http.py
-      - tools/accept_repository_nut.py
-      - tools/accept_repository_snmp.py
-      - tools/accept_repository_unifi.py
-      - tools/accept_repository_scrypted.py
-      - tools/accept_repository_wol.py
-      - tools/accept_repository_configuration_bootstrap.py
-      - tools/accept_repository_backup_restore.py
-      - tools/accept_http_behavior.py
-      - tools/accept_nut_behavior.py
-      - tools/accept_snmp_behavior.py
-      - tools/accept_snmp_runtime.py
-      - tools/accept_unifi_runtime.py
-      - tools/accept_unifi_auth_recovery.py
-      - tools/accept_unifi_auth_backoff.py
-      - tools/accept_scrypted_runtime.py
-      - tools/accept_wol_behavior.py
-      - tools/accept_portainer_runtime.py
-      - tools/accept_portainer_coverage.py
-      - tools/accept_portainer_lifecycle.py
-      - tools/accept_ui_compose_hierarchy.mjs
-      - tools/accept_ui_build9_interactions.mjs
-      - tools/accept_ui_build10_physical.mjs
-      - tools/accept_ui_build11_standalone.py
-      - tools/accept_ui_network_traffic.mjs
-      - tools/accept_ui_discovery_presentation.py
-      - tools/accept_ui_discovery_coverage.py
-      - tools/accept_frozen_core.py
-      - tools/accept_frozen_core_portainer.py
+      - sources/**
+      - tools/build_first_party_*.py
+      - tools/accept_*.py
       - tools/build_repository.py
       - .github/workflows/first-party-acceptance.yml
       - .github/workflows/publish.yml
@@ -147,13 +39,27 @@ jobs:
           python -m playwright install --with-deps chromium
       - name: Build reproducible first-party packages
         run: |
+          build_current_snmp() {
+            if grep -q '"module_id":"com.sickicarus.monitorbox.snmp","display_name":"SNMP Integration","version":"1.0.5","build":7' catalog.source.json; then
+              python tools/build_first_party_snmp_105.py
+            else
+              python tools/build_first_party_snmp_mib_hotfix.py
+            fi
+          }
+          build_current_scrypted() {
+            if grep -q '"module_id":"com.sickicarus.monitorbox.scrypted","display_name":"Scrypted Integration","version":"2.1.2","build":3' catalog.source.json; then
+              python tools/build_first_party_scrypted_212.py
+            else
+              python tools/build_first_party_scrypted.py
+            fi
+          }
           python tools/build_first_party_ui_build11.py
           python tools/build_first_party_portainer.py
           python tools/build_first_party_http.py
           python tools/build_first_party_nut.py
-          python tools/build_first_party_snmp.py
+          build_current_snmp
           python tools/build_first_party_unifi.py
-          python tools/build_first_party_scrypted.py
+          build_current_scrypted
           python tools/build_first_party_wol.py
           python tools/build_first_party_configuration_bootstrap.py
           python tools/build_first_party_backup_restore.py
@@ -162,9 +68,9 @@ jobs:
           python tools/build_first_party_portainer.py
           python tools/build_first_party_http.py
           python tools/build_first_party_nut.py
-          python tools/build_first_party_snmp.py
+          build_current_snmp
           python tools/build_first_party_unifi.py
-          python tools/build_first_party_scrypted.py
+          build_current_scrypted
           python tools/build_first_party_wol.py
           python tools/build_first_party_configuration_bootstrap.py
           python tools/build_first_party_backup_restore.py
@@ -222,4 +128,4 @@ jobs:
           if-no-files-found: error
           retention-days: 2
       - name: Verify package shape, activation regression, and signed repository contract
-        run: python tools/accept_repository_provider_repairs.py
+        run: python tools/accept_repository_runtime_repairs.py
