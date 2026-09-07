@@ -28,24 +28,37 @@ jobs:
           if len(parts) != 45:
               raise SystemExit(f"expected 45 transport parts, found {len(parts)}")
 
-          def git_blob_sha(payload: bytes) -> str:
-              return hashlib.sha1(f"blob {len(payload)}\0".encode("ascii") + payload).hexdigest()
+          repair_specs = {
+              "part-010.txt": {
+                  "sha256": "f7e5df80e904dc13cb1d5e1dfec20bc7fbb745ed6ab160d3f21914c0897b3497",
+                  "edits": [(2286, 2286, "in"), (2287, 2290, "")],
+              },
+              "part-021.txt": {
+                  "sha256": "e323c809bfc539f2a7be1ee2eb18b96dbb2a81718cbf1bfa8c63bb9433773eb2",
+                  "edits": [(2932, 2932, "l"), (2933, 2934, ""), (2936, 2937, "v")],
+              },
+              "part-038.txt": {
+                  "sha256": "cc67ba7bc838324bbebf4cecb92097a8390b06d9c4c5d907f885903fd9ecfdf8",
+                  "edits": [(1852, 1853, "W")],
+              },
+          }
 
           cleaned_parts = [(path, "".join(path.read_text(encoding="ascii").split())) for path in parts]
-          part10_path, part10 = cleaned_parts[9]
-          expected_source_blob = "1bcbdbee8153fade9b47fe54662f01867ad8f4cf"
-          if git_blob_sha((part10 + "\n").encode("ascii")) != expected_source_blob:
-              # Certified comparison against Core commit 86507f4 identified exactly two
-              # edits in this one transferred chunk: insert "in" at 2286, then remove
-              # the original target span [2287:2290] == "irk".
-              if len(part10) != 3001 or part10[2287:2290] != "irk":
-                  raise SystemExit("part-010 does not match the known single transfer-corruption shape")
-              repaired = part10[:2286] + "in" + part10[2286:2287] + part10[2290:]
-              if git_blob_sha((repaired + "\n").encode("ascii")) != expected_source_blob:
-                  raise SystemExit("deterministic part-010 repair did not restore certified source blob")
-              part10_path.write_text(repaired + "\n", encoding="ascii")
-              cleaned_parts[9] = (part10_path, repaired)
-              print("repaired part-010 to certified historical blob")
+          for index, (path, payload) in enumerate(cleaned_parts):
+              spec = repair_specs.get(path.name)
+              if spec is None:
+                  continue
+              digest = hashlib.sha256(payload.encode("ascii")).hexdigest()
+              if digest != spec["sha256"]:
+                  repaired = payload
+                  for start, end, replacement in sorted(spec["edits"], reverse=True):
+                      repaired = repaired[:start] + replacement + repaired[end:]
+                  digest = hashlib.sha256(repaired.encode("ascii")).hexdigest()
+                  if digest != spec["sha256"]:
+                      raise SystemExit(f"certified repair failed for {path.name}: {digest}")
+                  path.write_text(repaired + "\n", encoding="ascii")
+                  cleaned_parts[index] = (path, repaired)
+                  print(f"repaired {path.name} to certified historical content")
 
           bad_lengths = [
               (path.name, len(payload), 2816 if index == 44 else 3000)
@@ -98,12 +111,8 @@ jobs:
               "workspace-state.js",
           }
           with zipfile.ZipFile(io.BytesIO(archive_bytes)) as archive:
-              actual_names = set(archive.namelist())
-              if actual_names != expected_names:
-                  raise SystemExit(
-                      f"archive shape mismatch: missing={sorted(expected_names-actual_names)}, "
-                      f"extra={sorted(actual_names-expected_names)}"
-                  )
+              if set(archive.namelist()) != expected_names:
+                  raise SystemExit("archive asset set does not match the certified build11 base")
               out = root / "base"
               out.mkdir(parents=True, exist_ok=True)
               for name in sorted(expected_names):
@@ -143,6 +152,6 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add sources/ui/1.1.3-build11/transport/part-010.txt sources/ui/1.1.3-build11/base
-          git commit -m "ui: materialize frozen standalone build11 base"
+          git add sources/ui/1.1.3-build11/transport/part-010.txt sources/ui/1.1.3-build11/transport/part-021.txt sources/ui/1.1.3-build11/transport/part-038.txt sources/ui/1.1.3-build11/base
+          git commit -m "ui: materialize certified standalone build11 base"
           git push
