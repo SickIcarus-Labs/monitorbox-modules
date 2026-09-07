@@ -8,10 +8,14 @@ on:
       - sources/scrypted/**
       - tools/build_first_party_nut.py
       - tools/build_first_party_snmp.py
+      - tools/build_first_party_snmp_105.py
       - tools/build_first_party_scrypted.py
+      - tools/build_first_party_scrypted_212.py
       - tools/accept_nut_behavior.py
       - tools/accept_snmp_pruned_core.py
+      - tools/accept_snmp_v3_isolation.py
       - tools/accept_scrypted_pruned_core.py
+      - tools/accept_scrypted_managed_state.py
       - .github/workflows/provider-runtime-boundary.yml
   push:
     branches: [main]
@@ -21,10 +25,14 @@ on:
       - sources/scrypted/**
       - tools/build_first_party_nut.py
       - tools/build_first_party_snmp.py
+      - tools/build_first_party_snmp_105.py
       - tools/build_first_party_scrypted.py
+      - tools/build_first_party_scrypted_212.py
       - tools/accept_nut_behavior.py
       - tools/accept_snmp_pruned_core.py
+      - tools/accept_snmp_v3_isolation.py
       - tools/accept_scrypted_pruned_core.py
+      - tools/accept_scrypted_managed_state.py
       - .github/workflows/provider-runtime-boundary.yml
 
 permissions:
@@ -40,14 +48,18 @@ jobs:
           python-version: '3.13'
       - name: Install generic runtime dependencies
         run: python -m pip install --disable-pip-version-check aiohttp==3.11.16 cryptography==50.0.1
-      - name: Build repaired managed providers
+      - name: Build current repaired managed providers
         run: |
           python tools/build_first_party_nut.py
-          python tools/build_first_party_snmp.py
-          python tools/build_first_party_scrypted.py
+          python tools/build_first_party_snmp_105.py
+          python tools/build_first_party_scrypted_212.py
       - name: Verify NUT owns execution after Core prune
         run: python tools/accept_nut_behavior.py
-      - name: Verify SNMP owns a self-contained transport after Core prune
+      - name: Verify historical SNMP pruned-Core boundary remains intact
         run: python tools/accept_snmp_pruned_core.py
-      - name: Verify Scrypted owns persisted-generation worker compatibility
+      - name: Verify current SNMP owns isolated self-contained transport
+        run: python tools/accept_snmp_v3_isolation.py
+      - name: Verify historical Scrypted persisted-generation compatibility
         run: python tools/accept_scrypted_pruned_core.py
+      - name: Verify current Scrypted uses Core-owned writable IPC state
+        run: python tools/accept_scrypted_managed_state.py
