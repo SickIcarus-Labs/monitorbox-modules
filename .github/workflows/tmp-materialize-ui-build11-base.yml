@@ -33,21 +33,19 @@ jobs:
 
           cleaned_parts = [(path, "".join(path.read_text(encoding="ascii").split())) for path in parts]
           part10_path, part10 = cleaned_parts[9]
-          if len(part10) == 3001:
-              expected_source_blob = "1bcbdbee8153fade9b47fe54662f01867ad8f4cf"
-              repaired = None
-              repaired_index = None
-              for index in range(len(part10)):
-                  candidate = part10[:index] + part10[index + 1:]
-                  if git_blob_sha((candidate + "\n").encode("ascii")) == expected_source_blob:
-                      repaired = candidate
-                      repaired_index = index
-                      break
-              if repaired is None:
-                  raise SystemExit("part-010 has one extra character but no single deletion restores certified source blob")
+          expected_source_blob = "1bcbdbee8153fade9b47fe54662f01867ad8f4cf"
+          if git_blob_sha((part10 + "\n").encode("ascii")) != expected_source_blob:
+              # Certified comparison against Core commit 86507f4 identified exactly two
+              # edits in this one transferred chunk: insert "in" at 2286, then remove
+              # the original target span [2287:2290] == "irk".
+              if len(part10) != 3001 or part10[2287:2290] != "irk":
+                  raise SystemExit("part-010 does not match the known single transfer-corruption shape")
+              repaired = part10[:2286] + "in" + part10[2286:2287] + part10[2290:]
+              if git_blob_sha((repaired + "\n").encode("ascii")) != expected_source_blob:
+                  raise SystemExit("deterministic part-010 repair did not restore certified source blob")
               part10_path.write_text(repaired + "\n", encoding="ascii")
               cleaned_parts[9] = (part10_path, repaired)
-              print(f"repaired part-010 by removing one transport corruption at offset {repaired_index}")
+              print("repaired part-010 to certified historical blob")
 
           bad_lengths = [
               (path.name, len(payload), 2816 if index == 44 else 3000)
