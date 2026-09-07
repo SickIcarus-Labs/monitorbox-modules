@@ -2,8 +2,6 @@
 """Executable negative/positive acceptance matrix for VERSIONING.md policy."""
 from __future__ import annotations
 
-from pathlib import Path
-
 from release_policy import Release, ReleasePolicyError, SemVer, validate_history, validate_release
 
 MODULE = "com.sickicarus.monitorbox.example"
@@ -59,13 +57,21 @@ def main() -> None:
     check("2.0.0", 6, "breaking-feature")
     check("1.0.0", 6, "packaging-only", source_changed=False)
 
+    new_id = "com.sickicarus.monitorbox.new"
     expect_reject(
         "new first-party module below 1.0.0",
-        lambda: validate_history([release("0.9.0", 1, module_id="com.sickicarus.monitorbox.new")]),
-        "must be 1.0.0",
+        lambda: validate_release(
+            [],
+            [release("0.9.0", 1, module_id=new_id)],
+            paths=[SOURCE + "provider.py"],
+            intents={new_id: intent("0.9.0", 1, "compatible-feature", module_id=new_id)},
+        ),
+        "must start at 1.0.0",
     )
 
-    historical = [release("1.0.0", 1), release("1.0.0", 2), release("1.0.1", 3)]
+    # Preserved history is grandfathered: Phase 1 must not reinterpret an old
+    # package under rules that did not exist when it was published.
+    historical = [release("0.9.0", 1), release("0.9.0", 2), release("1.0.0", 3)]
     validate_history(historical)
     validate_release(historical, list(historical), paths=[], intents={})
 
