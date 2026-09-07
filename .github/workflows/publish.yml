@@ -20,6 +20,7 @@ on:
       - tools/build_first_party_ui.py
       - tools/build_first_party_ui_current.py
       - tools/build_first_party_ui_build10.py
+      - tools/build_first_party_ui_build11.py
       - tools/build_first_party_portainer.py
       - tools/build_first_party_http.py
       - tools/build_first_party_nut.py
@@ -49,7 +50,7 @@ jobs:
           python-version: '3.13'
       - name: Build immutable first-party packages
         run: |
-          python tools/build_first_party_ui_build10.py
+          python tools/build_first_party_ui_build11.py
           python tools/build_first_party_portainer.py
           python tools/build_first_party_http.py
           python tools/build_first_party_nut.py
