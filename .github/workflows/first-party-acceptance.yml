@@ -31,6 +31,7 @@ on:
       - tools/accept_repository_current.py
       - tools/accept_repository_build10.py
       - tools/accept_repository_ui_build11.py
+      - tools/accept_repository_provider_repairs.py
       - tools/accept_repository_http.py
       - tools/accept_repository_nut.py
       - tools/accept_repository_snmp.py
@@ -95,6 +96,7 @@ on:
       - tools/accept_repository_current.py
       - tools/accept_repository_build10.py
       - tools/accept_repository_ui_build11.py
+      - tools/accept_repository_provider_repairs.py
       - tools/accept_repository_http.py
       - tools/accept_repository_nut.py
       - tools/accept_repository_snmp.py
@@ -220,4 +222,4 @@ jobs:
           if-no-files-found: error
           retention-days: 2
       - name: Verify package shape, activation regression, and signed repository contract
-        run: python tools/accept_repository_ui_build11.py
+        run: python tools/accept_repository_provider_repairs.py
