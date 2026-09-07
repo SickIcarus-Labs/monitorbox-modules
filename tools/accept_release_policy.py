@@ -69,11 +69,36 @@ def main() -> None:
         "must start at 1.0.0",
     )
 
-    # Preserved history is grandfathered: Phase 1 must not reinterpret an old
-    # package under rules that did not exist when it was published.
-    historical = [release("0.9.0", 1), release("0.9.0", 2), release("1.0.0", 3)]
+    # Preserved history is grandfathered: Phase 1 must not reinterpret old
+    # packages under rules that did not exist when they were published. This
+    # includes same-semver packaging artifacts and historical build resets.
+    historical = [
+        release("0.9.0", 4),
+        release("0.9.0", 5),
+        release("1.0.0", 1),
+        release("1.0.1", 2),
+    ]
     validate_history(historical)
     validate_release(historical, list(historical), paths=[], intents={})
+
+    # The next publication starts Phase-1 monotonic build enforcement at the
+    # highest preserved build, not at the numerically latest historical build.
+    expect_reject(
+        "post-policy build reset",
+        lambda: validate_release(
+            historical,
+            historical + [release("1.0.2", 3)],
+            paths=[SOURCE + "provider.py"],
+            intents={MODULE: intent("1.0.2", 3, "patch-polish")},
+        ),
+        "must increase beyond preserved maximum 5",
+    )
+    validate_release(
+        historical,
+        historical + [release("1.0.2", 6)],
+        paths=[SOURCE + "provider.py"],
+        intents={MODULE: intent("1.0.2", 6, "patch-polish")},
+    )
 
     expect_reject(
         "source change without release candidate",
@@ -87,14 +112,14 @@ def main() -> None:
     )
 
     expect_reject(
-        "non-increasing build",
+        "non-increasing new build",
         lambda: validate_release(
             [release("1.0.0", 5)],
             [release("1.0.0", 5), release("1.0.1", 5)],
             paths=[SOURCE + "provider.py"],
             intents={MODULE: intent("1.0.1", 5, "patch-polish")},
         ),
-        "builds are not strictly increasing",
+        "must increase beyond preserved maximum 5",
     )
 
     print("module release policy acceptance: PASS")
