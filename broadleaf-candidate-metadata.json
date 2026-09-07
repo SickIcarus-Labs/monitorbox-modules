@@ -1,0 +1,8 @@
+{
+  "repository_id": "broadleaf-candidate",
+  "display_name": "MonitorBox Broad Leaf Candidate",
+  "signature_identity": "broadleaf-test-ed25519-1",
+  "public_key_base64": "+rQgpzvO1RvkTH9Jfb1Q0lXMcx1ipOYD917vcvtZubA=",
+  "ui_build11_sha256": "68910b9245595e2b81847eeaafa09e8a59656034352cf5ee6d3fb1ddf5402dc5",
+  "source_head": "a06d99ebaf2352d19716391db5592722650e4880"
+}

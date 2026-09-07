@@ -1,0 +1,924 @@
+{
+  "schema": 1,
+  "signed": {
+    "repository_id": "broadleaf-candidate",
+    "display_name": "MonitorBox Broad Leaf Candidate",
+    "generated_at": "2026-09-07T05:13:14.068502Z",
+    "modules": [
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.backup-restore",
+          "display_name": "Backup / Restore",
+          "version": "1.0.0",
+          "build": 1,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "recovery",
+          "entrypoints": {
+            "recovery": "monitorbox_backup_restore_b1:install"
+          },
+          "requires_core": ">=2.3.0 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [
+            "recovery.snapshot",
+            "recovery.inspect",
+            "recovery.schedule",
+            "recovery.destination",
+            "saved-backup-vault"
+          ],
+          "lifecycle_policy": "optional"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.backup-restore-1.0.0-build1.zip",
+          "filename": "com.sickicarus.monitorbox.backup-restore-1.0.0-build1.zip",
+          "sha256": "aaf5073481b1776547f29109ddae3b8a9a3a5248f92365f9350f932f009459e2",
+          "signature_identity": "broadleaf-test-ed25519-1",
+          "signature": "wRMhp1vtMySUttKAzeccEQQFGSWdmWb7tiKTGJnarvV+5UnRVBfMrSprkwzAA1ne68aZKScbzkniakPCoxuADw=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.backup-restore",
+          "display_name": "Backup / Restore",
+          "version": "1.0.1",
+          "build": 2,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "recovery",
+          "entrypoints": {
+            "recovery": "monitorbox_backup_restore_b2:install"
+          },
+          "requires_core": ">=2.3.0 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [
+            "recovery.snapshot",
+            "recovery.inspect",
+            "recovery.schedule",
+            "recovery.destination",
+            "saved-backup-vault"
+          ],
+          "lifecycle_policy": "optional"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.backup-restore-1.0.1-build2.zip",
+          "filename": "com.sickicarus.monitorbox.backup-restore-1.0.1-build2.zip",
+          "sha256": "f99bb0aa58a727403da7795335f922b984094d1c8d029f9414d326755b17dfd9",
+          "signature_identity": "broadleaf-test-ed25519-1",
+          "signature": "j7r4ISHJYcRg4vIFQn6l6SQOefG3JoTELHZRW46RmMEe2/oJVVvYrAoDR8vzFDtfiykKjmZf7vbsd+lMVIgTAQ=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.backup-restore",
+          "display_name": "Backup / Restore",
+          "version": "1.0.2",
+          "build": 3,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "recovery",
+          "entrypoints": {
+            "recovery": "monitorbox_backup_restore_b3:install"
+          },
+          "requires_core": ">=2.3.1 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [
+            "recovery.snapshot",
+            "recovery.inspect",
+            "recovery.schedule",
+            "recovery.destination",
+            "saved-backup-vault"
+          ],
+          "lifecycle_policy": "optional"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.backup-restore-1.0.2-build3.zip",
+          "filename": "com.sickicarus.monitorbox.backup-restore-1.0.2-build3.zip",
+          "sha256": "d7ac2d463a09d6945e102251ab14bd702e0a65c990ee5df9e0cf8a4b90aa1100",
+          "signature_identity": "broadleaf-test-ed25519-1",
+          "signature": "F2g1x6YuUExo4NLxvfVNg8HOlzedxCaINNPMvI11ZG2qvgUB8nWamBr2nHhzFZP6W/lZ2qjMytBmaFS7VefKDA=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.configuration-bootstrap",
+          "display_name": "Configuration / Bootstrap",
+          "version": "1.0.0",
+          "build": 1,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "configuration",
+          "entrypoints": {
+            "configuration": "monitorbox_configuration_bootstrap_b1:install"
+          },
+          "requires_core": ">=2.3.0 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "required"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.configuration-bootstrap-1.0.0-build1.zip",
+          "filename": "com.sickicarus.monitorbox.configuration-bootstrap-1.0.0-build1.zip",
+          "sha256": "d30543430443ddbbc4e6cf677281c0aea71fe891d2c922d491173a0d1755e143",
+          "signature_identity": "broadleaf-test-ed25519-1",
+          "signature": "AgoDPL1oW0I9ZyEbdDelXqdedRr7xMgTnVTnQDKnmEnYt9SQ6ahhXoLUO2gvV3Pk8YcTSVxu0aIRR2o9oeKDAw=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.configuration-bootstrap",
+          "display_name": "Configuration / Bootstrap",
+          "version": "1.0.1",
+          "build": 2,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "configuration",
+          "entrypoints": {
+            "configuration": "monitorbox_configuration_bootstrap_b2:install"
+          },
+          "requires_core": ">=2.3.0 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "required"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.configuration-bootstrap-1.0.1-build2.zip",
+          "filename": "com.sickicarus.monitorbox.configuration-bootstrap-1.0.1-build2.zip",
+          "sha256": "73f09864ff426ff7b9f64a0ae39e1db1d7123ddecdf41e5b0cf2548e4bb9af59",
+          "signature_identity": "broadleaf-test-ed25519-1",
+          "signature": "Y1orNGYfLojgktSxFbRZg/scrQFXhAbmo2eYv08lLUnhYcm7fC2ELfdBJZa/zCK5VooZ0iKIYb8ySQGH+IKCAQ=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.http",
+          "display_name": "HTTP(S) Integration",
+          "version": "1.0.0",
+          "build": 1,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "integration",
+          "entrypoints": {
+            "integration": "monitorbox_http_b1:PLUGIN"
+          },
+          "requires_core": ">=2.3.0 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "optional"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.http-1.0.0-build1.zip",
+          "filename": "com.sickicarus.monitorbox.http-1.0.0-build1.zip",
+          "sha256": "bf8b7b985a5d30e7a0165de24dc61ddc6e6205b14ed782a4135564e9a75d8761",
+          "signature_identity": "broadleaf-test-ed25519-1",
+          "signature": "B0i8srPlrk1iwIWD8eIaqIfsagl825p1OnZMgfQYmYe2WEJwobmqTGt8LWJqhwDg0u+2vkgJfghmpK3o3YKMDg=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.nut",
+          "display_name": "NUT UPS Integration",
+          "version": "1.0.0",
+          "build": 1,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "integration",
+          "entrypoints": {
+            "integration": "monitorbox_nut_b1:PLUGIN"
+          },
+          "requires_core": ">=2.3.0 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "optional"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.nut-1.0.0-build1.zip",
+          "filename": "com.sickicarus.monitorbox.nut-1.0.0-build1.zip",
+          "sha256": "c64db95da03381a48dbc76ee90bf3cdbac4cb42c3201f74ae624381919c7af79",
+          "signature_identity": "broadleaf-test-ed25519-1",
+          "signature": "GqeS8EsK6DhM3PbsTrz13wOoJWY4C1Q2sxoLR7ICh7b75PbCEnbbrdlGFuHaF4ZPXG5hnH5FvJWeZfmxAUyWCw=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.portainer",
+          "display_name": "Portainer Integration",
+          "version": "1.0.0",
+          "build": 2,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "integration",
+          "entrypoints": {
+            "integration": "monitorbox_portainer_b2:PLUGIN"
+          },
+          "requires_core": ">=2.3.0 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "optional"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.portainer-1.0.0-build2.zip",
+          "filename": "com.sickicarus.monitorbox.portainer-1.0.0-build2.zip",
+          "sha256": "f68053ccb0f1c8c4bcd6b1c7ff8e0317a600a9dc5ff976b3641cc73d3ee1da5e",
+          "signature_identity": "broadleaf-test-ed25519-1",
+          "signature": "xHIR3wcwIw2v5RQjvxY6EMIaPNi6jHOvZAfkG2nKmU+RKdIvDZpNQrARYqS8aYMP7N7/zml5R6eSOLquYJm7Dg=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.portainer",
+          "display_name": "Portainer Integration",
+          "version": "1.0.0",
+          "build": 3,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "integration",
+          "entrypoints": {
+            "integration": "monitorbox_portainer_b3:PLUGIN"
+          },
+          "requires_core": ">=2.3.0 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "optional"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.portainer-1.0.0-build3.zip",
+          "filename": "com.sickicarus.monitorbox.portainer-1.0.0-build3.zip",
+          "sha256": "50f5c24d7c0700354ad8475c687cecbb9e4c525157037f344175f1d5a9c19c41",
+          "signature_identity": "broadleaf-test-ed25519-1",
+          "signature": "CGMMscEOxBt3DJ29tnS/NrmW/ygBcyRJR7KqnSqrBUu6qDHt8gUpdFdzLai6/lxAac883vX1oIZJwcs7TNoiDA=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.portainer",
+          "display_name": "Portainer Integration",
+          "version": "1.0.0",
+          "build": 4,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "integration",
+          "entrypoints": {
+            "integration": "monitorbox_portainer_b4:PLUGIN"
+          },
+          "requires_core": ">=2.3.0 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "optional"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.portainer-1.0.0-build4.zip",
+          "filename": "com.sickicarus.monitorbox.portainer-1.0.0-build4.zip",
+          "sha256": "3791082e7c3d7b46437827d2d7615b6e26d56f351bfb12a4b9f3c49fb04dc1ce",
+          "signature_identity": "broadleaf-test-ed25519-1",
+          "signature": "JEztfZgp+cwuJnVEL5fsCIVXlBFAIuqDlwtYxJL01pNGeirbcIkPhP8Zjak/BMLdJaLb1A4dOg12DgArTkF2Dg=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.portainer",
+          "display_name": "Portainer Integration",
+          "version": "1.0.0",
+          "build": 5,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "integration",
+          "entrypoints": {
+            "integration": "monitorbox_portainer_b5:PLUGIN"
+          },
+          "requires_core": ">=2.3.0 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "optional"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.portainer-1.0.0-build5.zip",
+          "filename": "com.sickicarus.monitorbox.portainer-1.0.0-build5.zip",
+          "sha256": "753ad6cc990c047587c5360cb33c747b7d3f8c7936932f9484130b7b057636c8",
+          "signature_identity": "broadleaf-test-ed25519-1",
+          "signature": "pJBLD8xT9v6ZZvJVVsQwULrpXvPkUKv67KN39JK250Ldr0oYKyXuIe+jYnBCYCDy2x31io1vAvUwll2iWk2+Aw=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.portainer",
+          "display_name": "Portainer Integration",
+          "version": "1.1.0",
+          "build": 6,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "integration",
+          "entrypoints": {
+            "integration": "monitorbox_portainer_b6:PLUGIN"
+          },
+          "requires_core": ">=2.3.0 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "optional"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.portainer-1.1.0-build6.zip",
+          "filename": "com.sickicarus.monitorbox.portainer-1.1.0-build6.zip",
+          "sha256": "0d3815f5e755ef401a01807c00508e1f7c772e0b7e49229ba5d65506b0eb66c3",
+          "signature_identity": "broadleaf-test-ed25519-1",
+          "signature": "t84PobO+C2NbGy60Se5P6wtcG6eGXU+1NOiKxMe3w0rGCOPgEXMNaraRai2hjO+g4aHnmYsqzyOwykygLRGRCw=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.scrypted",
+          "display_name": "Scrypted Integration",
+          "version": "1.0.0",
+          "build": 1,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "integration",
+          "entrypoints": {
+            "integration": "monitorbox_scrypted_b1:PLUGIN"
+          },
+          "requires_core": ">=2.3.0 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "optional"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.scrypted-1.0.0-build1.zip",
+          "filename": "com.sickicarus.monitorbox.scrypted-1.0.0-build1.zip",
+          "sha256": "8ab032dc08710fbc2aae7ecb57c835bf2dc6dc965c8d07fdcc9a3ceeec422332",
+          "signature_identity": "broadleaf-test-ed25519-1",
+          "signature": "DUf5cCpU/OOnVBlgfhharhNjOJS4ytWQPh0n7E//K8BDJMqey33jaCst9Hobw6j7YVYI0FE/uexUWld+8VBSDQ=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.scrypted",
+          "display_name": "Scrypted Integration",
+          "version": "2.0.0",
+          "build": 1,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "integration",
+          "entrypoints": {
+            "integration": "monitorbox_scrypted_v2_b1:PLUGIN"
+          },
+          "requires_core": ">=2.3.0 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "optional"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.scrypted-2.0.0-build1.zip",
+          "filename": "com.sickicarus.monitorbox.scrypted-2.0.0-build1.zip",
+          "sha256": "e5e6c74389894396f67f9d338666370bb72531ef4f8763c0207e179914cdece8",
+          "signature_identity": "broadleaf-test-ed25519-1",
+          "signature": "jJaOb1O3pbmMJoeKn/MSIA7Xsj2XEFfqwo5hRlxkHtTj0NGSX2QPgR1zQC2xqLSD4H332HEbdVCo9ha5C0ZLDg=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.scrypted",
+          "display_name": "Scrypted Integration",
+          "version": "2.1.0",
+          "build": 1,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "integration",
+          "entrypoints": {
+            "integration": "monitorbox_scrypted_v21_b1:PLUGIN"
+          },
+          "requires_core": ">=2.3.1 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "optional"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.scrypted-2.1.0-build1.zip",
+          "filename": "com.sickicarus.monitorbox.scrypted-2.1.0-build1.zip",
+          "sha256": "e9a9560b39174c0bbc75d609006e29d0a04b7269eb140104858a54e5b536bc98",
+          "signature_identity": "broadleaf-test-ed25519-1",
+          "signature": "8lKqrOD6H9BAF6wF396C+s7esPcjijoxxyRRlOjKeLC4W5lcLdoxRgSxeHLchNh0IcR/1cHkNsz64GTWM215Dg=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.snmp",
+          "display_name": "SNMP Integration",
+          "version": "1.0.0",
+          "build": 1,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "integration",
+          "entrypoints": {
+            "integration": "monitorbox_snmp_b1:PLUGIN"
+          },
+          "requires_core": ">=2.3.0 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "optional"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.snmp-1.0.0-build1.zip",
+          "filename": "com.sickicarus.monitorbox.snmp-1.0.0-build1.zip",
+          "sha256": "5afe9582c3f192aa7c3e8dd6ef81342c01a6230aaaf97b73c693faee1e3d58a5",
+          "signature_identity": "broadleaf-test-ed25519-1",
+          "signature": "+IslD3lC9gSo2l9FDa0K8smpXYFqLsnS2tDyJpdN+x9g4A9w+Eg4owN4I4xHZHJhiYFluiIhfGbT5OMORgjTCQ=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.snmp",
+          "display_name": "SNMP Integration",
+          "version": "1.0.1",
+          "build": 2,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "integration",
+          "entrypoints": {
+            "integration": "monitorbox_snmp_b2:PLUGIN"
+          },
+          "requires_core": ">=2.3.0 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "optional"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.snmp-1.0.1-build2.zip",
+          "filename": "com.sickicarus.monitorbox.snmp-1.0.1-build2.zip",
+          "sha256": "9837037439f6a13662d4db0372f0f805eb9fce5737c38733c47cd236a9be9a09",
+          "signature_identity": "broadleaf-test-ed25519-1",
+          "signature": "7BHqI9fJfMXTCDyzWcAH6hMgbN5Xrx+wkhZURqxocYjLlR3zSN1mqqxUo9R9Q6udbaaGhO5SaoRvPAyHBy0dCQ=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.snmp",
+          "display_name": "SNMP Integration",
+          "version": "1.0.2",
+          "build": 3,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "integration",
+          "entrypoints": {
+            "integration": "monitorbox_snmp_b3:PLUGIN"
+          },
+          "requires_core": ">=2.3.0 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "optional"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.snmp-1.0.2-build3.zip",
+          "filename": "com.sickicarus.monitorbox.snmp-1.0.2-build3.zip",
+          "sha256": "34e3ec79cdff5b6c6080a6ae5cd4684206b7ec99daddbb295fb64a3b94d6cfca",
+          "signature_identity": "broadleaf-test-ed25519-1",
+          "signature": "geH2iIBEYEnnyzzuKduYDAGklqwXraLBzDIlpHTiKb4avfLUSxF5u+ueuoySURuRnKHol7vALlX57jArwvbkBA=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.ui",
+          "display_name": "MonitorBox UI",
+          "version": "1.0.0",
+          "build": 2,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "ui",
+          "entrypoints": {
+            "webui": "monitorbox_ui_b2:install"
+          },
+          "requires_core": ">=2.2.2 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "required"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.ui-1.0.0-build2.zip",
+          "filename": "com.sickicarus.monitorbox.ui-1.0.0-build2.zip",
+          "sha256": "75452e27e7713243ddd1fb7fe3feae2e9765beffe6f92af47b8c74736bf23c13",
+          "signature_identity": "broadleaf-test-ed25519-1",
+          "signature": "Xzx+r5huB2hgKEbDPOKfgCwZGhA09hsneohb2pmwd51SQzBpVVsOpWPQTlWVxvgOC1l0+U6Q48GG2plRjfwVBQ=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.ui",
+          "display_name": "MonitorBox UI",
+          "version": "1.0.0",
+          "build": 3,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "ui",
+          "entrypoints": {
+            "webui": "monitorbox_ui_b3:install"
+          },
+          "requires_core": ">=2.2.2 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "required"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.ui-1.0.0-build3.zip",
+          "filename": "com.sickicarus.monitorbox.ui-1.0.0-build3.zip",
+          "sha256": "01220c177bc380c00aa731b738b2804e68aa1e4e6db1598a4a1da10be53304ed",
+          "signature_identity": "broadleaf-test-ed25519-1",
+          "signature": "KsYvGKbScNDJQ150pR/Gi3Ip48ENg9E8TmM5r4v/tqPtGduTYjkTA6pCqoWN2SAHBZ7lqzORRlKBSKNgUoOPDA=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.ui",
+          "display_name": "MonitorBox UI",
+          "version": "1.0.0",
+          "build": 4,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "ui",
+          "entrypoints": {
+            "webui": "monitorbox_ui_b4:install"
+          },
+          "requires_core": ">=2.2.2 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "required"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.ui-1.0.0-build4.zip",
+          "filename": "com.sickicarus.monitorbox.ui-1.0.0-build4.zip",
+          "sha256": "491c1d28b3c307dbc78913ec88ee61d12dfefe49a3018db987db8542f883833a",
+          "signature_identity": "broadleaf-test-ed25519-1",
+          "signature": "nG6YI+YQNJXyySrMjipqdEkpmiQrRw2HIzlkMZiEoLGrQaeJOOnm5qDAzR84hwaxlcrYKf+tHjQJYSFX2f46AA=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.ui",
+          "display_name": "MonitorBox UI",
+          "version": "1.0.0",
+          "build": 5,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "ui",
+          "entrypoints": {
+            "webui": "monitorbox_ui_b5:install"
+          },
+          "requires_core": ">=2.2.2 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "required"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.ui-1.0.0-build5.zip",
+          "filename": "com.sickicarus.monitorbox.ui-1.0.0-build5.zip",
+          "sha256": "6ec629b5702aecc617055745937db834e4977a791235463c24230e891232ab94",
+          "signature_identity": "broadleaf-test-ed25519-1",
+          "signature": "S7T+8ezix/L18Rknliai8yee0UggMVqADp1hOweC8Ogp0fwaDySQxBAYVyeLd14gBta3doLUb58LqgdQ+4fjAw=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.ui",
+          "display_name": "MonitorBox UI",
+          "version": "1.0.1",
+          "build": 6,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "ui",
+          "entrypoints": {
+            "webui": "monitorbox_ui_b6:install"
+          },
+          "requires_core": ">=2.2.2 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "required"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.ui-1.0.1-build6.zip",
+          "filename": "com.sickicarus.monitorbox.ui-1.0.1-build6.zip",
+          "sha256": "812286abf9748abcd47834601419e3da5d3c30132087bbd3f0068e832637c6fc",
+          "signature_identity": "broadleaf-test-ed25519-1",
+          "signature": "6E43hdgzyDDX8laB82zJidkvuadhTJKuYG2oUJwTT+WwMGeNDfgJDa9GyihK9d+snWm5TzlvGRUv8nOXKPhECA=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.ui",
+          "display_name": "MonitorBox UI",
+          "version": "1.0.2",
+          "build": 7,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "ui",
+          "entrypoints": {
+            "webui": "monitorbox_ui_b7:install"
+          },
+          "requires_core": ">=2.2.2 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "required"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.ui-1.0.2-build7.zip",
+          "filename": "com.sickicarus.monitorbox.ui-1.0.2-build7.zip",
+          "sha256": "a61d5985be2d354fbd60770cfb6ee6160ecb2bfa98a7bd847ff9b526f2377fd0",
+          "signature_identity": "broadleaf-test-ed25519-1",
+          "signature": "/xA6s124DxEn9vo5cHn2wMclHdskj32qmRz8xQp2P5H0cDuP+3F+a4gkzwLdM/64GO6r/LgIGd0L1RVpKLvtBA=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.ui",
+          "display_name": "MonitorBox UI",
+          "version": "1.1.0",
+          "build": 8,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "ui",
+          "entrypoints": {
+            "webui": "monitorbox_ui_b8:install"
+          },
+          "requires_core": ">=2.2.2 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "required"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.ui-1.1.0-build8.zip",
+          "filename": "com.sickicarus.monitorbox.ui-1.1.0-build8.zip",
+          "sha256": "fac49b1e4f63982bfd85c0684dfec4c7609856036d4ee07ae796410b4d572e39",
+          "signature_identity": "broadleaf-test-ed25519-1",
+          "signature": "xQSoN9RQ1WlpG6j2DpGKVn8/jCL8Hm57rnMGX+unQe+lUj5i4rBm02jsR5JH0oEi39a3DcAB9NnpStoxtrFqBQ=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.ui",
+          "display_name": "MonitorBox UI",
+          "version": "1.1.1",
+          "build": 9,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "ui",
+          "entrypoints": {
+            "webui": "monitorbox_ui_b9:install"
+          },
+          "requires_core": ">=2.2.2 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "required"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.ui-1.1.1-build9.zip",
+          "filename": "com.sickicarus.monitorbox.ui-1.1.1-build9.zip",
+          "sha256": "ba67dd81b8559a4cd26a33fcb9a85e112f9c72bcd85f93e336e2ff92460daa66",
+          "signature_identity": "broadleaf-test-ed25519-1",
+          "signature": "h92lmOeCyQvTEZpm8GcVlfYne3g/5Yfv7xZ036aZmfD/1JC1Dx+eBIiBf+C69qrKZzoS+KwLTZLv/ZWXtJVmCA=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.ui",
+          "display_name": "MonitorBox UI",
+          "version": "1.1.2",
+          "build": 10,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "ui",
+          "entrypoints": {
+            "webui": "monitorbox_ui_b10:install"
+          },
+          "requires_core": ">=2.2.2 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "required"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.ui-1.1.2-build10.zip",
+          "filename": "com.sickicarus.monitorbox.ui-1.1.2-build10.zip",
+          "sha256": "149d9907a80c316d45e7060d4c9afb041ce8c6ae07d4888460daaca78079a45e",
+          "signature_identity": "broadleaf-test-ed25519-1",
+          "signature": "AiecH2s+lTsr5Vacy6ahdrCjo91FKgScHw+fuNgto5GyV+5GbTdOiGbid4Dho3EI2jOew4cTHb8GngqxQieaBg=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.ui",
+          "display_name": "MonitorBox UI",
+          "version": "1.1.3",
+          "build": 11,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "ui",
+          "entrypoints": {
+            "webui": "monitorbox_ui_b11:install"
+          },
+          "requires_core": ">=2.3.1 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "required"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.ui-1.1.3-build11.zip",
+          "filename": "com.sickicarus.monitorbox.ui-1.1.3-build11.zip",
+          "sha256": "68910b9245595e2b81847eeaafa09e8a59656034352cf5ee6d3fb1ddf5402dc5",
+          "signature_identity": "broadleaf-test-ed25519-1",
+          "signature": "urz9Xh60ZXcJvDbQtQ7lsXHKFEPWCCYiYESsFb4OwahhkMDqdaTg2fyDW3Cvp0GQ2Hw9iFOPCnypgmB0pJgFBQ=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.unifi",
+          "display_name": "UniFi Network Integration",
+          "version": "1.0.0",
+          "build": 1,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "integration",
+          "entrypoints": {
+            "integration": "monitorbox_unifi_b1:PLUGIN"
+          },
+          "requires_core": ">=2.3.0 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "optional"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.unifi-1.0.0-build1.zip",
+          "filename": "com.sickicarus.monitorbox.unifi-1.0.0-build1.zip",
+          "sha256": "775bc46c242b1039101c85f2d4b9c695d1c460ee22834458878dc8791ab6aaba",
+          "signature_identity": "broadleaf-test-ed25519-1",
+          "signature": "NYbWdClNk9IBAr3Og/ROjxJnQiGxMwrfiw9o5iNPh0TMBfKm13maQRUDgpmr2QQ6IsuVwDjMJ3/PvTLoqP45Dw=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.unifi",
+          "display_name": "UniFi Network Integration",
+          "version": "1.0.1",
+          "build": 2,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "integration",
+          "entrypoints": {
+            "integration": "monitorbox_unifi_b2:PLUGIN"
+          },
+          "requires_core": ">=2.3.0 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "optional"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.unifi-1.0.1-build2.zip",
+          "filename": "com.sickicarus.monitorbox.unifi-1.0.1-build2.zip",
+          "sha256": "093cbf14746e8cd24c73aa7b1c9969ab984c9711d20539776141f2fbe0656439",
+          "signature_identity": "broadleaf-test-ed25519-1",
+          "signature": "zW5IgtseOCIDZs4MW7vUUDf4CD71+8hExB8GylEHrjRN5tKJamauhKT4sILUN+jm8ceSEIzTOUHr3sOEojYPAQ=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.unifi",
+          "display_name": "UniFi Network Integration",
+          "version": "1.0.2",
+          "build": 3,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "integration",
+          "entrypoints": {
+            "integration": "monitorbox_unifi_b3:PLUGIN"
+          },
+          "requires_core": ">=2.3.0 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "optional"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.unifi-1.0.2-build3.zip",
+          "filename": "com.sickicarus.monitorbox.unifi-1.0.2-build3.zip",
+          "sha256": "43173187cd2b465a2a31225130ef35161fb487953adb1464e1c7adff0791c2ca",
+          "signature_identity": "broadleaf-test-ed25519-1",
+          "signature": "L3agjmnRlMO49OoiZZhrWt4aiLQvqRqCZ+hOaK/jSB/778iGJh2A/BtI71BaNVdB/4P5nDalDs2CxMjlF8WeBw=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.unifi",
+          "display_name": "UniFi Network Integration",
+          "version": "1.0.3",
+          "build": 4,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "integration",
+          "entrypoints": {
+            "integration": "monitorbox_unifi_b4:PLUGIN"
+          },
+          "requires_core": ">=2.3.0 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "optional"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.unifi-1.0.3-build4.zip",
+          "filename": "com.sickicarus.monitorbox.unifi-1.0.3-build4.zip",
+          "sha256": "76fe90131e59547e500d2cbd30ce92ba79076f65b67da29b6d95bc5dc3e0f022",
+          "signature_identity": "broadleaf-test-ed25519-1",
+          "signature": "STzvUw78MTl8uqbK3e07KiDakyTO9g7U6I0yU3R8xqT9ae9mP3KqMFpPtFR+HFsxO8h/wV7Y86WdAa0mXR3jDA=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.wol",
+          "display_name": "Wake-on-LAN Action",
+          "version": "1.0.0",
+          "build": 1,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "integration",
+          "entrypoints": {
+            "integration": "monitorbox_wol_b1:PLUGIN"
+          },
+          "requires_core": ">=2.3.0 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "optional"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.wol-1.0.0-build1.zip",
+          "filename": "com.sickicarus.monitorbox.wol-1.0.0-build1.zip",
+          "sha256": "30de8c98ace676290ef8727ffd2658992603918a4032a5c800a3dde7cf7e34c6",
+          "signature_identity": "broadleaf-test-ed25519-1",
+          "signature": "Mu7vFtIfELxstjUu0QFuPWj9BFUmdQ6TXdjukr7UawW+tDQpcbkBwIfeslf1v8+099C3Yn0JW3BHGsSRUzgmDA=="
+        }
+      }
+    ]
+  },
+  "signature": {
+    "algorithm": "ed25519",
+    "identity": "broadleaf-test-ed25519-1",
+    "value": "oWpXyeHbvJwlYDuYUP3qUDGihSnrystjijunsMYgAYZ77wVeEl/kBPdkzKx6+zBTaVlhN6WsHp4Y5n+v0lipAg=="
+  }
+}
