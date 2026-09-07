@@ -25,6 +25,7 @@ on:
       - tools/build_first_party_http.py
       - tools/build_first_party_nut.py
       - tools/build_first_party_snmp.py
+      - tools/stage_snmp_zipimport_hotfix.py
       - tools/build_first_party_unifi.py
       - tools/build_first_party_scrypted.py
       - tools/build_first_party_wol.py
@@ -48,6 +49,8 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
+      - name: Stage catalog migrations
+        run: python tools/stage_snmp_zipimport_hotfix.py
       - name: Build immutable first-party packages
         run: |
           python tools/build_first_party_ui_build11.py
@@ -69,11 +72,11 @@ jobs:
           python tools/build_repository.py --private-key "$SIGNING_KEY"
       - name: Commit published artifacts when changed
         run: |
-          if git diff --quiet -- packages index.json && test -z "$(git status --porcelain --untracked-files=all packages)"; then
+          if git diff --quiet -- catalog.source.json packages index.json && test -z "$(git status --porcelain --untracked-files=all packages)"; then
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add packages index.json
+          git add catalog.source.json packages index.json
           git commit -m "catalog: publish signed repository index"
           git push
