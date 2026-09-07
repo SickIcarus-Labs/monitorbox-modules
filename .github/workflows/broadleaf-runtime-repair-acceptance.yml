@@ -1,0 +1,81 @@
+name: Broad Leaf runtime repair acceptance
+
+on:
+  pull_request:
+    paths:
+      - sources/snmp/1.0.5-build7/**
+      - sources/scrypted/2.1.2-build3/**
+      - tools/build_first_party_snmp_105.py
+      - tools/build_first_party_scrypted_212.py
+      - tools/accept_snmp_v3_isolation.py
+      - tools/accept_scrypted_managed_state.py
+      - tools/stage_broadleaf_runtime_repairs.py
+      - .github/workflows/broadleaf-runtime-repair-acceptance.yml
+      - .github/workflows/publish-broadleaf-runtime-repairs.yml
+  push:
+    branches:
+      - 'hotfix/**'
+    paths:
+      - sources/snmp/1.0.5-build7/**
+      - sources/scrypted/2.1.2-build3/**
+      - tools/build_first_party_snmp_105.py
+      - tools/build_first_party_scrypted_212.py
+      - tools/accept_snmp_v3_isolation.py
+      - tools/accept_scrypted_managed_state.py
+      - tools/stage_broadleaf_runtime_repairs.py
+      - .github/workflows/broadleaf-runtime-repair-acceptance.yml
+      - .github/workflows/publish-broadleaf-runtime-repairs.yml
+
+permissions:
+  contents: read
+
+jobs:
+  physical-regressions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Install acceptance dependencies
+        run: python -m pip install --disable-pip-version-check aiohttp==3.11.16 cryptography==50.0.1
+      - name: Build Broad Leaf repair packages reproducibly
+        run: |
+          python tools/build_first_party_snmp_105.py
+          python tools/build_first_party_scrypted_212.py
+          sha256sum \
+            packages/com.sickicarus.monitorbox.snmp-1.0.5-build7.zip \
+            packages/com.sickicarus.monitorbox.scrypted-2.1.2-build3.zip > /tmp/repairs.first
+          rm packages/com.sickicarus.monitorbox.snmp-1.0.5-build7.zip
+          rm packages/com.sickicarus.monitorbox.scrypted-2.1.2-build3.zip
+          python tools/build_first_party_snmp_105.py
+          python tools/build_first_party_scrypted_212.py
+          sha256sum \
+            packages/com.sickicarus.monitorbox.snmp-1.0.5-build7.zip \
+            packages/com.sickicarus.monitorbox.scrypted-2.1.2-build3.zip > /tmp/repairs.second
+          diff -u /tmp/repairs.first /tmp/repairs.second
+      - name: Verify SNMPv3 per-query PySNMP isolation
+        run: python tools/accept_snmp_v3_isolation.py
+      - name: Verify Scrypted uses Core-owned writable IPC state
+        run: python tools/accept_scrypted_managed_state.py
+      - name: Verify catalog migration is exact and idempotent
+        run: |
+          python tools/stage_broadleaf_runtime_repairs.py
+          cp catalog.source.json /tmp/catalog.once.json
+          python tools/stage_broadleaf_runtime_repairs.py
+          cmp /tmp/catalog.once.json catalog.source.json
+          python - <<'PY'
+          import json
+          data = json.load(open('catalog.source.json'))
+          wanted = {
+              ('com.sickicarus.monitorbox.snmp', '1.0.5', 7),
+              ('com.sickicarus.monitorbox.scrypted', '2.1.2', 3),
+          }
+          seen = []
+          for item in data['modules']:
+              m = item['manifest']
+              ident = (m['module_id'], m['version'], m['build'])
+              if ident in wanted:
+                  seen.append(ident)
+          assert sorted(seen) == sorted(wanted), seen
+          PY
