@@ -31,7 +31,7 @@ BASE_PYTHON_SOURCE_NAMES = frozenset({
     "onboarding.py",
     "runtime.py",
 })
-MEDIA_SOURCE_BLOBS = {"media.py": "0d6e44aff54a055c7bf1ae08100c43f8db90e61c"}
+MEDIA_SOURCE_BLOBS = {"media.py": "61b4922313ec9d202cdf89e14cd1541278a9f133"}
 BUILD2_SOURCE_BLOBS = {"legacy_control.py": "653a92f70af3bcce57da6da44a5c1f02d3cabdaa"}
 BRIDGE_SOURCE_NAMES = frozenset({
     "package.json",
