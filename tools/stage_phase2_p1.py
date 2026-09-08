@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Idempotently stage the September 7 P1 Phase-2 module release set.
+"""Idempotently stage the September 8 P1 Phase-2 physical-repair release set.
 
 Four module release units share one catalog mutation pass. Configuration/Bootstrap
-1.0.3 build 4 supersedes physically rejected dev-only build 3; rejected build 3
-remains signed dev history but is not materialized into the graduating catalog.
-UI, Portainer and UniFi remain unchanged.
+1.0.3 build 4 and Portainer 1.1.1 build 7 retain their accepted candidates.
+UI 1.1.6 build 14 and UniFi 1.0.5 build 6 supersede physically rejected
+signed-dev builds 13 and 5 respectively; those rejected dev builds remain signed
+dev history but are intentionally not materialized into the graduating catalog.
 """
 
 from __future__ import annotations
@@ -39,17 +40,17 @@ RELEASES = (
     },
     {
         "predecessor": ("com.sickicarus.monitorbox.ui", "1.1.4", 12),
-        "release": ("com.sickicarus.monitorbox.ui", "1.1.5", 13),
+        "release": ("com.sickicarus.monitorbox.ui", "1.1.6", 14),
         "entry": {
             "manifest": {
                 "module_id": "com.sickicarus.monitorbox.ui",
                 "display_name": "MonitorBox UI",
-                "version": "1.1.5",
-                "build": 13,
+                "version": "1.1.6",
+                "build": 14,
                 "schema": 1,
                 "state_schema": 1,
                 "module_type": "ui",
-                "entrypoints": {"webui": "monitorbox_ui_b13:install"},
+                "entrypoints": {"webui": "monitorbox_ui_b14:install"},
                 "requires_core": ">=2.3.1 <3.0.0",
                 "requires_runtime_api": ">=1 <2",
                 "dependencies": [],
@@ -57,7 +58,7 @@ RELEASES = (
                 "permissions": [],
                 "lifecycle_policy": "required",
             },
-            "package": "com.sickicarus.monitorbox.ui-1.1.5-build13.zip",
+            "package": "com.sickicarus.monitorbox.ui-1.1.6-build14.zip",
         },
     },
     {
@@ -85,17 +86,17 @@ RELEASES = (
     },
     {
         "predecessor": ("com.sickicarus.monitorbox.unifi", "1.0.3", 4),
-        "release": ("com.sickicarus.monitorbox.unifi", "1.0.4", 5),
+        "release": ("com.sickicarus.monitorbox.unifi", "1.0.5", 6),
         "entry": {
             "manifest": {
                 "module_id": "com.sickicarus.monitorbox.unifi",
                 "display_name": "UniFi Network Integration",
-                "version": "1.0.4",
-                "build": 5,
+                "version": "1.0.5",
+                "build": 6,
                 "schema": 1,
                 "state_schema": 1,
                 "module_type": "integration",
-                "entrypoints": {"integration": "monitorbox_unifi_b5:PLUGIN"},
+                "entrypoints": {"integration": "monitorbox_unifi_b6:PLUGIN"},
                 "requires_core": ">=2.3.0 <3.0.0",
                 "requires_runtime_api": ">=1 <2",
                 "dependencies": [],
@@ -103,7 +104,7 @@ RELEASES = (
                 "permissions": [],
                 "lifecycle_policy": "optional",
             },
-            "package": "com.sickicarus.monitorbox.unifi-1.0.4-build5.zip",
+            "package": "com.sickicarus.monitorbox.unifi-1.0.5-build6.zip",
         },
     },
 )
@@ -145,9 +146,9 @@ def stage(path: Path) -> bool:
 
     if changed:
         path.write_text(json.dumps(source, separators=(",", ":")) + "\n", encoding="utf-8")
-        print("staged September 7 P1 Phase-2 Bootstrap, UI, Portainer, and UniFi candidates")
+        print("staged September 8 P1 Phase-2 Bootstrap, UI, Portainer, and UniFi candidates")
     else:
-        print("September 7 P1 Phase-2 candidates already staged")
+        print("September 8 P1 Phase-2 candidates already staged")
     return changed
 
 
