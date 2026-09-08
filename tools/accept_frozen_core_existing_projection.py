@@ -1,22 +1,46 @@
 #!/usr/bin/env python3
-"""Prove #158 existing-Connection projection on the accepted frozen Core runtime.
+"""Prove #158 recursive Quick Add projection on accepted frozen Core + Bootstrap.
 
-This script intentionally depends only on installed, provider-blind Core APIs.
-The managed Configuration/Bootstrap module composes these primitives; it does
-not need a release when the accepted Core transaction/summary seam already
-satisfies the provider-neutral contract.
+The accepted Core already owns provider-neutral existing-Connection identity,
+selected-System scoping, and the correct ExistingAuthorityOnboardingApi summary.
+Configuration/Bootstrap 1.0.2 build 3 must wire that projector into the two
+Connection response paths that frozen Core still returns via session.summary().
 """
 
 from __future__ import annotations
 
+import asyncio
+import importlib.util
+import json
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
+
+from aiohttp import web
 
 from monitorbox.v2.canonical_config import validate_document
 from monitorbox.v2.config_auth import ConfigAdminAuth
 from monitorbox.v2.onboarding_detection import ConnectionCandidate, DetectionConfidence
 from monitorbox.v2.onboarding_existing_web import ExistingAuthorityOnboardingApi
 from monitorbox.v2.onboarding_generator import GeneratedAuthority
+
+ROOT = Path(__file__).resolve().parent.parent
+BOOTSTRAP_SOURCE = (
+    ROOT
+    / "sources"
+    / "configuration-bootstrap"
+    / "1.0.2-build3"
+    / "monitorbox_configuration_bootstrap_b3.py"
+)
+
+
+def _load_bootstrap():
+    spec = importlib.util.spec_from_file_location("phase2_bootstrap_b3", BOOTSTRAP_SOURCE)
+    if spec is None or spec.loader is None:
+        raise AssertionError("could not load Configuration/Bootstrap build 3 source")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def _provider_object(
@@ -133,7 +157,29 @@ def _candidate(*, kind: str, endpoint: str, label: str) -> ConnectionCandidate:
     )
 
 
+async def _exercise_response_projection(module, api, session) -> dict:
+    raw_summary = session.summary()
+    assert all("already_configured" not in row for row in raw_summary["connections"])
+
+    async def frozen_core_response(_request) -> web.Response:
+        return web.json_response(
+            {
+                "authenticated_discovery_resolution": {"accepted": []},
+                "session": raw_summary,
+            },
+            headers={"Cache-Control": "no-store"},
+        )
+
+    wrapped = module._project_connection_response(api, frozen_core_response)
+    request = SimpleNamespace(match_info={"session_id": session.id})
+    response = await wrapped(request)
+    assert response.status == 200
+    assert response.headers.get("Cache-Control") == "no-store"
+    return json.loads(response.text)
+
+
 def main() -> None:
+    module = _load_bootstrap()
     with tempfile.TemporaryDirectory(prefix="monitorbox-phase2-") as raw_root:
         root = Path(raw_root)
         api = ExistingAuthorityOnboardingApi(root, auth=ConfigAdminAuth(root))
@@ -155,8 +201,8 @@ def main() -> None:
             ),
         ]
 
-        payload = api._summary(session)
-        rows = [row for row in payload["connections"] if isinstance(row, dict)]
+        payload = asyncio.run(_exercise_response_projection(module, api, session))
+        rows = [row for row in payload["session"]["connections"] if isinstance(row, dict)]
         configured = [row for row in rows if row.get("already_configured") is True]
 
         assert len(rows) == 2, rows
@@ -174,8 +220,15 @@ def main() -> None:
         assert "GOLIATH_SNMP_COMMUNITY" not in repr(payload)
         assert "GOLIATH_PORTAINER_API_KEY" not in repr(payload)
 
-        # Recursive re-projection must remain idempotent: configured authority is
-        # neither dropped nor duplicated after another authenticated-discovery pass.
+        # Build 3 must wire both frozen-Core response escape paths before routes
+        # are installed; this is the orchestration seam #158 actually exercises.
+        original_validate = api.connections.validate_and_stage
+        original_resolve = api.connections.resolve_authenticated_discovery
+        quick_add = SimpleNamespace(onboarding=api)
+        module._wire_scoped_connection_projection(quick_add)
+        assert api.connections.validate_and_stage is not original_validate
+        assert api.connections.resolve_authenticated_discovery is not original_resolve
+
         again = api._summary(session)
         again_rows = [row for row in again["connections"] if isinstance(row, dict)]
         assert [
@@ -187,8 +240,8 @@ def main() -> None:
         ]
 
     print(
-        "Frozen-Core #158 proof: PASS "
-        "(selected Goliath SNMP + Portainer retained, already-configured dedupe preserved, unselected authority excluded)"
+        "Frozen-Core + Bootstrap #158 proof: PASS "
+        "(recursive responses retain selected Goliath SNMP + Portainer authority; unselected authority excluded)"
     )
 
 
