@@ -3,7 +3,7 @@
   "signed": {
     "repository_id": "official-dev",
     "display_name": "MonitorBox Official Dev",
-    "generated_at": "2026-09-08T17:03:05.751785Z",
+    "generated_at": "2026-09-08T17:06:37.767700Z",
     "modules": [
       {
         "manifest": {
@@ -1053,13 +1053,13 @@
         "manifest": {
           "module_id": "com.sickicarus.monitorbox.ui",
           "display_name": "MonitorBox UI",
-          "version": "1.1.7",
-          "build": 15,
+          "version": "1.1.8",
+          "build": 16,
           "schema": 1,
           "state_schema": 1,
           "module_type": "ui",
           "entrypoints": {
-            "webui": "monitorbox_ui_b15:install"
+            "webui": "monitorbox_ui_b16:install"
           },
           "requires_core": ">=2.3.1 <3.0.0",
           "requires_runtime_api": ">=1 <2",
@@ -1069,11 +1069,11 @@
           "lifecycle_policy": "required"
         },
         "package": {
-          "url": "packages/com.sickicarus.monitorbox.ui-1.1.7-build15.zip",
-          "filename": "com.sickicarus.monitorbox.ui-1.1.7-build15.zip",
-          "sha256": "274dfc0cd0e9b05b69999f0f859b2b6f3033dd15d32cea3d785997ae587cbea6",
+          "url": "packages/com.sickicarus.monitorbox.ui-1.1.8-build16.zip",
+          "filename": "com.sickicarus.monitorbox.ui-1.1.8-build16.zip",
+          "sha256": "f88ac419d5b8ac97e7cacebacad7043543dbc60f179761620359969aea0baa32",
           "signature_identity": "official-ed25519-1",
-          "signature": "WyWWkDyc0cgmP9lUrm8Ad5Qn4s1upX78y3roUnJX6pcsbpZHHX9CFpXwcCSuNkQWe8QzUJVmFnNOog4pfg3eAw=="
+          "signature": "MubfWnswvQwgv5BoVZbTZ4QdHlvEvx3U3xmGNDu/gaQuqJloqlmmFxYjK1z7NNysOyLU7AIdavepB1XPhCU5Aw=="
         }
       },
       {
@@ -1243,6 +1243,6 @@
   "signature": {
     "algorithm": "ed25519",
     "identity": "official-ed25519-1",
-    "value": "bFEw15aJP+y2JWh++yfk2jQ6yxfleOYmNI7o2wf4xFYLb2qnWSbAV88yJzbKO1AYP7v+INUOqA6suQ0h4XNrBA=="
+    "value": "jldzqoY5fZeCpOYCTNcSsroDaqc5UgfqzF0e0XyS2b8un8Jdqhvw+XaHg9oddudPXCGOk+Pua+LYAQwAVmh/BA=="
   }
 }
