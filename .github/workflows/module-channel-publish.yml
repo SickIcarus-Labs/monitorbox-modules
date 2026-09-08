@@ -128,19 +128,15 @@ jobs:
 
             runs="$RUNNER_TEMP/module-candidate-runs.json"
             gh api "repos/$REPO/actions/runs?head_sha=$candidate_sha&event=pull_request&per_page=100" > "$runs"
-            python - "$runs" <<'PY'
-          import json, sys
-          runs = json.load(open(sys.argv[1], encoding="utf-8")).get("workflow_runs", [])
-          required = {"Module release policy", "First-party module acceptance"}
-          successful = {
-              run.get("name")
-              for run in runs
-              if run.get("status") == "completed" and run.get("conclusion") == "success"
-          }
-          missing = sorted(required - successful)
-          if missing:
-              raise SystemExit("exact-head module publication gates are not green: " + ", ".join(missing))
-          PY
+            for required in "Module release policy" "First-party module acceptance"; do
+              jq -e --arg required "$required" '
+                .workflow_runs
+                | any(.name == $required and .status == "completed" and .conclusion == "success")
+              ' "$runs" >/dev/null || {
+                echo "::error::Exact-head gate is not green: $required"
+                exit 1
+              }
+            done
           fi
 
           {
