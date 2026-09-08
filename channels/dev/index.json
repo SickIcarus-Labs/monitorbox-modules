@@ -3,7 +3,7 @@
   "signed": {
     "repository_id": "official-dev",
     "display_name": "MonitorBox Official Dev",
-    "generated_at": "2026-09-08T04:11:41.453547Z",
+    "generated_at": "2026-09-08T04:28:41.459945Z",
     "modules": [
       {
         "manifest": {
@@ -156,6 +156,33 @@
           "sha256": "73f09864ff426ff7b9f64a0ae39e1db1d7123ddecdf41e5b0cf2548e4bb9af59",
           "signature_identity": "official-ed25519-1",
           "signature": "ot8Ra3HpRB2iHPiorehqM5tq7GJqyw8gvYYyjt2llC+vUQwMJpQEcgFCx5q27ZauOUoigZSFIgux8Anjt+pDAg=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.configuration-bootstrap",
+          "display_name": "Configuration / Bootstrap",
+          "version": "1.0.2",
+          "build": 3,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "configuration",
+          "entrypoints": {
+            "configuration": "monitorbox_configuration_bootstrap_b3:install"
+          },
+          "requires_core": ">=2.3.0 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "required"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.configuration-bootstrap-1.0.2-build3.zip",
+          "filename": "com.sickicarus.monitorbox.configuration-bootstrap-1.0.2-build3.zip",
+          "sha256": "2e67afeddd4b84697aeaa0d499a0f6d18cbbea7eebdcbac01439b77dc8f57c96",
+          "signature_identity": "official-ed25519-1",
+          "signature": "0Q4CjZ2b50yFjxLKfvPZtUYfCNsCOC1xmMVxnCYn5Z/cE7Z+ljp6zmHWtFgMv6iVMA6vob7PHmXfmahPJW+ICw=="
         }
       },
       {
@@ -1216,6 +1243,6 @@
   "signature": {
     "algorithm": "ed25519",
     "identity": "official-ed25519-1",
-    "value": "lFJjMluZIQyAdl8EkzLkSwUdBbkDYHU3JbLC3NIrNNNFJa4XBnQ7PsFYOwIyk/0Zpu08fXYkXYcsCXokO36BCQ=="
+    "value": "EErjSZw9D4W6Cv8SMmbO8YVvtLPdNTx9mkTez0x86Otg5u9ZcUBfhKtkfb8m14X1Ln0CG5HZSe3DrdNUOdqPAg=="
   }
 }
