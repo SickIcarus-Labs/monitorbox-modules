@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -467,6 +468,39 @@ def run_changed_intents(base_ref: str, intents: dict[str, dict[str, Any]]) -> No
                 subprocess.run([sys.executable, tool], check=True)
 
 
+def _resolve_with_publisher_trusted_checkout(
+    intents: Mapping[str, dict[str, Any]],
+) -> dict[str, DevSupersession]:
+    """Resolve trusted history in the publisher's fresh sibling main checkout.
+
+    Candidate code is never executed in the signing job. The unsigned staging job
+    may execute candidate builders, but its result is independently revalidated by
+    a fresh trusted checkout before the signing key is exposed.
+    """
+
+    trusted = Path("../trusted")
+    if not (trusted / ".git").exists():
+        return resolve_dev_supersessions(intents, trusted_ref=None)
+
+    original = Path.cwd()
+    try:
+        os.chdir(trusted)
+        shallow = subprocess.run(
+            ["git", "rev-parse", "--is-shallow-repository"],
+            check=True,
+            text=True,
+            capture_output=True,
+        ).stdout.strip()
+        if shallow == "true":
+            subprocess.run(
+                ["git", "fetch", "--unshallow", "--no-tags", "origin"],
+                check=True,
+            )
+        return resolve_dev_supersessions(intents, trusted_ref="HEAD")
+    finally:
+        os.chdir(original)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="command", required=True)
@@ -485,10 +519,13 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "run-intents":
             run_changed_intents(args.base_ref, intents)
         else:
-            supersessions = resolve_dev_supersessions(
-                intents,
-                trusted_ref=args.trusted_ref,
-            )
+            if args.trusted_ref:
+                supersessions = resolve_dev_supersessions(
+                    intents,
+                    trusted_ref=args.trusted_ref,
+                )
+            else:
+                supersessions = _resolve_with_publisher_trusted_checkout(intents)
             new = validate_release(
                 load_catalog(args.base_catalog),
                 load_catalog(args.candidate_catalog),
