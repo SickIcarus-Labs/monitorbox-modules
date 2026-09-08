@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Idempotently stage the September 8 P1 Phase-3 UI + UniFi release set."""
+"""Idempotently stage the September 8 P1 Phase-3 UI + UniFi release set.
+
+Trunk/stable history intentionally trails accepted dev/beta module confidence
+history. The release intents separately identify the exact signed-dev semantic
+predecessors; this stager therefore inserts each Phase-3 candidate after the
+latest immutable trunk predecessor without materializing intermediate dev-only
+releases into the stable/trunk catalog.
+"""
 
 from __future__ import annotations
 
@@ -9,7 +16,7 @@ from typing import Any
 
 RELEASES = (
     {
-        "predecessor": ("com.sickicarus.monitorbox.ui", "1.1.10", 18),
+        "predecessor": ("com.sickicarus.monitorbox.ui", "1.1.4", 12),
         "release": ("com.sickicarus.monitorbox.ui", "1.1.11", 19),
         "entry": {
             "manifest": {
@@ -32,7 +39,7 @@ RELEASES = (
         },
     },
     {
-        "predecessor": ("com.sickicarus.monitorbox.unifi", "1.0.7", 8),
+        "predecessor": ("com.sickicarus.monitorbox.unifi", "1.0.3", 4),
         "release": ("com.sickicarus.monitorbox.unifi", "1.0.8", 9),
         "entry": {
             "manifest": {
@@ -86,7 +93,7 @@ def stage(path: Path) -> bool:
         indexes = [index for index, item in enumerate(modules) if identity(item) == predecessor]
         if len(indexes) != 1:
             raise SystemExit(
-                f"expected exactly one immutable predecessor {predecessor}, found {len(indexes)}"
+                f"expected exactly one immutable trunk predecessor {predecessor}, found {len(indexes)}"
             )
         modules.insert(indexes[0] + 1, entry)
         changed = True
