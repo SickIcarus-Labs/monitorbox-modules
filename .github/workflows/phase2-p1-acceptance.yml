@@ -10,6 +10,7 @@ on:
       - tools/build_first_party_unifi_b5.py
       - tools/build_first_party_ui_build13.py
       - tools/accept_portainer_phase2.py
+      - tools/accept_portainer_adoption_phase2.py
       - tools/accept_unifi_phase2.py
       - tools/accept_ui_phase2.mjs
       - .github/workflows/phase2-p1-acceptance.yml
@@ -77,3 +78,6 @@ jobs:
           python -m pytest -q \
             tests/v2/test_onboarding_existing_projection_runtime.py \
             tests/v2/test_onboarding_existing_web.py
+      - name: Prove Portainer direct backend adoption compiles on frozen Core
+        working-directory: frozen-core
+        run: python ../tools/accept_portainer_adoption_phase2.py
