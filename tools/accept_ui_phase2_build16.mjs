@@ -57,7 +57,10 @@ const current={
 const noOp=JSON.parse(JSON.stringify(current));
 noOp.sites[0].objects[0].capabilities[0].providers[0].config.__passive_ui_noise=true;
 assert.equal(api.restoreBeforeNativeValidate(current,noOp,new Set()),1);
-assert.deepEqual(noOp,current);
+// The repair helper executes inside a vm context and therefore deep-clones the
+// restored provider with that realm's Object prototype. Compare serialized
+// structure rather than cross-realm prototype identity.
+assert.equal(JSON.stringify(noOp),JSON.stringify(current));
 
 // #164: a Portainer environment-scope edit survives while unrelated Web Admin
 // drift is removed. This must produce exactly the one intended provider delta.
