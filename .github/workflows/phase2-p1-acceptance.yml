@@ -64,9 +64,9 @@ jobs:
     env:
       # Core PR head e75b3e9 and accepted merge 76ca49e have identical Git tree
       # f1d8c013cf794cec0cc5c53adecad44f203fb2c8. Execute the immutable image
-      # built from that accepted PR head so this public repo needs no private
-      # monitorbox checkout or cross-repository source credentials.
-      CORE_IMAGE: ghcr.io/sickicarus-labs/monitorbox@sha256:3271999dbbe65e9111c9159eed7aad9efc1e45948bd9423f6f6882576577f310
+      # rebuilt directly from that accepted PR head so this public repo needs no
+      # private monitorbox checkout or cross-repository source credentials.
+      CORE_IMAGE: ghcr.io/sickicarus-labs/monitorbox@sha256:ee4d2c45a9ef3f3df3708c7e3b3b45b4a70faf756ed9753ded1ce1e23fe216c1
       CORE_SOURCE_SHA: e75b3e990bb63bd75a37fe2cf7ca640337a6f5c4
       FROZEN_CORE_MERGE: 76ca49efdaf719cb0e0c16f16c41f219684ca2b6
       FROZEN_CORE_TREE: f1d8c013cf794cec0cc5c53adecad44f203fb2c8
