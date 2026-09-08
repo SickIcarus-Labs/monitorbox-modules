@@ -1,15 +1,16 @@
 name: Module channel publication
 
-# Trusted publication bridge for pre-stable module channels.
+# Trusted publication bridge for module confidence channels.
 #
-# - successful exact-head module acceptance automatically republishes the PR candidate
+# - successful exact-head module acceptance automatically publishes the PR candidate
 #   to the signed dev repository;
 # - /publish-dev is the manual recovery spelling for the same exact-head operation;
 # - /promote-beta republishes the exact accepted candidate under beta authority;
-# - /yank-dev restores dev to the current stable module catalog.
+# - /yank-dev restores dev to the frozen stable module baseline;
+# - /promote-stable promotes the exact signed beta snapshot to stable `official`.
 #
 # Candidate code never executes in the signing job. The signing key is exposed only to
-# trusted-main tooling after the staged catalog/package set has been independently checked.
+# trusted-main tooling after staged catalog/package bytes have been independently checked.
 on:
   workflow_run:
     workflows: ["First-party module acceptance"]
@@ -21,12 +22,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: module-channel-publication
+  group: module-repository-write
   cancel-in-progress: false
 
 jobs:
   resolve:
-    name: Resolve exact module candidate authority
+    name: Resolve module channel authority
     if: >-
       (
         github.event_name == 'workflow_run' &&
@@ -35,12 +36,12 @@ jobs:
       ) ||
       (
         github.event_name == 'issue_comment' &&
-        github.event.issue.pull_request &&
         github.event.comment.user.login == 'SickIcarus' &&
         (
           github.event.comment.body == '/publish-dev' ||
           github.event.comment.body == '/promote-beta' ||
-          github.event.comment.body == '/yank-dev'
+          github.event.comment.body == '/yank-dev' ||
+          github.event.comment.body == '/promote-stable'
         )
       )
     runs-on: ubuntu-latest
@@ -65,6 +66,7 @@ jobs:
           REPO: ${{ github.repository }}
           EVENT_NAME: ${{ github.event_name }}
           COMMAND: ${{ github.event.comment.body || '' }}
+          IS_PR_COMMENT: ${{ github.event.issue.pull_request && 'true' || 'false' }}
         run: |
           set -euo pipefail
 
@@ -84,10 +86,29 @@ jobs:
               /publish-dev) mode="dev" ;;
               /promote-beta) mode="beta" ;;
               /yank-dev) mode="yank-dev" ;;
+              /promote-stable) mode="stable" ;;
               *) echo "::error::Unsupported module publication command"; exit 1 ;;
             esac
             pr_number="$(jq -r '.issue.number' "$GITHUB_EVENT_PATH")"
             expected_sha=""
+          fi
+
+          if [[ "$mode" == "stable" ]]; then
+            {
+              echo "publish=true"
+              echo "mode=stable"
+              echo "pr_number=$pr_number"
+              echo "candidate_sha="
+              echo "base_sha="
+            } >> "$GITHUB_OUTPUT"
+            echo "Module publication mode: stable"
+            echo "Source authority: exact signed beta snapshot"
+            exit 0
+          fi
+
+          if [[ "$IS_PR_COMMENT" != "true" && "$EVENT_NAME" != "workflow_run" ]]; then
+            echo "::error::$COMMAND must be issued on a module release PR"
+            exit 1
           fi
 
           metadata="$RUNNER_TEMP/module-candidate-pr.json"
@@ -155,7 +176,7 @@ jobs:
     needs: [resolve]
     if: >-
       needs.resolve.outputs.publish == 'true' &&
-      needs.resolve.outputs.mode != 'yank-dev'
+      (needs.resolve.outputs.mode == 'dev' || needs.resolve.outputs.mode == 'beta')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -200,13 +221,14 @@ jobs:
           retention-days: 1
 
   publish:
-    name: Sign and publish channel repository
+    name: Sign and publish module channel
     needs: [resolve, build_candidate]
     if: >-
       always() &&
       needs.resolve.result == 'success' &&
       needs.resolve.outputs.publish == 'true' &&
       (
+        needs.resolve.outputs.mode == 'stable' ||
         needs.resolve.outputs.mode == 'yank-dev' ||
         needs.build_candidate.result == 'success'
       )
@@ -221,14 +243,14 @@ jobs:
           fetch-depth: 0
           path: trusted
       - name: Check out exact candidate source without executing it
-        if: needs.resolve.outputs.mode != 'yank-dev'
+        if: needs.resolve.outputs.mode == 'dev' || needs.resolve.outputs.mode == 'beta'
         uses: actions/checkout@v6
         with:
           ref: ${{ needs.resolve.outputs.candidate_sha }}
           fetch-depth: 0
           path: candidate-source
       - name: Download staged candidate distribution
-        if: needs.resolve.outputs.mode != 'yank-dev'
+        if: needs.resolve.outputs.mode == 'dev' || needs.resolve.outputs.mode == 'beta'
         uses: actions/download-artifact@v5
         with:
           name: module-channel-candidate-${{ needs.resolve.outputs.candidate_sha }}
@@ -239,7 +261,7 @@ jobs:
       - name: Install trusted signing dependency
         run: python -m pip install --disable-pip-version-check cryptography==50.0.1
       - name: Revalidate staged candidate without executing candidate code
-        if: needs.resolve.outputs.mode != 'yank-dev'
+        if: needs.resolve.outputs.mode == 'dev' || needs.resolve.outputs.mode == 'beta'
         shell: bash
         env:
           BASE_SHA: ${{ needs.resolve.outputs.base_sha }}
@@ -256,7 +278,80 @@ jobs:
             --candidate-catalog catalog.source.json \
             --base-ref "$BASE_SHA" \
             --require-packages
-      - name: Sign exact channel index with trusted-main tooling
+
+      - name: Freeze stable baseline snapshot if not yet recorded
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -f trusted/channels/stable/index.json ]]; then
+            test -f trusted/channels/stable/catalog.source.json
+            test -d trusted/channels/stable/packages
+            exit 0
+          fi
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          source = json.loads(Path('trusted/catalog.source.json').read_text())
+          index = json.loads(Path('trusted/index.json').read_text())
+          if index.get('signed', {}).get('repository_id') != 'official':
+              raise SystemExit('root stable index is not official authority')
+          source_ids = {
+              (x['manifest']['module_id'], x['manifest']['version'], x['manifest']['build'])
+              for x in source.get('modules', [])
+          }
+          index_ids = {
+              (x['manifest']['module_id'], x['manifest']['version'], x['manifest']['build'])
+              for x in index.get('signed', {}).get('modules', [])
+          }
+          if source_ids != index_ids:
+              raise SystemExit('cannot bootstrap stable snapshot: trunk source has diverged from signed stable authority')
+          PY
+
+          mkdir -p trusted/channels/stable/packages
+          cp trusted/catalog.source.json trusted/channels/stable/catalog.source.json
+          cp trusted/index.json trusted/channels/stable/index.json
+          cp trusted/packages/*.zip trusted/channels/stable/packages/
+
+      - name: Verify stable promotion source is the exact beta snapshot
+        if: needs.resolve.outputs.mode == 'stable'
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f trusted/channels/beta/catalog.source.json
+          test -f trusted/channels/beta/index.json
+          test -d trusted/channels/beta/packages
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          beta_source = json.loads(Path('trusted/channels/beta/catalog.source.json').read_text())
+          beta_index = json.loads(Path('trusted/channels/beta/index.json').read_text())
+          trunk = json.loads(Path('trusted/catalog.source.json').read_text())
+          if beta_index.get('signed', {}).get('repository_id') != 'official-beta':
+              raise SystemExit('beta snapshot is not signed as official-beta')
+
+          def keyed(document):
+              return {
+                  (x['manifest']['module_id'], x['manifest']['version'], x['manifest']['build']): x['manifest']
+                  for x in document.get('modules', [])
+              }
+
+          beta_source_map = keyed(beta_source)
+          beta_index_map = {
+              (x['manifest']['module_id'], x['manifest']['version'], x['manifest']['build']): x['manifest']
+              for x in beta_index.get('signed', {}).get('modules', [])
+          }
+          trunk_map = keyed(trunk)
+          if beta_source_map != beta_index_map:
+              raise SystemExit('beta catalog source and signed beta index disagree')
+          missing = [key for key, manifest in beta_source_map.items() if trunk_map.get(key) != manifest]
+          if missing:
+              raise SystemExit('beta contains release identities not materialized in main: ' + repr(missing))
+          PY
+
+      - name: Sign exact requested channel with trusted-main tooling
         shell: bash
         env:
           SIGNING_KEY: ${{ secrets.MONITORBOX_MODULE_SIGNING_KEY }}
@@ -264,66 +359,92 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$SIGNING_KEY"
-          if [[ "$MODE" == "yank-dev" ]]; then
-            source_root="trusted"
-            repository_id="official-dev"
-          else
-            source_root="candidate-source"
-            repository_id="official-$MODE"
-          fi
+          case "$MODE" in
+            dev)
+              source_root="candidate-source"
+              repository_id="official-dev"
+              ;;
+            beta)
+              source_root="candidate-source"
+              repository_id="official-beta"
+              ;;
+            yank-dev)
+              source_root="trusted/channels/stable"
+              repository_id="official-dev"
+              ;;
+            stable)
+              source_root="trusted/channels/beta"
+              repository_id="official"
+              ;;
+            *) echo "::error::Unsupported mode $MODE"; exit 1 ;;
+          esac
+
           python trusted/tools/build_repository.py \
             --source "$source_root/catalog.source.json" \
             --output "$RUNNER_TEMP/channel-index.json" \
             --repository-id "$repository_id" \
             --private-key "$SIGNING_KEY"
 
-          if [[ "$MODE" == "dev" ]]; then
+          if [[ "$MODE" == "dev" && ! -f trusted/channels/beta/index.json ]]; then
             python trusted/tools/build_repository.py \
-              --source trusted/catalog.source.json \
+              --source trusted/channels/stable/catalog.source.json \
               --output "$RUNNER_TEMP/beta-bootstrap-index.json" \
               --repository-id official-beta \
               --private-key "$SIGNING_KEY"
           fi
-      - name: Publish signed channel without touching stable authority
+
+      - name: Commit exact channel authority
         shell: bash
         env:
           MODE: ${{ needs.resolve.outputs.mode }}
           CANDIDATE_SHA: ${{ needs.resolve.outputs.candidate_sha }}
         run: |
           set -euo pipefail
-          git -C trusted pull --ff-only origin main
 
-          if [[ "$MODE" == "yank-dev" ]]; then
-            channel="dev"
-            source_root="trusted"
+          if [[ "$MODE" == "stable" ]]; then
+            source_root="trusted/channels/beta"
+            rm -rf trusted/channels/stable
+            mkdir -p trusted/channels/stable/packages trusted/packages
+            cp "$source_root/catalog.source.json" trusted/channels/stable/catalog.source.json
+            cp "$RUNNER_TEMP/channel-index.json" trusted/channels/stable/index.json
+            cp "$source_root"/packages/*.zip trusted/channels/stable/packages/
+            cp "$RUNNER_TEMP/channel-index.json" trusted/index.json
+            cp "$source_root"/packages/*.zip trusted/packages/
+            add_paths=(index.json packages channels/stable)
+            message="channels: promote cumulative beta to stable"
           else
-            channel="$MODE"
-            source_root="candidate-source"
+            if [[ "$MODE" == "yank-dev" ]]; then
+              channel="dev"
+              source_root="trusted/channels/stable"
+              message="channels: yank dev to stable baseline"
+            else
+              channel="$MODE"
+              source_root="candidate-source"
+              message="channels: publish $channel candidate ${CANDIDATE_SHA:0:12}"
+            fi
+
+            target="trusted/channels/$channel"
+            rm -rf "$target"
+            mkdir -p "$target/packages"
+            cp "$source_root/catalog.source.json" "$target/catalog.source.json"
+            cp "$RUNNER_TEMP/channel-index.json" "$target/index.json"
+            cp "$source_root"/packages/*.zip "$target/packages/"
+
+            if [[ "$MODE" == "dev" && ! -f trusted/channels/beta/index.json ]]; then
+              mkdir -p trusted/channels/beta/packages
+              cp trusted/channels/stable/catalog.source.json trusted/channels/beta/catalog.source.json
+              cp "$RUNNER_TEMP/beta-bootstrap-index.json" trusted/channels/beta/index.json
+              cp trusted/channels/stable/packages/*.zip trusted/channels/beta/packages/
+            fi
+            add_paths=(channels)
           fi
 
-          target="trusted/channels/$channel"
-          rm -rf "$target"
-          mkdir -p "$target/packages"
-          cp "$RUNNER_TEMP/channel-index.json" "$target/index.json"
-          cp "$source_root"/packages/*.zip "$target/packages/"
-
-          if [[ "$MODE" == "dev" && ! -f trusted/channels/beta/index.json ]]; then
-            mkdir -p trusted/channels/beta/packages
-            cp "$RUNNER_TEMP/beta-bootstrap-index.json" trusted/channels/beta/index.json
-            cp trusted/packages/*.zip trusted/channels/beta/packages/
-          fi
-
-          if git -C trusted diff --quiet -- channels && test -z "$(git -C trusted status --porcelain --untracked-files=all channels)"; then
-            echo "Channel repository already matches requested authority"
+          if git -C trusted diff --quiet -- "${add_paths[@]}" && test -z "$(git -C trusted status --porcelain --untracked-files=all -- "${add_paths[@]}")"; then
+            echo "Requested module channel already matches exact authority"
             exit 0
           fi
           git -C trusted config user.name "github-actions[bot]"
           git -C trusted config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git -C trusted add channels
-          if [[ "$MODE" == "yank-dev" ]]; then
-            message="channels: yank dev to stable baseline"
-          else
-            message="channels: publish $channel candidate ${CANDIDATE_SHA:0:12}"
-          fi
+          git -C trusted add "${add_paths[@]}"
           git -C trusted commit -m "$message"
           git -C trusted push origin HEAD:main
