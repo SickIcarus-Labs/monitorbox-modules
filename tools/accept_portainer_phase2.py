@@ -109,6 +109,13 @@ async def _accept_endpoint_provenance(endpoint_module) -> None:
 
 
 def _accept_suggestions(suggestions) -> None:
+    endpoint = {
+        "host": "192.168.3.20",
+        "private_port": 8080,
+        "public_port": 3579,
+        "protocol": "tcp",
+        "endpoint_role": "backend_monitoring",
+    }
     workload = {
         "identity": "compose:goliath:ombi:ombi",
         "label": "ombi",
@@ -118,19 +125,33 @@ def _accept_suggestions(suggestions) -> None:
         "compose_service": "ombi",
         "images": ["linuxserver/ombi:latest"],
         "discovery_actionable": True,
-        "backend_monitoring_endpoints": [
-            {
-                "host": "192.168.3.20",
-                "private_port": 8080,
-                "public_port": 3579,
-                "protocol": "tcp",
-                "endpoint_role": "backend_monitoring",
-            }
-        ],
+        "backend_monitoring_endpoints": [endpoint],
     }
     assert suggestions.connection_suggestions(workload) == (), (
         "TCP published-port evidence must not synthesize an HTTP(S) Connection"
     )
+    evidence = suggestions.generic_workload_evidence([workload], authoritative=True)
+    assert len(evidence) == 1
+    assert evidence[0]["suggested_capabilities"] == [
+        "docker_workload",
+        "backend_transport",
+    ]
+
+    ambiguous = dict(workload)
+    ambiguous["backend_monitoring_endpoints"] = [
+        endpoint,
+        {
+            "host": "192.168.3.20",
+            "private_port": 8081,
+            "public_port": 18081,
+            "protocol": "tcp",
+            "endpoint_role": "backend_monitoring",
+        },
+    ]
+    ambiguous_evidence = suggestions.generic_workload_evidence(
+        [ambiguous], authoritative=True
+    )
+    assert ambiguous_evidence[0]["suggested_capabilities"] == ["docker_workload"]
 
     scrypted = dict(workload)
     scrypted["label"] = "scrypted"
@@ -169,7 +190,7 @@ def main() -> None:
     _accept_recovery_contract()
     print(
         "Portainer Phase-2 acceptance: PASS "
-        "(raw inventory + environment disposition + LAN backend role + no TCP→HTTP guess + recovery intent)"
+        "(raw inventory + environment disposition + LAN backend role + unambiguous backend ability + no TCP→HTTP guess + recovery intent)"
     )
 
 
