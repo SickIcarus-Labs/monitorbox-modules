@@ -61,8 +61,11 @@ def main() -> None:
     require(publish, "Revalidate staged candidate without executing candidate code")
 
     # Main/trunk materialization must never possess the signing key or write the root
-    # stable index. It may commit only catalog source and immutable package bytes.
+    # stable index. It runs only changed Phase-1+ release intents; historical immutable
+    # packages are repository state, not a blanket rebuild workload.
     require(materialize, "name: Materialize module release source")
+    require(materialize, "Stage and build only declared successor releases")
+    require(materialize, "release_policy.py run-intents")
     require(materialize, "Prove stable signed authority is untouched")
     require(materialize, "git diff --exit-code HEAD -- index.json")
     require(materialize, "git add catalog.source.json packages")
@@ -70,6 +73,10 @@ def main() -> None:
     forbid(materialize, "MONITORBOX_MODULE_SIGNING_KEY")
     forbid(materialize, "Build signed repository index")
     forbid(materialize, "git add catalog.source.json packages index.json")
+    forbid(materialize, "Reproduce current immutable first-party packages")
+    forbid(materialize, "stage_snmp_zipimport_hotfix.py")
+    forbid(materialize, "build_first_party_ui_build11.py")
+    forbid(materialize, "build_first_party_snmp_mib_hotfix.py")
 
     if LEGACY.exists():
         raise SystemExit("legacy Broad Leaf stable-writing publisher must remain retired")

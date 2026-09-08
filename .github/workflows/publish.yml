@@ -5,6 +5,8 @@ name: Materialize module release source
 # A release-source merge to main may stage the canonical catalog source and immutable
 # package bytes needed by later phases, but it MUST NOT sign or advance the stable
 # `official` repository. Stable confidence is changed only by explicit channel promotion.
+# Phase-1+ releases are fully declared by release intents; historical packages are
+# already immutable repository state and are never blanket-rebuilt here.
 on:
   workflow_dispatch:
   push:
@@ -53,23 +55,7 @@ jobs:
           base="HEAD^"
           git show "$base:catalog.source.json" > "$RUNNER_TEMP/catalog.before.json"
           echo "ref=$base" >> "$GITHUB_OUTPUT"
-      - name: Stage historical catalog migrations
-        run: |
-          python tools/stage_snmp_zipimport_hotfix.py
-          python tools/stage_snmp_mib_zipimport_hotfix.py
-      - name: Reproduce current immutable first-party packages
-        run: |
-          python tools/build_first_party_ui_build11.py
-          python tools/build_first_party_portainer.py
-          python tools/build_first_party_http.py
-          python tools/build_first_party_nut.py
-          python tools/build_first_party_snmp_mib_hotfix.py
-          python tools/build_first_party_unifi.py
-          python tools/build_first_party_scrypted.py
-          python tools/build_first_party_wol.py
-          python tools/build_first_party_configuration_bootstrap.py
-          python tools/build_first_party_backup_restore.py
-      - name: Stage and build declared successor releases
+      - name: Stage and build only declared successor releases
         run: python tools/release_policy.py run-intents --base-ref '${{ steps.base.outputs.ref }}'
       - name: Enforce semantic module release authority
         run: >-
