@@ -44,7 +44,7 @@ jobs:
       - name: Verify module channel publication topology
         run: python tools/accept_module_channel_topology.py
       - id: base
-        name: Resolve comparison base
+        name: Resolve comparison and trusted-main authority
         shell: bash
         env:
           BASE_REF: ${{ github.base_ref }}
@@ -66,4 +66,5 @@ jobs:
           --base-catalog "$RUNNER_TEMP/catalog.before.json"
           --candidate-catalog catalog.source.json
           --base-ref '${{ steps.base.outputs.ref }}'
+          --trusted-ref '${{ steps.base.outputs.ref }}'
           --require-packages
