@@ -9,9 +9,11 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 
 SEMVER_RE = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
+SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 CHANGE_CLASSES = {"breaking-feature", "compatible-feature", "patch-polish", "packaging-only"}
 INTENT_DIR = Path("release-intents")
 
@@ -51,6 +53,42 @@ class Release:
         return self.module_id, str(self.version), self.build
 
 
+@dataclass(frozen=True, slots=True)
+class DevSupersession:
+    """Exact failed-dev predecessor admitted as semantic history, not trunk history."""
+
+    release: Release
+    sha256: str
+    authority_commit: str
+
+
+def _release_from_row(row: Mapping[str, Any], *, where: str) -> Release:
+    manifest = row.get("manifest")
+    if not isinstance(manifest, Mapping):
+        raise ReleasePolicyError(f"{where} module row is malformed")
+    module_id = manifest.get("module_id")
+    build = manifest.get("build")
+    package_value = row.get("package")
+    if isinstance(package_value, Mapping):
+        package = package_value.get("filename")
+    else:
+        package = package_value
+    publisher = manifest.get("publisher_id", "")
+    if not isinstance(module_id, str) or not module_id:
+        raise ReleasePolicyError(f"{where} module_id must be non-empty")
+    if not isinstance(build, int) or build <= 0:
+        raise ReleasePolicyError(f"{where} {module_id} has invalid build {build!r}")
+    if not isinstance(package, str) or not package:
+        raise ReleasePolicyError(f"{where} {module_id} build {build} has no package")
+    return Release(
+        module_id,
+        SemVer.parse(manifest.get("version")),
+        build,
+        package,
+        str(publisher),
+    )
+
+
 def load_catalog(path: Path) -> list[Release]:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
@@ -58,23 +96,7 @@ def load_catalog(path: Path) -> list[Release]:
         raise ReleasePolicyError(f"cannot read catalog {path}: {exc}") from exc
     if data.get("schema") != 1 or not isinstance(data.get("modules"), list):
         raise ReleasePolicyError(f"{path} is not a schema-1 module catalog")
-    releases: list[Release] = []
-    for row in data["modules"]:
-        if not isinstance(row, dict) or not isinstance(row.get("manifest"), dict):
-            raise ReleasePolicyError("catalog module row is malformed")
-        manifest = row["manifest"]
-        module_id = manifest.get("module_id")
-        build = manifest.get("build")
-        package = row.get("package")
-        publisher = manifest.get("publisher_id", "")
-        if not isinstance(module_id, str) or not module_id:
-            raise ReleasePolicyError("module_id must be non-empty")
-        if not isinstance(build, int) or build <= 0:
-            raise ReleasePolicyError(f"{module_id} has invalid build {build!r}")
-        if not isinstance(package, str) or not package:
-            raise ReleasePolicyError(f"{module_id} build {build} has no package")
-        releases.append(Release(module_id, SemVer.parse(manifest.get("version")), build, package, str(publisher)))
-    return releases
+    return [_release_from_row(row, where=str(path)) for row in data["modules"]]
 
 
 def validate_history(releases: Iterable[Release]) -> None:
@@ -87,10 +109,6 @@ def validate_history(releases: Iterable[Release]) -> None:
         identities.add(release.identity)
         by_module.setdefault(release.module_id, []).append(release)
 
-    # Existing signed history is grandfathered, including historical same-semver
-    # packages and build-number resets. We only require semantic history not to run
-    # backwards in catalog order; Phase-1 monotonic build policy starts with the next
-    # candidate and is enforced against the highest preserved build below.
     for module_id, history in by_module.items():
         previous = history[0].version
         for release in history[1:]:
@@ -99,6 +117,27 @@ def validate_history(releases: Iterable[Release]) -> None:
                     f"{module_id} semantic version regressed in preserved catalog: {release.version} < {previous}"
                 )
             previous = release.version
+
+
+def _validate_supersedes_dev(path: Path, intent: dict[str, Any]) -> None:
+    value = intent.get("supersedes_dev")
+    if value is None:
+        return
+    if not isinstance(value, dict):
+        raise ReleasePolicyError(f"{path} supersedes_dev must be a mapping")
+    if set(value) != {"version", "build", "sha256", "authority_commit"}:
+        raise ReleasePolicyError(
+            f"{path} supersedes_dev must contain exactly version, build, sha256, authority_commit"
+        )
+    SemVer.parse(value.get("version"))
+    if not isinstance(value.get("build"), int) or value["build"] <= 0:
+        raise ReleasePolicyError(f"{path} supersedes_dev.build must be positive")
+    digest = value.get("sha256")
+    if not isinstance(digest, str) or not SHA256_RE.fullmatch(digest):
+        raise ReleasePolicyError(f"{path} supersedes_dev.sha256 must be lowercase SHA-256")
+    commit = value.get("authority_commit")
+    if not isinstance(commit, str) or not COMMIT_RE.fullmatch(commit):
+        raise ReleasePolicyError(f"{path} supersedes_dev.authority_commit must be a full commit SHA")
 
 
 def load_intents(root: Path = INTENT_DIR) -> dict[str, dict[str, Any]]:
@@ -129,6 +168,7 @@ def load_intents(root: Path = INTENT_DIR) -> dict[str, dict[str, Any]]:
             raise ReleasePolicyError(f"{path} must identify a positive issue number")
         if not isinstance(intent.get("summary"), str) or not intent["summary"].strip():
             raise ReleasePolicyError(f"{path} must contain a reviewable summary")
+        _validate_supersedes_dev(path, intent)
         intents[module_id] = intent
     return intents
 
@@ -150,6 +190,124 @@ def _module_history(module_id: str, releases: list[Release]) -> list[Release]:
 def _previous_for(module_id: str, releases: list[Release]) -> Release | None:
     matches = _module_history(module_id, releases)
     return max(matches, key=lambda item: (item.version, item.build)) if matches else None
+
+
+def _git_text(ref: str, path: str) -> str:
+    try:
+        result = subprocess.run(
+            ["git", "show", f"{ref}:{path}"],
+            check=True,
+            text=True,
+            capture_output=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        raise ReleasePolicyError(f"trusted ref {ref} has no readable {path}") from exc
+    return result.stdout
+
+
+def _signed_dev_rows(ref: str) -> list[tuple[Release, str]]:
+    try:
+        data = json.loads(_git_text(ref, "channels/dev/index.json"))
+    except json.JSONDecodeError as exc:
+        raise ReleasePolicyError(f"trusted ref {ref} has malformed channels/dev/index.json") from exc
+    signed = data.get("signed")
+    if not isinstance(signed, Mapping) or signed.get("repository_id") != "official-dev":
+        raise ReleasePolicyError(f"trusted ref {ref} dev authority is not official-dev")
+    modules = signed.get("modules")
+    if not isinstance(modules, list):
+        raise ReleasePolicyError(f"trusted ref {ref} dev authority has no modules list")
+    rows: list[tuple[Release, str]] = []
+    for row in modules:
+        if not isinstance(row, Mapping):
+            raise ReleasePolicyError(f"trusted ref {ref} dev authority has malformed module row")
+        release = _release_from_row(row, where=f"{ref}:channels/dev/index.json")
+        package = row.get("package")
+        digest = package.get("sha256") if isinstance(package, Mapping) else None
+        if not isinstance(digest, str) or not SHA256_RE.fullmatch(digest):
+            raise ReleasePolicyError(f"trusted dev release {release.identity} has invalid SHA-256")
+        rows.append((release, digest))
+    validate_history(release for release, _digest in rows)
+    return rows
+
+
+def _is_ancestor(commit: str, trusted_ref: str) -> bool:
+    result = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", commit, trusted_ref],
+        text=True,
+        capture_output=True,
+    )
+    if result.returncode not in (0, 1):
+        raise ReleasePolicyError(
+            f"could not verify dev authority commit {commit} against trusted ref {trusted_ref}"
+        )
+    return result.returncode == 0
+
+
+def resolve_dev_supersessions(
+    intents: Mapping[str, dict[str, Any]],
+    *,
+    trusted_ref: str | None,
+) -> dict[str, DevSupersession]:
+    requested = {
+        module_id: intent
+        for module_id, intent in intents.items()
+        if intent.get("supersedes_dev") is not None
+    }
+    if not requested:
+        return {}
+    if not trusted_ref:
+        raise ReleasePolicyError("supersedes_dev requires an explicit trusted ref")
+
+    current_rows = _signed_dev_rows(trusted_ref)
+    current_by_module: dict[str, list[tuple[Release, str]]] = {}
+    for row in current_rows:
+        current_by_module.setdefault(row[0].module_id, []).append(row)
+
+    resolved: dict[str, DevSupersession] = {}
+    for module_id, intent in requested.items():
+        spec = intent["supersedes_dev"]
+        authority_commit = str(spec["authority_commit"])
+        if not _is_ancestor(authority_commit, trusted_ref):
+            raise ReleasePolicyError(
+                f"{module_id} supersedes_dev authority {authority_commit} is not trusted-main history"
+            )
+        historical_rows = _signed_dev_rows(authority_commit)
+        identity = (module_id, str(SemVer.parse(spec["version"])), int(spec["build"]))
+        matches = [row for row in historical_rows if row[0].identity == identity]
+        if len(matches) != 1:
+            raise ReleasePolicyError(
+                f"{module_id} supersedes_dev identity {identity[1]}+{identity[2]} is not unique in signed dev authority"
+            )
+        predecessor, digest = matches[0]
+        if digest != spec["sha256"]:
+            raise ReleasePolicyError(
+                f"{module_id} supersedes_dev SHA-256 does not match signed dev authority"
+            )
+
+        module_at_authority = [row for row in historical_rows if row[0].module_id == module_id]
+        latest_at_authority = max(module_at_authority, key=lambda row: (row[0].version, row[0].build))
+        if latest_at_authority[0].identity != predecessor.identity:
+            raise ReleasePolicyError(
+                f"{module_id} supersedes_dev must identify the latest module release at its authority commit"
+            )
+
+        current_module = current_by_module.get(module_id, [])
+        if current_module:
+            current_latest = max(current_module, key=lambda row: (row[0].version, row[0].build))[0]
+            candidate_identity = (
+                module_id,
+                str(SemVer.parse(intent["version"])),
+                int(intent["build"]),
+            )
+            if current_latest.identity not in {predecessor.identity, candidate_identity}:
+                if (current_latest.version, current_latest.build) > (predecessor.version, predecessor.build):
+                    raise ReleasePolicyError(
+                        f"{module_id} trusted dev advanced beyond declared superseded predecessor: "
+                        f"latest is {current_latest.version}+{current_latest.build}"
+                    )
+
+        resolved[module_id] = DevSupersession(predecessor, digest, authority_commit)
+    return resolved
 
 
 def _check_bump(
@@ -203,11 +361,13 @@ def validate_release(
     *,
     paths: Iterable[str],
     intents: dict[str, dict[str, Any]],
+    dev_supersessions: Mapping[str, DevSupersession] | None = None,
     require_packages: bool = False,
     root: Path = Path("."),
 ) -> list[Release]:
     validate_history(baseline)
     validate_history(candidate)
+    dev_supersessions = dev_supersessions or {}
     base_ids = {item.identity for item in baseline}
     candidate_ids = {item.identity for item in candidate}
     removed = base_ids - candidate_ids
@@ -230,12 +390,35 @@ def validate_release(
         source_changed = any(path.startswith(intent["source_prefix"]) for path in path_list)
         history = _module_history(release.module_id, baseline)
         previous = _previous_for(release.module_id, baseline)
+        highest_previous_build = max((item.build for item in history), default=0)
+
+        supersession = dev_supersessions.get(release.module_id)
+        if intent.get("supersedes_dev") is not None:
+            if supersession is None:
+                raise ReleasePolicyError(
+                    f"{release.module_id} declares supersedes_dev but no trusted predecessor was resolved"
+                )
+            if supersession.release.identity in base_ids:
+                raise ReleasePolicyError(
+                    f"{release.module_id} supersedes_dev predecessor is already trunk/stable history"
+                )
+            if previous is not None and supersession.release.version < previous.version:
+                raise ReleasePolicyError(
+                    f"{release.module_id} supersedes_dev predecessor predates current trunk semantic history"
+                )
+            previous = supersession.release
+            highest_previous_build = max(highest_previous_build, supersession.release.build)
+        elif supersession is not None:
+            raise ReleasePolicyError(
+                f"{release.module_id} resolved a dev supersession without declaring supersedes_dev"
+            )
+
         _check_bump(
             previous,
             release,
             intent,
             source_changed,
-            highest_previous_build=max((item.build for item in history), default=0),
+            highest_previous_build=highest_previous_build,
         )
         if require_packages and not (root / "packages" / release.package).is_file():
             raise ReleasePolicyError(f"candidate package packages/{release.package} was not built")
@@ -291,6 +474,7 @@ def main(argv: list[str] | None = None) -> int:
     validate.add_argument("--base-catalog", type=Path, required=True)
     validate.add_argument("--candidate-catalog", type=Path, default=Path("catalog.source.json"))
     validate.add_argument("--base-ref", required=True)
+    validate.add_argument("--trusted-ref")
     validate.add_argument("--require-packages", action="store_true")
     run = sub.add_parser("run-intents")
     run.add_argument("--base-ref", required=True)
@@ -301,11 +485,16 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "run-intents":
             run_changed_intents(args.base_ref, intents)
         else:
+            supersessions = resolve_dev_supersessions(
+                intents,
+                trusted_ref=args.trusted_ref,
+            )
             new = validate_release(
                 load_catalog(args.base_catalog),
                 load_catalog(args.candidate_catalog),
                 paths=changed_paths(args.base_ref),
                 intents=intents,
+                dev_supersessions=supersessions,
                 require_packages=args.require_packages,
             )
             print(f"release policy accepted {len(new)} new module candidate(s)")
