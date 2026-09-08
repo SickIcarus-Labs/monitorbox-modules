@@ -171,6 +171,9 @@ def generic_workload_evidence(workloads: Any, *, authoritative: bool) -> list[di
         suggestions = connection_suggestions(workload)
         if suggestions:
             metadata["connection_suggestions"] = [dict(item) for item in suggestions]
+        suggested_capabilities = ["docker_workload"]
+        if len(_backend_monitoring_endpoints(workload)) == 1:
+            suggested_capabilities.append("backend_transport")
         result.append({
             "source": "portainer",
             "source_id": identity,
@@ -178,7 +181,7 @@ def generic_workload_evidence(workloads: Any, *, authoritative: bool) -> list[di
             "label": label,
             "confidence": 95,
             "addresses": [],
-            "suggested_capabilities": ["docker_workload"],
+            "suggested_capabilities": suggested_capabilities,
             "metadata": metadata,
         })
     return result
