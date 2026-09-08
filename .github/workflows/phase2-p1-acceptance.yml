@@ -63,10 +63,10 @@ jobs:
     runs-on: ubuntu-latest
     env:
       # Core PR head e75b3e9 and accepted merge 76ca49e have identical Git tree
-      # f1d8c013cf794cec0cc5c53adecad44f203fb2c8. Execute the immutable image
-      # rebuilt directly from that accepted PR head so this public repo needs no
-      # private monitorbox checkout or cross-repository source credentials.
-      CORE_IMAGE: ghcr.io/sickicarus-labs/monitorbox@sha256:ee4d2c45a9ef3f3df3708c7e3b3b45b4a70faf756ed9753ded1ce1e23fe216c1
+      # f1d8c013cf794cec0cc5c53adecad44f203fb2c8. The exact-source SHA tag was
+      # deterministically rebuilt from that accepted PR head. Assert the full
+      # embedded source SHA after pull before executing either proof.
+      CORE_IMAGE: ghcr.io/sickicarus-labs/monitorbox:sha-e75b3e9
       CORE_SOURCE_SHA: e75b3e990bb63bd75a37fe2cf7ca640337a6f5c4
       FROZEN_CORE_MERGE: 76ca49efdaf719cb0e0c16f16c41f219684ca2b6
       FROZEN_CORE_TREE: f1d8c013cf794cec0cc5c53adecad44f203fb2c8
@@ -78,13 +78,15 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Pull and identify immutable accepted Core runtime
+      - name: Pull and identify exact accepted Core runtime
         run: |
           docker pull "$CORE_IMAGE"
           actual_source="$(docker inspect --format '{{ index .Config.Labels "io.sickicarus.monitorbox.git-sha" }}' "$CORE_IMAGE")"
           test "$actual_source" = "$CORE_SOURCE_SHA"
-          printf 'accepted Core image: source=%s merge=%s tree=%s\n' \
-            "$actual_source" "$FROZEN_CORE_MERGE" "$FROZEN_CORE_TREE"
+          repo_digests="$(docker inspect --format '{{ join .RepoDigests "," }}' "$CORE_IMAGE")"
+          test -n "$repo_digests"
+          printf 'accepted Core image: source=%s merge=%s tree=%s repo_digests=%s\n' \
+            "$actual_source" "$FROZEN_CORE_MERGE" "$FROZEN_CORE_TREE" "$repo_digests"
       - name: Prove recursive Quick Add retains selected existing Connections
         run: |
           docker run --rm --entrypoint python \
