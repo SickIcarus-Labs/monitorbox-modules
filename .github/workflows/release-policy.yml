@@ -12,9 +12,12 @@ on:
       - tools/stage_*.py
       - tools/release_policy.py
       - tools/accept_release_policy.py
+      - tools/accept_module_channel_topology.py
+      - tools/build_repository.py
       - VERSIONING.md
       - .github/workflows/publish.yml
       - .github/workflows/publish-broadleaf-runtime-repairs.yml
+      - .github/workflows/module-channel-publish.yml
       - .github/workflows/release-policy.yml
   workflow_dispatch:
 
@@ -38,6 +41,8 @@ jobs:
           python-version: '3.13'
       - name: Run semantic policy acceptance matrix
         run: python tools/accept_release_policy.py
+      - name: Verify module channel publication topology
+        run: python tools/accept_module_channel_topology.py
       - id: base
         name: Resolve comparison base
         shell: bash

@@ -13,6 +13,13 @@ from pathlib import Path
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 
+REPOSITORY_DISPLAY_NAMES = {
+    "official": "MonitorBox Official",
+    "official-beta": "MonitorBox Official Beta",
+    "official-dev": "MonitorBox Official Dev",
+}
+
+
 def canonical(value: object) -> bytes:
     return json.dumps(
         value,
@@ -33,7 +40,14 @@ def load_private_key(value: str) -> Ed25519PrivateKey:
     return Ed25519PrivateKey.from_private_bytes(raw)
 
 
-def build(source_path: Path, output_path: Path, key: Ed25519PrivateKey, identity: str) -> None:
+def build(
+    source_path: Path,
+    output_path: Path,
+    key: Ed25519PrivateKey,
+    identity: str,
+    *,
+    repository_id: str = "official",
+) -> None:
     source = json.loads(source_path.read_text(encoding="utf-8"))
     if not isinstance(source, dict) or source.get("schema") != 1:
         raise SystemExit("catalog source must use schema 1")
@@ -43,6 +57,9 @@ def build(source_path: Path, output_path: Path, key: Ed25519PrivateKey, identity
         raise SystemExit("catalog source display_name must be MonitorBox Official")
     if not isinstance(source.get("modules"), list):
         raise SystemExit("catalog source modules must be an array")
+    if repository_id not in REPOSITORY_DISPLAY_NAMES:
+        raise SystemExit(f"unsupported signed repository identity: {repository_id}")
+
     modules = []
     seen = set()
     root = source_path.parent.resolve()
@@ -70,14 +87,16 @@ def build(source_path: Path, output_path: Path, key: Ed25519PrivateKey, identity
                 },
             }
         )
-    modules.sort(key=lambda value: (
-        value["manifest"]["module_id"],
-        value["manifest"]["version"],
-        value["manifest"]["build"],
-    ))
+    modules.sort(
+        key=lambda value: (
+            value["manifest"]["module_id"],
+            value["manifest"]["version"],
+            value["manifest"]["build"],
+        )
+    )
     signed = {
-        "repository_id": source["repository_id"],
-        "display_name": source["display_name"],
+        "repository_id": repository_id,
+        "display_name": REPOSITORY_DISPLAY_NAMES[repository_id],
         "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "modules": modules,
     }
@@ -90,6 +109,7 @@ def build(source_path: Path, output_path: Path, key: Ed25519PrivateKey, identity
             "value": base64.b64encode(key.sign(canonical(signed))).decode("ascii"),
         },
     }
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(envelope, indent=2) + "\n", encoding="utf-8")
 
 
@@ -98,11 +118,21 @@ def main() -> None:
     parser.add_argument("--source", type=Path, default=Path("catalog.source.json"))
     parser.add_argument("--output", type=Path, default=Path("index.json"))
     parser.add_argument("--identity", default="official-ed25519-1")
+    parser.add_argument(
+        "--repository-id",
+        choices=tuple(REPOSITORY_DISPLAY_NAMES),
+        default="official",
+    )
     parser.add_argument("--private-key", required=True)
     args = parser.parse_args()
-    build(args.source, args.output, load_private_key(args.private_key), args.identity)
+    build(
+        args.source,
+        args.output,
+        load_private_key(args.private_key),
+        args.identity,
+        repository_id=args.repository_id,
+    )
 
 
 if __name__ == "__main__":
     main()
-

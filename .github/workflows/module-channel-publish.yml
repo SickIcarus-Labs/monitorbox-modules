@@ -1,0 +1,329 @@
+name: Module channel publication
+
+# Trusted publication bridge for pre-stable module channels.
+#
+# - successful exact-head module acceptance automatically republishes the PR candidate
+#   to the signed dev repository;
+# - /publish-dev is the manual recovery spelling for the same exact-head operation;
+# - /promote-beta republishes the exact accepted candidate under beta authority;
+# - /yank-dev restores dev to the current stable module catalog.
+#
+# Candidate code never executes in the signing job. The signing key is exposed only to
+# trusted-main tooling after the staged catalog/package set has been independently checked.
+on:
+  workflow_run:
+    workflows: ["First-party module acceptance"]
+    types: [completed]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: module-channel-publication
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    name: Resolve exact module candidate authority
+    if: >-
+      (
+        github.event_name == 'workflow_run' &&
+        github.event.workflow_run.event == 'pull_request' &&
+        github.event.workflow_run.conclusion == 'success'
+      ) ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.pull_request &&
+        github.event.comment.user.login == 'SickIcarus' &&
+        (
+          github.event.comment.body == '/publish-dev' ||
+          github.event.comment.body == '/promote-beta' ||
+          github.event.comment.body == '/yank-dev'
+        )
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    outputs:
+      publish: ${{ steps.resolve.outputs.publish }}
+      mode: ${{ steps.resolve.outputs.mode }}
+      pr_number: ${{ steps.resolve.outputs.pr_number }}
+      candidate_sha: ${{ steps.resolve.outputs.candidate_sha }}
+      base_sha: ${{ steps.resolve.outputs.base_sha }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+      - id: resolve
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          COMMAND: ${{ github.event.comment.body || '' }}
+        run: |
+          set -euo pipefail
+
+          skip_auto() {
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "Module dev publication skipped: $1"
+            exit 0
+          }
+
+          if [[ "$EVENT_NAME" == "workflow_run" ]]; then
+            mode="dev"
+            pr_number="$(jq -r '.workflow_run.pull_requests[0].number // empty' "$GITHUB_EVENT_PATH")"
+            expected_sha="$(jq -r '.workflow_run.head_sha // empty' "$GITHUB_EVENT_PATH")"
+            [[ -n "$pr_number" && -n "$expected_sha" ]] || skip_auto "workflow result has no exact PR head"
+          else
+            case "$COMMAND" in
+              /publish-dev) mode="dev" ;;
+              /promote-beta) mode="beta" ;;
+              /yank-dev) mode="yank-dev" ;;
+              *) echo "::error::Unsupported module publication command"; exit 1 ;;
+            esac
+            pr_number="$(jq -r '.issue.number' "$GITHUB_EVENT_PATH")"
+            expected_sha=""
+          fi
+
+          metadata="$RUNNER_TEMP/module-candidate-pr.json"
+          paths="$RUNNER_TEMP/module-candidate-paths.txt"
+          gh api "repos/$REPO/pulls/$pr_number" > "$metadata"
+          gh api --paginate "repos/$REPO/pulls/$pr_number/files?per_page=100" --jq '.[].filename' > "$paths"
+
+          [[ "$(jq -r '.base.ref' "$metadata")" == "main" ]] || {
+            [[ "$EVENT_NAME" == "workflow_run" ]] && skip_auto "PR no longer targets main"
+            echo "::error::Module publication requires a main-target PR"; exit 1
+          }
+          [[ "$(jq -r '.head.repo.full_name' "$metadata")" == "$REPO" ]] || {
+            [[ "$EVENT_NAME" == "workflow_run" ]] && skip_auto "PR is not same-repository"
+            echo "::error::Module publication requires a same-repository PR"; exit 1
+          }
+
+          state="$(jq -r '.state' "$metadata")"
+          merged="$(jq -r '.merged_at // empty' "$metadata")"
+          if [[ "$mode" == "dev" && "$state" != "open" ]]; then
+            [[ "$EVENT_NAME" == "workflow_run" ]] && skip_auto "PR is no longer open"
+            echo "::error::Dev publication requires an open PR"; exit 1
+          fi
+          if [[ "$mode" == "beta" && "$state" != "open" && -z "$merged" ]]; then
+            echo "::error::Beta promotion requires an open or merged PR"; exit 1
+          fi
+
+          candidate_sha="$(jq -r '.head.sha' "$metadata")"
+          base_sha="$(jq -r '.base.sha' "$metadata")"
+          if [[ -n "$expected_sha" && "$candidate_sha" != "$expected_sha" ]]; then
+            skip_auto "acceptance SHA $expected_sha is stale; PR head is $candidate_sha"
+          fi
+
+          if [[ "$mode" != "yank-dev" ]]; then
+            grep -Eq '^release-intents/[^/]+\.json$' "$paths" || {
+              [[ "$EVENT_NAME" == "workflow_run" ]] && skip_auto "PR declares no module release intent"
+              echo "::error::Module publication requires a changed release intent"; exit 1
+            }
+
+            runs="$RUNNER_TEMP/module-candidate-runs.json"
+            gh api "repos/$REPO/actions/runs?head_sha=$candidate_sha&event=pull_request&per_page=100" > "$runs"
+            for required in "Module release policy" "First-party module acceptance"; do
+              jq -e --arg required "$required" '
+                .workflow_runs
+                | any(.name == $required and .status == "completed" and .conclusion == "success")
+              ' "$runs" >/dev/null || {
+                echo "::error::Exact-head gate is not green: $required"
+                exit 1
+              }
+            done
+          fi
+
+          {
+            echo "publish=true"
+            echo "mode=$mode"
+            echo "pr_number=$pr_number"
+            echo "candidate_sha=$candidate_sha"
+            echo "base_sha=$base_sha"
+          } >> "$GITHUB_OUTPUT"
+          echo "Module publication mode: $mode"
+          echo "Candidate PR: #$pr_number"
+          echo "Candidate SHA: $candidate_sha"
+
+  build_candidate:
+    name: Stage exact candidate without signing authority
+    needs: [resolve]
+    if: >-
+      needs.resolve.outputs.publish == 'true' &&
+      needs.resolve.outputs.mode != 'yank-dev'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out trusted release policy
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          path: trusted
+      - name: Check out exact candidate
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.resolve.outputs.candidate_sha }}
+          fetch-depth: 0
+          path: candidate
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Stage and validate candidate with trusted policy
+        shell: bash
+        env:
+          BASE_SHA: ${{ needs.resolve.outputs.base_sha }}
+        run: |
+          set -euo pipefail
+          cd candidate
+          git fetch --no-tags origin "$BASE_SHA"
+          git show "$BASE_SHA:catalog.source.json" > "$RUNNER_TEMP/catalog.before.json"
+          python ../trusted/tools/release_policy.py run-intents --base-ref "$BASE_SHA"
+          python ../trusted/tools/release_policy.py validate \
+            --base-catalog "$RUNNER_TEMP/catalog.before.json" \
+            --candidate-catalog catalog.source.json \
+            --base-ref "$BASE_SHA" \
+            --require-packages
+      - name: Retain unsigned candidate distribution set
+        uses: actions/upload-artifact@v4
+        with:
+          name: module-channel-candidate-${{ needs.resolve.outputs.candidate_sha }}
+          path: |
+            candidate/catalog.source.json
+            candidate/packages
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    name: Sign and publish channel repository
+    needs: [resolve, build_candidate]
+    if: >-
+      always() &&
+      needs.resolve.result == 'success' &&
+      needs.resolve.outputs.publish == 'true' &&
+      (
+        needs.resolve.outputs.mode == 'yank-dev' ||
+        needs.build_candidate.result == 'success'
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out trusted current main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+          path: trusted
+      - name: Check out exact candidate source without executing it
+        if: needs.resolve.outputs.mode != 'yank-dev'
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.resolve.outputs.candidate_sha }}
+          fetch-depth: 0
+          path: candidate-source
+      - name: Download staged candidate distribution
+        if: needs.resolve.outputs.mode != 'yank-dev'
+        uses: actions/download-artifact@v5
+        with:
+          name: module-channel-candidate-${{ needs.resolve.outputs.candidate_sha }}
+          path: staged
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Install trusted signing dependency
+        run: python -m pip install --disable-pip-version-check cryptography==50.0.1
+      - name: Revalidate staged candidate without executing candidate code
+        if: needs.resolve.outputs.mode != 'yank-dev'
+        shell: bash
+        env:
+          BASE_SHA: ${{ needs.resolve.outputs.base_sha }}
+        run: |
+          set -euo pipefail
+          rm -rf candidate-source/packages
+          cp staged/catalog.source.json candidate-source/catalog.source.json
+          cp -a staged/packages candidate-source/packages
+          cd candidate-source
+          git fetch --no-tags origin "$BASE_SHA"
+          git show "$BASE_SHA:catalog.source.json" > "$RUNNER_TEMP/catalog.before.signing.json"
+          python ../trusted/tools/release_policy.py validate \
+            --base-catalog "$RUNNER_TEMP/catalog.before.signing.json" \
+            --candidate-catalog catalog.source.json \
+            --base-ref "$BASE_SHA" \
+            --require-packages
+      - name: Sign exact channel index with trusted-main tooling
+        shell: bash
+        env:
+          SIGNING_KEY: ${{ secrets.MONITORBOX_MODULE_SIGNING_KEY }}
+          MODE: ${{ needs.resolve.outputs.mode }}
+        run: |
+          set -euo pipefail
+          test -n "$SIGNING_KEY"
+          if [[ "$MODE" == "yank-dev" ]]; then
+            source_root="trusted"
+            repository_id="official-dev"
+          else
+            source_root="candidate-source"
+            repository_id="official-$MODE"
+          fi
+          python trusted/tools/build_repository.py \
+            --source "$source_root/catalog.source.json" \
+            --output "$RUNNER_TEMP/channel-index.json" \
+            --repository-id "$repository_id" \
+            --private-key "$SIGNING_KEY"
+
+          if [[ "$MODE" == "dev" ]]; then
+            python trusted/tools/build_repository.py \
+              --source trusted/catalog.source.json \
+              --output "$RUNNER_TEMP/beta-bootstrap-index.json" \
+              --repository-id official-beta \
+              --private-key "$SIGNING_KEY"
+          fi
+      - name: Publish signed channel without touching stable authority
+        shell: bash
+        env:
+          MODE: ${{ needs.resolve.outputs.mode }}
+          CANDIDATE_SHA: ${{ needs.resolve.outputs.candidate_sha }}
+        run: |
+          set -euo pipefail
+          git -C trusted pull --ff-only origin main
+
+          if [[ "$MODE" == "yank-dev" ]]; then
+            channel="dev"
+            source_root="trusted"
+          else
+            channel="$MODE"
+            source_root="candidate-source"
+          fi
+
+          target="trusted/channels/$channel"
+          rm -rf "$target"
+          mkdir -p "$target/packages"
+          cp "$RUNNER_TEMP/channel-index.json" "$target/index.json"
+          cp "$source_root"/packages/*.zip "$target/packages/"
+
+          if [[ "$MODE" == "dev" && ! -f trusted/channels/beta/index.json ]]; then
+            mkdir -p trusted/channels/beta/packages
+            cp "$RUNNER_TEMP/beta-bootstrap-index.json" trusted/channels/beta/index.json
+            cp trusted/packages/*.zip trusted/channels/beta/packages/
+          fi
+
+          if git -C trusted diff --quiet -- channels && test -z "$(git -C trusted status --porcelain --untracked-files=all channels)"; then
+            echo "Channel repository already matches requested authority"
+            exit 0
+          fi
+          git -C trusted config user.name "github-actions[bot]"
+          git -C trusted config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C trusted add channels
+          if [[ "$MODE" == "yank-dev" ]]; then
+            message="channels: yank dev to stable baseline"
+          else
+            message="channels: publish $channel candidate ${CANDIDATE_SHA:0:12}"
+          fi
+          git -C trusted commit -m "$message"
+          git -C trusted push origin HEAD:main
