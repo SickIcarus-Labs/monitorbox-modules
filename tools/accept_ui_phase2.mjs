@@ -54,6 +54,20 @@ assert.equal(
 assert.ok(!phase2Source.includes('candidate_id='),'display code must not rewrite candidate identity');
 assert.ok(!phase2Source.includes('source_id='),'display code must not rewrite provider identity');
 
+// #170 — UI consumes generic provider policy, not UniFi-specific names/ports.
+assert.deepEqual(
+  {...api.discoveryPolicyPresentation({state:'recommended',policy_default:'required'})},
+  {label:'Recommended',preselect:true},
+);
+assert.deepEqual(
+  {...api.discoveryPolicyPresentation({state:'recommended',policy_default:'optional'})},
+  {label:'Optional',preselect:false},
+);
+assert.equal(
+  api.discoveryPolicyPresentation({state:'already_monitored',policy_default:'optional',configured_object_id:'port-1'}),
+  null,
+);
+
 // #206 — accepted build-9/10 hierarchy behavior is the safety authority. A child
 // link can use an independently evidenced HTTP(S) URL; TCP-only endpoints cannot
 // become web links merely because their port looks familiar. Build 10 preserves a
@@ -79,5 +93,5 @@ assert.match(presentation,/const presentationUrl=servicePresentationUrl\(service
 
 console.log(
   'UI Phase-2 acceptance: PASS '+
-  '(new-vs-existing Review truth + display-only label cleanup + safe nested management links)'
+  '(Review truth + display labels + generic recommendation presentation + safe child links)'
 );
