@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Idempotently stage the September 7 P1 Phase-2 module release set.
 
-The three candidates share one catalog mutation pass but remain independent
+The four candidates share one catalog mutation pass but remain independent
 semantic releases with their own immutable builders and release intents.
 """
 
@@ -12,6 +12,29 @@ from pathlib import Path
 from typing import Any
 
 RELEASES = (
+    {
+        "predecessor": ("com.sickicarus.monitorbox.configuration-bootstrap", "1.0.1", 2),
+        "release": ("com.sickicarus.monitorbox.configuration-bootstrap", "1.0.2", 3),
+        "entry": {
+            "manifest": {
+                "module_id": "com.sickicarus.monitorbox.configuration-bootstrap",
+                "display_name": "Configuration / Bootstrap",
+                "version": "1.0.2",
+                "build": 3,
+                "schema": 1,
+                "state_schema": 1,
+                "module_type": "configuration",
+                "entrypoints": {"configuration": "monitorbox_configuration_bootstrap_b3:install"},
+                "requires_core": ">=2.3.0 <3.0.0",
+                "requires_runtime_api": ">=1 <2",
+                "dependencies": [],
+                "publisher_id": "com.sickicarus",
+                "permissions": [],
+                "lifecycle_policy": "required",
+            },
+            "package": "com.sickicarus.monitorbox.configuration-bootstrap-1.0.2-build3.zip",
+        },
+    },
     {
         "predecessor": ("com.sickicarus.monitorbox.ui", "1.1.4", 12),
         "release": ("com.sickicarus.monitorbox.ui", "1.1.5", 13),
@@ -120,7 +143,7 @@ def stage(path: Path) -> bool:
 
     if changed:
         path.write_text(json.dumps(source, separators=(",", ":")) + "\n", encoding="utf-8")
-        print("staged September 7 P1 Phase-2 UI, Portainer, and UniFi candidates")
+        print("staged September 7 P1 Phase-2 Bootstrap, UI, Portainer, and UniFi candidates")
     else:
         print("September 7 P1 Phase-2 candidates already staged")
     return changed
