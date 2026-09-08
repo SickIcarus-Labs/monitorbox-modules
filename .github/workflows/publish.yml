@@ -1,5 +1,10 @@
-name: Publish signed catalog
+name: Materialize module release source
 
+# Trunk/source authority only.
+#
+# A release-source merge to main may stage the canonical catalog source and immutable
+# package bytes needed by later phases, but it MUST NOT sign or advance the stable
+# `official` repository. Stable confidence is changed only by explicit channel promotion.
 on:
   workflow_dispatch:
   push:
@@ -21,18 +26,17 @@ on:
       - tools/build_first_party_*.py
       - tools/stage_*.py
       - tools/release_policy.py
-      - tools/build_repository.py
       - .github/workflows/publish.yml
 
 permissions:
   contents: write
 
 concurrency:
-  group: publish-signed-catalog
+  group: materialize-module-release-source
   cancel-in-progress: false
 
 jobs:
-  publish:
+  materialize:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -42,14 +46,14 @@ jobs:
         with:
           python-version: '3.13'
       - id: base
-        name: Capture pre-publication authority
+        name: Capture pre-merge source authority
         shell: bash
         run: |
           set -euo pipefail
           base="HEAD^"
           git show "$base:catalog.source.json" > "$RUNNER_TEMP/catalog.before.json"
           echo "ref=$base" >> "$GITHUB_OUTPUT"
-      - name: Stage catalog migrations
+      - name: Stage historical catalog migrations
         run: |
           python tools/stage_snmp_zipimport_hotfix.py
           python tools/stage_snmp_mib_zipimport_hotfix.py
@@ -67,27 +71,28 @@ jobs:
           python tools/build_first_party_backup_restore.py
       - name: Stage and build declared successor releases
         run: python tools/release_policy.py run-intents --base-ref '${{ steps.base.outputs.ref }}'
-      - name: Enforce semantic module release authority before signing
+      - name: Enforce semantic module release authority
         run: >-
           python tools/release_policy.py validate
           --base-catalog "$RUNNER_TEMP/catalog.before.json"
           --candidate-catalog catalog.source.json
           --base-ref '${{ steps.base.outputs.ref }}'
           --require-packages
-      - run: python -m pip install --disable-pip-version-check cryptography
-      - name: Build signed repository index
-        env:
-          SIGNING_KEY: ${{ secrets.MONITORBOX_MODULE_SIGNING_KEY }}
+      - name: Prove stable signed authority is untouched
+        shell: bash
         run: |
-          test -n "$SIGNING_KEY"
-          python tools/build_repository.py --private-key "$SIGNING_KEY"
-      - name: Commit published artifacts when changed
+          set -euo pipefail
+          git diff --exit-code HEAD -- index.json
+      - name: Commit source/package authority when changed
+        shell: bash
         run: |
-          if git diff --quiet -- catalog.source.json packages index.json && test -z "$(git status --porcelain --untracked-files=all packages)"; then
+          set -euo pipefail
+          if git diff --quiet -- catalog.source.json packages && test -z "$(git status --porcelain --untracked-files=all packages)"; then
+            echo "No source/package materialization required"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add catalog.source.json packages index.json
-          git commit -m "catalog: publish signed repository index"
+          git add catalog.source.json packages
+          git commit -m "catalog: materialize module release source"
           git push
