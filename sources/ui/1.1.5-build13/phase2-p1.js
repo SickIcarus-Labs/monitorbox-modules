@@ -6,6 +6,8 @@
 // still showing existing owning Systems as reference context.
 // #159: provider-derived labels become readable display/default labels without
 // mutating provider identities, canonical IDs, discovery keys, or dedupe keys.
+// #170: generic provider policy_hint truth is rendered as Recommended/Optional;
+// optional discovery candidates are not preselected during setup.
 // #206 is intentionally not solved here by guessing URLs. Existing build-9/10
 // hierarchy code remains the authority for independently evidenced HTTP(S)
 // presentation links; Phase-2 acceptance locks that behavior down.
@@ -84,6 +86,15 @@
     return providerDisplayLabel(item,item?.label||'');
   }
 
+  function discoveryPolicyPresentation(item){
+    if(item?.configured_object_id)return null;
+    if(!['new','recommended'].includes(String(item?.state||'')))return null;
+    const policy=String(item?.policy_default||'').trim().toLowerCase();
+    if(policy==='required')return{label:'Recommended',preselect:true};
+    if(policy==='optional')return{label:'Optional',preselect:false};
+    return null;
+  }
+
   function reviewSystemSets(currentSession,connections,objects){
     const systems=Array.isArray(currentSession?.systems)?currentSession.systems:[];
     const addedIds=new Set(Array.isArray(currentSession?.added_system_ids)?currentSession.added_system_ids:[]);
@@ -98,30 +109,37 @@
     };
   }
 
-  // Export pure presentation helpers so exact-head acceptance can exercise the
-  // semantics without coupling tests to a browser implementation.
   globalThis.MonitorBoxUiPhase2=Object.freeze({
     discoveryDisplayLabel,
+    discoveryPolicyPresentation,
     prettifyMachineLabel,
     providerDisplayLabel,
     reviewSystemSets,
     strongProductName,
   });
 
-  // Normal Discover: keep the provider/candidate identity untouched. Only the
-  // rendered text and default editable label become human-friendly.
+  // Normal Discover/Setup Discover: keep provider/candidate identity untouched.
+  // Only rendered/default label and generic provider recommendation presentation
+  // change. Required remains subject to the page's existing safety mode; Optional
+  // is always made non-preselected.
   if(typeof render==='function'&&typeof candidates!=='undefined'&&typeof document!=='undefined'){
     const baseRender=render;
     render=function(){
       const result=baseRender();
       for(const item of candidates||[]){
-        if(item?.configured_label)continue;
         const box=document.querySelector(`input[type=checkbox][data-id="${item.candidate_id}"]`);
         const row=box?.closest?.('.candidate');
         if(!row)continue;
+        const strong=row.querySelector?.('strong');
+        const badge=strong?.parentElement?.querySelector?.('.pill');
+        const policy=discoveryPolicyPresentation(item);
+        if(policy){
+          if(badge)badge.textContent=policy.label;
+          if(!policy.preselect&&box&&!box.disabled)box.checked=false;
+        }
+        if(item?.configured_label)continue;
         const friendly=discoveryDisplayLabel(item);
         if(!friendly)continue;
-        const strong=row.querySelector?.('strong');
         if(strong)strong.textContent=friendly;
         const label=row.querySelector?.(`input[data-label-for="${item.candidate_id}"]`);
         if(label&&String(label.value||'')===String(item.label||''))label.value=friendly;
