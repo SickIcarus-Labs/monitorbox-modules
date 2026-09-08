@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Prove #158 recursive Quick Add projection on accepted frozen Core + Bootstrap.
 
-The accepted Core already owns provider-neutral existing-Connection identity,
-selected-System scoping, and the correct ExistingAuthorityOnboardingApi summary.
-Configuration/Bootstrap 1.0.2 build 3 must wire that projector into the two
-Connection response paths that frozen Core still returns via session.summary().
+Frozen Core owns canonical existing-Connection identity/reconciliation. Its
+compatibility runtime also broadens Quick Add presentation to every configured
+Connection in the Site. Configuration/Bootstrap 1.0.2 build 3 must preserve the
+canonical projection while restoring the carried-forward selected-System scope
+contract and routing legacy recursive response paths through that scoped owner
+summary.
 """
 
 from __future__ import annotations
@@ -178,6 +180,21 @@ async def _exercise_response_projection(module, api, session) -> dict:
     return json.loads(response.text)
 
 
+def _assert_selected_goliath(rows: list[dict]) -> None:
+    configured = [row for row in rows if row.get("already_configured") is True]
+    assert len(rows) == 2, rows
+    assert {
+        (row["system_id"], row["kind"], row["configured_object_id"])
+        for row in configured
+    } == {
+        ("goliath", "snmp", "goliath_snmp"),
+        ("goliath", "portainer", "goliath_portainer"),
+    }
+    assert all(row.get("system_label") == "Goliath" for row in configured)
+    assert all(row.get("already_configured") is True for row in rows)
+    assert all(row.get("system_id") != "turnberry" for row in rows)
+
+
 def main() -> None:
     module = _load_bootstrap()
     with tempfile.TemporaryDirectory(prefix="monitorbox-phase2-") as raw_root:
@@ -201,33 +218,36 @@ def main() -> None:
             ),
         ]
 
-        payload = asyncio.run(_exercise_response_projection(module, api, session))
-        rows = [row for row in payload["session"]["connections"] if isinstance(row, dict)]
-        configured = [row for row in rows if row.get("already_configured") is True]
+        # Reproduce accepted frozen Core before installing Bootstrap build 3:
+        # canonical Goliath reconciliation is correct, but the compatibility
+        # projector broadens presentation back to unselected Turnberry.
+        frozen_rows = [
+            row for row in api._summary(session)["connections"] if isinstance(row, dict)
+        ]
+        assert {row.get("system_id") for row in frozen_rows} == {"goliath", "turnberry"}
 
-        assert len(rows) == 2, rows
-        assert {
-            (row["system_id"], row["kind"], row["configured_object_id"])
-            for row in configured
-        } == {
-            ("goliath", "snmp", "goliath_snmp"),
-            ("goliath", "portainer", "goliath_portainer"),
-        }
-        assert all(row.get("system_label") == "Goliath" for row in configured)
-        assert all(row.get("already_configured") is True for row in rows)
-        assert all(row.get("system_id") != "turnberry" for row in rows)
-        assert "TURNBERRY" not in repr(payload)
-        assert "GOLIATH_SNMP_COMMUNITY" not in repr(payload)
-        assert "GOLIATH_PORTAINER_API_KEY" not in repr(payload)
-
-        # Build 3 must wire both frozen-Core response escape paths before routes
-        # are installed; this is the orchestration seam #158 actually exercises.
         original_validate = api.connections.validate_and_stage
         original_resolve = api.connections.resolve_authenticated_discovery
         quick_add = SimpleNamespace(onboarding=api)
         module._wire_scoped_connection_projection(quick_add)
         assert api.connections.validate_and_stage is not original_validate
         assert api.connections.resolve_authenticated_discovery is not original_resolve
+
+        # All owning Bootstrap summaries now retain Core's existing-authority
+        # reconciliation while enforcing the selected-System workflow scope.
+        scoped_rows = [
+            row for row in api._summary(session)["connections"] if isinstance(row, dict)
+        ]
+        _assert_selected_goliath(scoped_rows)
+
+        # The two frozen-Core legacy response paths must also escape through the
+        # now-scoped owner summary during recursive authenticated discovery.
+        payload = asyncio.run(_exercise_response_projection(module, api, session))
+        rows = [row for row in payload["session"]["connections"] if isinstance(row, dict)]
+        _assert_selected_goliath(rows)
+        assert "TURNBERRY" not in repr(payload)
+        assert "GOLIATH_SNMP_COMMUNITY" not in repr(payload)
+        assert "GOLIATH_PORTAINER_API_KEY" not in repr(payload)
 
         again = api._summary(session)
         again_rows = [row for row in again["connections"] if isinstance(row, dict)]
