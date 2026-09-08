@@ -8,6 +8,7 @@ on:
       - sources/unifi/**
       - sources/ui/**
       - tools/build_first_party_configuration_bootstrap_b3.py
+      - tools/build_first_party_configuration_bootstrap_b4.py
       - tools/build_first_party_portainer_b7.py
       - tools/build_first_party_unifi_b5.py
       - tools/build_first_party_ui_build13.py
@@ -34,10 +35,10 @@ jobs:
           python-version: '3.13'
       - name: Build Configuration/Bootstrap Phase-2 candidate reproducibly
         run: |
-          python tools/build_first_party_configuration_bootstrap_b3.py --output-dir /tmp/phase2-bootstrap-first
-          python tools/build_first_party_configuration_bootstrap_b3.py --output-dir /tmp/phase2-bootstrap-second
-          sha256sum /tmp/phase2-bootstrap-first/com.sickicarus.monitorbox.configuration-bootstrap-1.0.2-build3.zip > /tmp/bootstrap-first.sha
-          sha256sum /tmp/phase2-bootstrap-second/com.sickicarus.monitorbox.configuration-bootstrap-1.0.2-build3.zip | sed 's#/tmp/phase2-bootstrap-second#/tmp/phase2-bootstrap-first#' > /tmp/bootstrap-second.sha
+          python tools/build_first_party_configuration_bootstrap_b4.py --output-dir /tmp/phase2-bootstrap-first
+          python tools/build_first_party_configuration_bootstrap_b4.py --output-dir /tmp/phase2-bootstrap-second
+          sha256sum /tmp/phase2-bootstrap-first/com.sickicarus.monitorbox.configuration-bootstrap-1.0.3-build4.zip > /tmp/bootstrap-first.sha
+          sha256sum /tmp/phase2-bootstrap-second/com.sickicarus.monitorbox.configuration-bootstrap-1.0.3-build4.zip | sed 's#/tmp/phase2-bootstrap-second#/tmp/phase2-bootstrap-first#' > /tmp/bootstrap-second.sha
           diff -u /tmp/bootstrap-first.sha /tmp/bootstrap-second.sha
       - name: Build Portainer Phase-2 candidate reproducibly
         run: |
