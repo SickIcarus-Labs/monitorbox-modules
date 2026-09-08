@@ -1,0 +1,39 @@
+name: Phase 2 P1 acceptance
+
+on:
+  pull_request:
+    paths:
+      - sources/portainer/**
+      - sources/unifi/**
+      - sources/ui/**
+      - tools/build_first_party_portainer_b7.py
+      - tools/build_first_party_unifi_b5.py
+      - tools/build_first_party_ui_build13.py
+      - tools/accept_portainer_phase2.py
+      - tools/accept_unifi_phase2.py
+      - tools/accept_ui_phase2.mjs
+      - .github/workflows/phase2-p1-acceptance.yml
+  push:
+    branches:
+      - phase2/p1-discovery-endpoint-truth
+
+permissions:
+  contents: read
+
+jobs:
+  phase2-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Build Portainer Phase-2 candidate reproducibly
+        run: |
+          python tools/build_first_party_portainer_b7.py --output-dir /tmp/phase2-first
+          python tools/build_first_party_portainer_b7.py --output-dir /tmp/phase2-second
+          sha256sum /tmp/phase2-first/com.sickicarus.monitorbox.portainer-1.1.1-build7.zip > /tmp/first.sha
+          sha256sum /tmp/phase2-second/com.sickicarus.monitorbox.portainer-1.1.1-build7.zip | sed 's#/tmp/phase2-second#/tmp/phase2-first#' > /tmp/second.sha
+          diff -u /tmp/first.sha /tmp/second.sha
+      - name: Verify Portainer Phase-2 contracts
+        run: python tools/accept_portainer_phase2.py
