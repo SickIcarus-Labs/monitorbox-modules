@@ -12,6 +12,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import build_first_party_ui as stable
+import build_first_party_ui_current as build9
+import build_first_party_ui_build10 as build10
+import build_first_party_ui_build11 as build11
 import build_first_party_ui_build12 as previous
 
 UI_VERSION = "1.1.5"
@@ -90,11 +93,14 @@ def _package_files(root: Path, release: stable.Release) -> dict[str, bytes]:
 
 
 def main() -> None:
+    # Name the historical release owners explicitly instead of depending on the
+    # implementation-module import chain. That chain is not a public release API
+    # and changed when build 10 switched its predecessor module name.
     stable.RELEASES = stable.RELEASES + (
-        previous.previous.previous.previous.RELEASE8,
-        previous.previous.previous.RELEASE9,
-        previous.previous.RELEASE10,
-        previous.RELEASE11,
+        build9.RELEASE8,
+        build9.RELEASE9,
+        build10.RELEASE10,
+        build11.RELEASE11,
         previous.RELEASE12,
         RELEASE13,
     )
