@@ -2,8 +2,8 @@
 """Idempotently stage the September 8 P1 Phase-2 physical-repair release set.
 
 Four module release units share one catalog mutation pass. Configuration/Bootstrap
-1.0.3 build 4 and Portainer 1.1.1 build 7 retain accepted candidates. UI 1.1.9
-build 17 and UniFi 1.0.7 build 8 supersede physically rejected signed-dev
+1.0.3 build 4 and Portainer 1.1.1 build 7 retain accepted candidates. UI 1.1.10
+build 18 and UniFi 1.0.7 build 8 supersede physically rejected signed-dev
 candidates; rejected dev builds remain signed dev history but are intentionally
 not materialized into the graduating catalog.
 """
@@ -40,17 +40,17 @@ RELEASES = (
     },
     {
         "predecessor": ("com.sickicarus.monitorbox.ui", "1.1.4", 12),
-        "release": ("com.sickicarus.monitorbox.ui", "1.1.9", 17),
+        "release": ("com.sickicarus.monitorbox.ui", "1.1.10", 18),
         "entry": {
             "manifest": {
                 "module_id": "com.sickicarus.monitorbox.ui",
                 "display_name": "MonitorBox UI",
-                "version": "1.1.9",
-                "build": 17,
+                "version": "1.1.10",
+                "build": 18,
                 "schema": 1,
                 "state_schema": 1,
                 "module_type": "ui",
-                "entrypoints": {"webui": "monitorbox_ui_b17:install"},
+                "entrypoints": {"webui": "monitorbox_ui_b18:install"},
                 "requires_core": ">=2.3.1 <3.0.0",
                 "requires_runtime_api": ">=1 <2",
                 "dependencies": [],
@@ -58,7 +58,7 @@ RELEASES = (
                 "permissions": [],
                 "lifecycle_policy": "required",
             },
-            "package": "com.sickicarus.monitorbox.ui-1.1.9-build17.zip",
+            "package": "com.sickicarus.monitorbox.ui-1.1.10-build18.zip",
         },
     },
     {
