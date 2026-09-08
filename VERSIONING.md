@@ -2,6 +2,8 @@
 
 This document is the canonical versioning policy for MonitorBox modules published through the official module repository.
 
+Release confidence (`dev` / `beta` / `stable`) is orthogonal to semantic version/build identity. See [`RELEASE-CHANNELS.md`](RELEASE-CHANNELS.md) and the cross-component MonitorBox Core policy at `docs/RELEASE-CHANNELS.md`.
+
 ## Release identity
 
 Every module has two independent release identifiers:
@@ -19,6 +21,20 @@ build: 47
 Operator-facing shorthand may render the same exact artifact as `v1.4.2 · build 47`; support fingerprints may render it as `1.4.2+47`.
 
 The build number never substitutes for semantic version progression.
+
+### Release channel does not change identity
+
+`dev`, `beta`, and `stable` describe confidence in an already-built exact package. Promotion between channels does not create a new semantic version or build.
+
+For example, one exact UI package may progress as:
+
+```text
+v1.1.4 · build 12 · dev
+v1.1.4 · build 12 · beta
+v1.1.4 · build 12 · stable
+```
+
+The package digest/signature must remain the same throughout that promotion. If package bytes or behavior change, that is a new artifact and must receive whatever semantic/build progression this document requires.
 
 ## Semantic version rules
 
