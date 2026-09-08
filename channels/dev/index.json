@@ -3,7 +3,7 @@
   "signed": {
     "repository_id": "official-dev",
     "display_name": "MonitorBox Official Dev",
-    "generated_at": "2026-09-08T17:08:08.394886Z",
+    "generated_at": "2026-09-08T18:49:57.339439Z",
     "modules": [
       {
         "manifest": {
@@ -1053,13 +1053,13 @@
         "manifest": {
           "module_id": "com.sickicarus.monitorbox.ui",
           "display_name": "MonitorBox UI",
-          "version": "1.1.8",
-          "build": 16,
+          "version": "1.1.9",
+          "build": 17,
           "schema": 1,
           "state_schema": 1,
           "module_type": "ui",
           "entrypoints": {
-            "webui": "monitorbox_ui_b16:install"
+            "webui": "monitorbox_ui_b17:install"
           },
           "requires_core": ">=2.3.1 <3.0.0",
           "requires_runtime_api": ">=1 <2",
@@ -1069,11 +1069,11 @@
           "lifecycle_policy": "required"
         },
         "package": {
-          "url": "packages/com.sickicarus.monitorbox.ui-1.1.8-build16.zip",
-          "filename": "com.sickicarus.monitorbox.ui-1.1.8-build16.zip",
-          "sha256": "f88ac419d5b8ac97e7cacebacad7043543dbc60f179761620359969aea0baa32",
+          "url": "packages/com.sickicarus.monitorbox.ui-1.1.9-build17.zip",
+          "filename": "com.sickicarus.monitorbox.ui-1.1.9-build17.zip",
+          "sha256": "e50e01b02559c1f6ed3a0c97315adbf679b75dac0d5c49102c0bdbfc48921c3a",
           "signature_identity": "official-ed25519-1",
-          "signature": "MubfWnswvQwgv5BoVZbTZ4QdHlvEvx3U3xmGNDu/gaQuqJloqlmmFxYjK1z7NNysOyLU7AIdavepB1XPhCU5Aw=="
+          "signature": "Y3nFtnQBLTXLlQbFDGUg6bj2OCZPr1MHMnKLVTQXMr4ZJuIG+0NB4MNyV6izjfH0Opqe7JX57sSDzK3vZAqQBA=="
         }
       },
       {
@@ -1188,13 +1188,13 @@
         "manifest": {
           "module_id": "com.sickicarus.monitorbox.unifi",
           "display_name": "UniFi Network Integration",
-          "version": "1.0.6",
-          "build": 7,
+          "version": "1.0.7",
+          "build": 8,
           "schema": 1,
           "state_schema": 1,
           "module_type": "integration",
           "entrypoints": {
-            "integration": "monitorbox_unifi_b7:PLUGIN"
+            "integration": "monitorbox_unifi_b8:PLUGIN"
           },
           "requires_core": ">=2.3.0 <3.0.0",
           "requires_runtime_api": ">=1 <2",
@@ -1204,11 +1204,11 @@
           "lifecycle_policy": "optional"
         },
         "package": {
-          "url": "packages/com.sickicarus.monitorbox.unifi-1.0.6-build7.zip",
-          "filename": "com.sickicarus.monitorbox.unifi-1.0.6-build7.zip",
-          "sha256": "aa52fe01fde5bcadd1f264eb3681fdc6e5ac2f4b25d611bb03ce6fec0f0ce62b",
+          "url": "packages/com.sickicarus.monitorbox.unifi-1.0.7-build8.zip",
+          "filename": "com.sickicarus.monitorbox.unifi-1.0.7-build8.zip",
+          "sha256": "420bfcbe48d1f43c57c3aeef8d23b0f8e8825bc4aad715c007225c110e0be670",
           "signature_identity": "official-ed25519-1",
-          "signature": "o7sNn2iXuIJOpqu67URDfdGxJAg6sVfVM1blQ5And0eSA5AWXKZ3TtUDM/f89Iah+E/mPpuxfuhbbWZec9QtAg=="
+          "signature": "zZyLSmzRNsj0RknGCv9L3sjL4GoOCAC20co458b+fmTYXEyffvwOOrRj18oFkFHCTXsTiT5xMKRacZCAcoxBBQ=="
         }
       },
       {
@@ -1243,6 +1243,6 @@
   "signature": {
     "algorithm": "ed25519",
     "identity": "official-ed25519-1",
-    "value": "W5LMAIc5KDqyUCXw03GLSYJlZE0bh7lPzsuM44GpGu6siQMy4LMlwmjjSQ6ZbaMx0CzcklkbXNBhNPuPzangCg=="
+    "value": "ovfLff8TvGnQQH46TMnmjnEId4fJdRjlYUqNnTTmBTidHsxwE3hFzCMLqcPEOvTaNWRayQ6DQSaZZYzWH2iyAw=="
   }
 }
