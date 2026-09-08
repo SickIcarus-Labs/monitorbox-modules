@@ -31,8 +31,15 @@ async def accept() -> None:
     if (managed.MODULE_VERSION, managed.MODULE_BUILD) != ("1.0.8", 9):
         raise AssertionError("UniFi Phase-3 candidate release identity changed")
 
+    runtime_executor = managed.PLUGIN.runtime_executor
+    if runtime_executor.__class__.__name__ != "UniFiPhase2RuntimeExecutor":
+        raise AssertionError(
+            f"Phase-3 candidate stopped composing the accepted Phase-2 executor: "
+            f"{runtime_executor.__class__.__name__}"
+        )
+
     status = {"value": "disconnected"}
-    executor = managed.UniFiRuntimeExecutor()
+    executor = runtime_executor.__class__()
 
     async def fixture_get(options, path):
         del options
