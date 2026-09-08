@@ -12,6 +12,7 @@ on:
       - tools/stage_*.py
       - tools/release_policy.py
       - tools/accept_release_policy.py
+      - tools/accept_repository_version_order.py
       - tools/accept_module_channel_topology.py
       - tools/build_repository.py
       - VERSIONING.md
@@ -41,6 +42,8 @@ jobs:
           python-version: '3.13'
       - name: Run semantic policy acceptance matrix
         run: python tools/accept_release_policy.py
+      - name: Verify signed repository semantic version ordering
+        run: python tools/accept_repository_version_order.py
       - name: Verify module channel publication topology
         run: python tools/accept_module_channel_topology.py
       - id: base
