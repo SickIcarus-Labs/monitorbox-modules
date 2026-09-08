@@ -30,6 +30,18 @@ def canonical(value: object) -> bytes:
     ).encode("utf-8")
 
 
+def semantic_version_key(value: object) -> tuple[int, int, int]:
+    """Return a numeric SemVer key instead of relying on lexical string order."""
+    text = str(value)
+    parts = text.split(".")
+    if len(parts) != 3 or any(
+        not part.isdigit() or (len(part) > 1 and part.startswith("0"))
+        for part in parts
+    ):
+        raise SystemExit(f"invalid semantic version in catalog: {text!r}")
+    return tuple(int(part) for part in parts)  # type: ignore[return-value]
+
+
 def load_private_key(value: str) -> Ed25519PrivateKey:
     try:
         raw = base64.b64decode(value.strip(), validate=True)
@@ -90,7 +102,7 @@ def build(
     modules.sort(
         key=lambda value: (
             value["manifest"]["module_id"],
-            value["manifest"]["version"],
+            semantic_version_key(value["manifest"]["version"]),
             value["manifest"]["build"],
         )
     )
