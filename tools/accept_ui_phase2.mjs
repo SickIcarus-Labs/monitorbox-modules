@@ -71,7 +71,9 @@ assert.equal(
 // #206 — accepted build-9/10 hierarchy behavior is the safety authority. A child
 // link can use an independently evidenced HTTP(S) URL; TCP-only endpoints cannot
 // become web links merely because their port looks familiar. Build 10 preserves a
-// canonical presentation_url when reconciling it with a provider workload.
+// canonical presentation_url when reconciling it with a provider workload. The
+// current hierarchy API passes site/service/parent explicitly, so prove nested
+// children still flow through serviceIcon() and preserve their drawer parent.
 const interactions=fs.readFileSync(
   path.join(root,'sources','ui','1.1.1-build9','service-hierarchy-interactions.js'),
   'utf8',
@@ -88,8 +90,12 @@ assert.match(interactions,/parsed\.protocol==='http:'\|\|parsed\.protocol==='htt
 assert.match(interactions,/if\(!\['http','https'\]\.includes\(scheme\)\)return null/);
 assert.match(interactions,/service-compose-members a\.icon-outbound/);
 assert.match(physical,/\.\.\.service,\s*_provider_workload:providerObject\._provider_workload/s);
-assert.match(presentation,/services\.map\(service=>serviceRow\(service,false,site\)\)/);
-assert.match(presentation,/const presentationUrl=servicePresentationUrl\(service\)/);
+assert.match(presentation,/function serviceRow\(site,service,parent\)/);
+assert.match(presentation,/\$\{serviceIcon\(service\)\}/);
+assert.match(presentation,/orderedServices\(services\)\.map\(service=>serviceRow\(site,service,parent\)\)/);
+assert.match(presentation,/serviceRows\(site,group\.services,parent\)/);
+assert.match(presentation,/servicePresentationRows\(site,hosted,host\.id\)/);
+assert.match(presentation,/if\(service\.presentation_url\)return`<a class="service-icon icon-outbound"/);
 
 console.log(
   'UI Phase-2 acceptance: PASS '+
