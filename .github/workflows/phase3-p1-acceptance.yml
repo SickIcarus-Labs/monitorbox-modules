@@ -6,6 +6,8 @@ on:
     paths:
       - sources/unifi/**
       - sources/ui/**
+      - release-intents/**
+      - tools/stage_phase3_p1.py
       - tools/build_first_party_unifi_b9.py
       - tools/build_first_party_ui_build19.py
       - tools/accept_unifi_phase3_b9.py
@@ -28,6 +30,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
       - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
@@ -65,13 +70,21 @@ jobs:
           node tools/accept_ui_phase3_build19.mjs
           python tools/accept_ui_phase3_disclosure.py
 
-      - name: Prove Phase-3 candidate does not modify Core or release channels
+      - name: Prove Phase-3 candidate does not directly modify Core or channel authority
         shell: bash
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
         run: |
           set -euo pipefail
-          git diff --name-only "${{ github.event.pull_request.base.sha || 'HEAD^' }}" HEAD > /tmp/phase3-paths.txt || true
-          if grep -Eq '^(channels/|catalog\.source\.json$|release-intents/)' /tmp/phase3-paths.txt; then
-            echo '::error::Phase-3 qualification branch changed publication authority before acceptance'
+          base="$PR_BASE_SHA"
+          if [[ -z "$base" ]]; then
+            git fetch --no-tags origin main:refs/remotes/origin/main
+            base="$(git merge-base HEAD refs/remotes/origin/main)"
+          fi
+          git cat-file -e "$base^{commit}"
+          git diff --name-only "$base" HEAD > /tmp/phase3-paths.txt
+          if grep -Eq '^(channels/|catalog\.source\.json$)' /tmp/phase3-paths.txt; then
+            echo '::error::Phase-3 PR directly changed channel/catalog publication authority'
             cat /tmp/phase3-paths.txt
             exit 1
           fi
