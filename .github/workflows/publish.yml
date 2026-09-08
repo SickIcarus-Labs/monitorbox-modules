@@ -32,7 +32,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: materialize-module-release-source
+  group: module-repository-write
   cancel-in-progress: false
 
 jobs:
