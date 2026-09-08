@@ -2,10 +2,10 @@
 """Idempotently stage the September 8 P1 Phase-2 physical-repair release set.
 
 Four module release units share one catalog mutation pass. Configuration/Bootstrap
-1.0.3 build 4, Portainer 1.1.1 build 7, and UniFi 1.0.6 build 7 retain their
-accepted candidates. UI 1.1.8 build 16 supersedes physically rejected signed-dev
-build 15; rejected dev builds remain signed dev history but are intentionally not
-materialized into the graduating catalog.
+1.0.3 build 4 and Portainer 1.1.1 build 7 retain accepted candidates. UI 1.1.9
+build 17 and UniFi 1.0.7 build 8 supersede physically rejected signed-dev
+candidates; rejected dev builds remain signed dev history but are intentionally
+not materialized into the graduating catalog.
 """
 
 from __future__ import annotations
@@ -40,17 +40,17 @@ RELEASES = (
     },
     {
         "predecessor": ("com.sickicarus.monitorbox.ui", "1.1.4", 12),
-        "release": ("com.sickicarus.monitorbox.ui", "1.1.8", 16),
+        "release": ("com.sickicarus.monitorbox.ui", "1.1.9", 17),
         "entry": {
             "manifest": {
                 "module_id": "com.sickicarus.monitorbox.ui",
                 "display_name": "MonitorBox UI",
-                "version": "1.1.8",
-                "build": 16,
+                "version": "1.1.9",
+                "build": 17,
                 "schema": 1,
                 "state_schema": 1,
                 "module_type": "ui",
-                "entrypoints": {"webui": "monitorbox_ui_b16:install"},
+                "entrypoints": {"webui": "monitorbox_ui_b17:install"},
                 "requires_core": ">=2.3.1 <3.0.0",
                 "requires_runtime_api": ">=1 <2",
                 "dependencies": [],
@@ -58,7 +58,7 @@ RELEASES = (
                 "permissions": [],
                 "lifecycle_policy": "required",
             },
-            "package": "com.sickicarus.monitorbox.ui-1.1.8-build16.zip",
+            "package": "com.sickicarus.monitorbox.ui-1.1.9-build17.zip",
         },
     },
     {
@@ -86,17 +86,17 @@ RELEASES = (
     },
     {
         "predecessor": ("com.sickicarus.monitorbox.unifi", "1.0.3", 4),
-        "release": ("com.sickicarus.monitorbox.unifi", "1.0.6", 7),
+        "release": ("com.sickicarus.monitorbox.unifi", "1.0.7", 8),
         "entry": {
             "manifest": {
                 "module_id": "com.sickicarus.monitorbox.unifi",
                 "display_name": "UniFi Network Integration",
-                "version": "1.0.6",
-                "build": 7,
+                "version": "1.0.7",
+                "build": 8,
                 "schema": 1,
                 "state_schema": 1,
                 "module_type": "integration",
-                "entrypoints": {"integration": "monitorbox_unifi_b7:PLUGIN"},
+                "entrypoints": {"integration": "monitorbox_unifi_b8:PLUGIN"},
                 "requires_core": ">=2.3.0 <3.0.0",
                 "requires_runtime_api": ">=1 <2",
                 "dependencies": [],
@@ -104,7 +104,7 @@ RELEASES = (
                 "permissions": [],
                 "lifecycle_policy": "optional",
             },
-            "package": "com.sickicarus.monitorbox.unifi-1.0.6-build7.zip",
+            "package": "com.sickicarus.monitorbox.unifi-1.0.7-build8.zip",
         },
     },
 )

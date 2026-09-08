@@ -13,18 +13,22 @@ on:
       - tools/build_first_party_unifi_b5.py
       - tools/build_first_party_unifi_b6.py
       - tools/build_first_party_unifi_b7.py
+      - tools/build_first_party_unifi_b8.py
       - tools/build_first_party_ui_build13.py
       - tools/build_first_party_ui_build14.py
       - tools/build_first_party_ui_build15.py
       - tools/build_first_party_ui_build16.py
+      - tools/build_first_party_ui_build17.py
       - tools/accept_frozen_core_existing_projection.py
       - tools/accept_portainer_phase2.py
       - tools/accept_portainer_adoption_phase2.py
       - tools/accept_unifi_phase2.py
       - tools/accept_unifi_phase2_b7.py
+      - tools/accept_unifi_phase2_b8.py
       - tools/accept_ui_phase2.mjs
       - tools/accept_ui_phase2_build15.mjs
       - tools/accept_ui_phase2_build16.mjs
+      - tools/accept_ui_phase2_build17.mjs
       - .github/workflows/phase2-p1-acceptance.yml
   push:
     branches:
@@ -59,27 +63,29 @@ jobs:
         run: python tools/accept_portainer_phase2.py
       - name: Build UI Phase-2 candidate reproducibly
         run: |
-          python tools/build_first_party_ui_build16.py --output-dir /tmp/phase2-ui-first
-          python tools/build_first_party_ui_build16.py --output-dir /tmp/phase2-ui-second
-          sha256sum /tmp/phase2-ui-first/com.sickicarus.monitorbox.ui-1.1.8-build16.zip > /tmp/ui-first.sha
-          sha256sum /tmp/phase2-ui-second/com.sickicarus.monitorbox.ui-1.1.8-build16.zip | sed 's#/tmp/phase2-ui-second#/tmp/phase2-ui-first#' > /tmp/ui-second.sha
+          python tools/build_first_party_ui_build17.py --output-dir /tmp/phase2-ui-first
+          python tools/build_first_party_ui_build17.py --output-dir /tmp/phase2-ui-second
+          sha256sum /tmp/phase2-ui-first/com.sickicarus.monitorbox.ui-1.1.9-build17.zip > /tmp/ui-first.sha
+          sha256sum /tmp/phase2-ui-second/com.sickicarus.monitorbox.ui-1.1.9-build17.zip | sed 's#/tmp/phase2-ui-second#/tmp/phase2-ui-first#' > /tmp/ui-second.sha
           diff -u /tmp/ui-first.sha /tmp/ui-second.sha
       - name: Verify UI Phase-2 contracts
         run: |
           node tools/accept_ui_phase2.mjs
           node tools/accept_ui_phase2_build15.mjs
           node tools/accept_ui_phase2_build16.mjs
+          node tools/accept_ui_phase2_build17.mjs
       - name: Build UniFi Phase-2 candidate reproducibly
         run: |
-          python tools/build_first_party_unifi_b7.py --output-dir /tmp/phase2-unifi-first
-          python tools/build_first_party_unifi_b7.py --output-dir /tmp/phase2-unifi-second
-          sha256sum /tmp/phase2-unifi-first/com.sickicarus.monitorbox.unifi-1.0.6-build7.zip > /tmp/unifi-first.sha
-          sha256sum /tmp/phase2-unifi-second/com.sickicarus.monitorbox.unifi-1.0.6-build7.zip | sed 's#/tmp/phase2-unifi-second#/tmp/phase2-unifi-first#' > /tmp/unifi-second.sha
+          python tools/build_first_party_unifi_b8.py --output-dir /tmp/phase2-unifi-first
+          python tools/build_first_party_unifi_b8.py --output-dir /tmp/phase2-unifi-second
+          sha256sum /tmp/phase2-unifi-first/com.sickicarus.monitorbox.unifi-1.0.7-build8.zip > /tmp/unifi-first.sha
+          sha256sum /tmp/phase2-unifi-second/com.sickicarus.monitorbox.unifi-1.0.7-build8.zip | sed 's#/tmp/phase2-unifi-second#/tmp/phase2-unifi-first#' > /tmp/unifi-second.sha
           diff -u /tmp/unifi-first.sha /tmp/unifi-second.sha
       - name: Verify UniFi Phase-2 contracts
         run: |
           python tools/accept_unifi_phase2.py
           python tools/accept_unifi_phase2_b7.py
+          python tools/accept_unifi_phase2_b8.py
 
       # #158 and the frozen-Core side of #252 run from the private Core
       # repository's ci/phase2-frozen-core-proof branch. The public modules
