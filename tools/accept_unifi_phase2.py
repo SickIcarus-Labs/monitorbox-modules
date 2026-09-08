@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Phase-2 acceptance for UniFi WAN and switch-port recommendation semantics."""
+"""Phase-2 acceptance for UniFi discovery authority, WAN, and port policy."""
 
 from __future__ import annotations
 
@@ -11,7 +11,8 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
-DELTA = ROOT / "sources" / "unifi" / "1.0.4-build5"
+BUILD5 = ROOT / "sources" / "unifi" / "1.0.4-build5"
+BUILD6 = ROOT / "sources" / "unifi" / "1.0.5-build6"
 
 
 @dataclass(frozen=True)
@@ -79,12 +80,25 @@ def main() -> None:
     _install_stubs()
     discovery = _load(
         "candidate.integrations.unifi.discovery",
-        DELTA / "discovery.py",
+        BUILD5 / "discovery.py",
     )
     policy = _load(
         "candidate.integrations.unifi.phase2_policy",
-        DELTA / "phase2_policy.py",
+        BUILD6 / "phase2_policy.py",
     )
+
+    # Frozen Core's provider-neutral persistent discovery inbox requires these
+    # generic authority markers before it will ingest discovery_evidence. A
+    # successful UniFi inventory must publish them; unavailable source truth must
+    # remain non-authoritative so last-good discovery history is retained.
+    authoritative = policy._inventory_authority({"source_available": True})
+    assert authoritative["provider"] == "unifi"
+    assert authoritative["provider_available"] is True
+    assert authoritative["authoritative"] is True
+    unavailable = policy._inventory_authority({"source_available": False})
+    assert unavailable["provider"] == "unifi"
+    assert unavailable["provider_available"] is False
+    assert unavailable["authoritative"] is False
 
     health = [
         {"subsystem": "wan", "wan_ip": "108.85.13.175"},
@@ -183,7 +197,7 @@ def main() -> None:
 
     print(
         "UniFi Phase-2 acceptance: PASS "
-        "(semantic WAN suppression + LAN/public preservation + expectation-aware port policy)"
+        "(generic authority + semantic WAN suppression + LAN/public preservation + expectation-aware port policy)"
     )
 
 
