@@ -30,10 +30,19 @@ jobs:
           python-version: '3.13'
       - name: Build Portainer Phase-2 candidate reproducibly
         run: |
-          python tools/build_first_party_portainer_b7.py --output-dir /tmp/phase2-first
-          python tools/build_first_party_portainer_b7.py --output-dir /tmp/phase2-second
-          sha256sum /tmp/phase2-first/com.sickicarus.monitorbox.portainer-1.1.1-build7.zip > /tmp/first.sha
-          sha256sum /tmp/phase2-second/com.sickicarus.monitorbox.portainer-1.1.1-build7.zip | sed 's#/tmp/phase2-second#/tmp/phase2-first#' > /tmp/second.sha
-          diff -u /tmp/first.sha /tmp/second.sha
+          python tools/build_first_party_portainer_b7.py --output-dir /tmp/phase2-portainer-first
+          python tools/build_first_party_portainer_b7.py --output-dir /tmp/phase2-portainer-second
+          sha256sum /tmp/phase2-portainer-first/com.sickicarus.monitorbox.portainer-1.1.1-build7.zip > /tmp/portainer-first.sha
+          sha256sum /tmp/phase2-portainer-second/com.sickicarus.monitorbox.portainer-1.1.1-build7.zip | sed 's#/tmp/phase2-portainer-second#/tmp/phase2-portainer-first#' > /tmp/portainer-second.sha
+          diff -u /tmp/portainer-first.sha /tmp/portainer-second.sha
       - name: Verify Portainer Phase-2 contracts
         run: python tools/accept_portainer_phase2.py
+      - name: Build UI Phase-2 candidate reproducibly
+        run: |
+          python tools/build_first_party_ui_build13.py --output-dir /tmp/phase2-ui-first
+          python tools/build_first_party_ui_build13.py --output-dir /tmp/phase2-ui-second
+          sha256sum /tmp/phase2-ui-first/com.sickicarus.monitorbox.ui-1.1.5-build13.zip > /tmp/ui-first.sha
+          sha256sum /tmp/phase2-ui-second/com.sickicarus.monitorbox.ui-1.1.5-build13.zip | sed 's#/tmp/phase2-ui-second#/tmp/phase2-ui-first#' > /tmp/ui-second.sha
+          diff -u /tmp/ui-first.sha /tmp/ui-second.sha
+      - name: Verify UI Phase-2 contracts
+        run: node tools/accept_ui_phase2.mjs
