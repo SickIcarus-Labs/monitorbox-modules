@@ -16,8 +16,9 @@ IMPORT_PACKAGE = "monitorbox_portainer_b7"
 FILENAME = f"{MODULE_ID}-{MODULE_VERSION}-build{MODULE_BUILD}.zip"
 BUILD7_OVERRIDE_BLOBS = {
     "__init__.py": "7721fdb3163e6f4da1fb9795ee481ecd2bf7595d",
+    "adoption.py": "b359e73456c0991a15e9e52ed480e2a0c5e0d253",
     "endpoint_provenance.py": "21d1f0a7759fed8829a87b0032a827d443049bef",
-    "suggestions.py": "4ee9b544f9f2d1ca8c1c4a6bee889b4994fc284a",
+    "suggestions.py": "43297248527815e4ca60fc12b31e065884fa3489",
 }
 
 _CORE_IMPORT_REWRITES = previous._CORE_IMPORT_REWRITES
