@@ -46,3 +46,34 @@ jobs:
           diff -u /tmp/ui-first.sha /tmp/ui-second.sha
       - name: Verify UI Phase-2 contracts
         run: node tools/accept_ui_phase2.mjs
+      - name: Build UniFi Phase-2 candidate reproducibly
+        run: |
+          python tools/build_first_party_unifi_b5.py --output-dir /tmp/phase2-unifi-first
+          python tools/build_first_party_unifi_b5.py --output-dir /tmp/phase2-unifi-second
+          sha256sum /tmp/phase2-unifi-first/com.sickicarus.monitorbox.unifi-1.0.4-build5.zip > /tmp/unifi-first.sha
+          sha256sum /tmp/phase2-unifi-second/com.sickicarus.monitorbox.unifi-1.0.4-build5.zip | sed 's#/tmp/phase2-unifi-second#/tmp/phase2-unifi-first#' > /tmp/unifi-second.sha
+          diff -u /tmp/unifi-first.sha /tmp/unifi-second.sha
+      - name: Verify UniFi Phase-2 contracts
+        run: python tools/accept_unifi_phase2.py
+
+  frozen-core-bootstrap-proof:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Checkout accepted frozen Core baseline
+        uses: actions/checkout@v6
+        with:
+          repository: SickIcarus-Labs/monitorbox
+          ref: 76ca49efdaf719cb0e0c16f16c41f219684ca2b6
+          path: frozen-core
+      - name: Install frozen Core test environment
+        run: python -m pip install -e frozen-core
+      - name: Prove Quick Add preserves existing managed Connections
+        working-directory: frozen-core
+        run: |
+          python -m pytest -q \
+            tests/v2/test_onboarding_existing_projection_runtime.py \
+            tests/v2/test_onboarding_existing_web.py
