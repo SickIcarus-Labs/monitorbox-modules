@@ -2,8 +2,9 @@
 """Idempotently stage the September 7 P1 Phase-2 module release set.
 
 Four module release units share one catalog mutation pass. Configuration/Bootstrap
-retains physically rejected dev build 3 as immutable history and stages build 4
-as its superseding candidate; UI, Portainer and UniFi remain unchanged.
+1.0.3 build 4 supersedes physically rejected dev-only build 3; rejected build 3
+remains signed dev history but is not materialized into the graduating catalog.
+UI, Portainer and UniFi remain unchanged.
 """
 
 from __future__ import annotations
@@ -15,29 +16,6 @@ from typing import Any
 RELEASES = (
     {
         "predecessor": ("com.sickicarus.monitorbox.configuration-bootstrap", "1.0.1", 2),
-        "release": ("com.sickicarus.monitorbox.configuration-bootstrap", "1.0.2", 3),
-        "entry": {
-            "manifest": {
-                "module_id": "com.sickicarus.monitorbox.configuration-bootstrap",
-                "display_name": "Configuration / Bootstrap",
-                "version": "1.0.2",
-                "build": 3,
-                "schema": 1,
-                "state_schema": 1,
-                "module_type": "configuration",
-                "entrypoints": {"configuration": "monitorbox_configuration_bootstrap_b3:install"},
-                "requires_core": ">=2.3.0 <3.0.0",
-                "requires_runtime_api": ">=1 <2",
-                "dependencies": [],
-                "publisher_id": "com.sickicarus",
-                "permissions": [],
-                "lifecycle_policy": "required",
-            },
-            "package": "com.sickicarus.monitorbox.configuration-bootstrap-1.0.2-build3.zip",
-        },
-    },
-    {
-        "predecessor": ("com.sickicarus.monitorbox.configuration-bootstrap", "1.0.2", 3),
         "release": ("com.sickicarus.monitorbox.configuration-bootstrap", "1.0.3", 4),
         "entry": {
             "manifest": {
