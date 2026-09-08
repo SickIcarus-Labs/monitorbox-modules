@@ -16,6 +16,7 @@ on:
       - tools/build_first_party_ui_build13.py
       - tools/build_first_party_ui_build14.py
       - tools/build_first_party_ui_build15.py
+      - tools/build_first_party_ui_build16.py
       - tools/accept_frozen_core_existing_projection.py
       - tools/accept_portainer_phase2.py
       - tools/accept_portainer_adoption_phase2.py
@@ -23,6 +24,7 @@ on:
       - tools/accept_unifi_phase2_b7.py
       - tools/accept_ui_phase2.mjs
       - tools/accept_ui_phase2_build15.mjs
+      - tools/accept_ui_phase2_build16.mjs
       - .github/workflows/phase2-p1-acceptance.yml
   push:
     branches:
@@ -57,15 +59,16 @@ jobs:
         run: python tools/accept_portainer_phase2.py
       - name: Build UI Phase-2 candidate reproducibly
         run: |
-          python tools/build_first_party_ui_build15.py --output-dir /tmp/phase2-ui-first
-          python tools/build_first_party_ui_build15.py --output-dir /tmp/phase2-ui-second
-          sha256sum /tmp/phase2-ui-first/com.sickicarus.monitorbox.ui-1.1.7-build15.zip > /tmp/ui-first.sha
-          sha256sum /tmp/phase2-ui-second/com.sickicarus.monitorbox.ui-1.1.7-build15.zip | sed 's#/tmp/phase2-ui-second#/tmp/phase2-ui-first#' > /tmp/ui-second.sha
+          python tools/build_first_party_ui_build16.py --output-dir /tmp/phase2-ui-first
+          python tools/build_first_party_ui_build16.py --output-dir /tmp/phase2-ui-second
+          sha256sum /tmp/phase2-ui-first/com.sickicarus.monitorbox.ui-1.1.8-build16.zip > /tmp/ui-first.sha
+          sha256sum /tmp/phase2-ui-second/com.sickicarus.monitorbox.ui-1.1.8-build16.zip | sed 's#/tmp/phase2-ui-second#/tmp/phase2-ui-first#' > /tmp/ui-second.sha
           diff -u /tmp/ui-first.sha /tmp/ui-second.sha
       - name: Verify UI Phase-2 contracts
         run: |
           node tools/accept_ui_phase2.mjs
           node tools/accept_ui_phase2_build15.mjs
+          node tools/accept_ui_phase2_build16.mjs
       - name: Build UniFi Phase-2 candidate reproducibly
         run: |
           python tools/build_first_party_unifi_b7.py --output-dir /tmp/phase2-unifi-first
