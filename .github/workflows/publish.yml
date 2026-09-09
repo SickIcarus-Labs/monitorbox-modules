@@ -43,7 +43,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          fetch-depth: 2
+          # Release validation proves historical signed-dev authority ancestry.
+          # A shallow clone cannot establish that trust relationship and must not
+          # be used for source materialization.
+          fetch-depth: 0
       - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
