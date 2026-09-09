@@ -1,0 +1,29 @@
+/* MonitorBox UI v1.1.11 build 19 — Phase-3 P1 + disclosure dividend.
+ * Native <details>/<summary> semantics remain authoritative; this adds only a
+ * visible state indicator and preserves the entire summary as the touch target.
+ */
+#results .discovery-coverage-section > summary::before {
+  content: '›';
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  min-width: 18px;
+  height: 18px;
+  color: var(--muted);
+  font-size: 1.35rem;
+  line-height: 1;
+  transform: rotate(0deg);
+  transform-origin: 50% 50%;
+  transition: transform 120ms ease;
+}
+
+#results .discovery-coverage-section[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #results .discovery-coverage-section > summary::before {
+    transition: none;
+  }
+}

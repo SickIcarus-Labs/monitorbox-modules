@@ -1,0 +1,95 @@
+name: Phase 3 P1 acceptance
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - sources/unifi/**
+      - sources/ui/**
+      - release-intents/**
+      - tools/stage_phase3_p1.py
+      - tools/build_first_party_unifi_b9.py
+      - tools/build_first_party_ui_build19.py
+      - tools/accept_unifi_phase3_b9.py
+      - tools/accept_ui_phase3_build19.mjs
+      - tools/accept_ui_phase3_disclosure.py
+      - .github/workflows/phase3-p1-acceptance.yml
+  push:
+    branches:
+      - phase3/p1-unifi-derived-recovery
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phase3-p1-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  phase3-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Install browser/runtime acceptance dependencies
+        run: |
+          python -m pip install --disable-pip-version-check aiohttp==3.11.16 playwright==1.55.0
+          python -m playwright install --with-deps chromium
+
+      - name: Build UniFi Phase-3 candidate reproducibly
+        run: |
+          python tools/build_first_party_unifi_b9.py --output-dir /tmp/phase3-unifi-first
+          python tools/build_first_party_unifi_b9.py --output-dir /tmp/phase3-unifi-second
+          sha256sum /tmp/phase3-unifi-first/com.sickicarus.monitorbox.unifi-1.0.8-build9.zip > /tmp/unifi-first.sha
+          sha256sum /tmp/phase3-unifi-second/com.sickicarus.monitorbox.unifi-1.0.8-build9.zip | sed 's#/tmp/phase3-unifi-second#/tmp/phase3-unifi-first#' > /tmp/unifi-second.sha
+          diff -u /tmp/unifi-first.sha /tmp/unifi-second.sha
+          python tools/build_first_party_unifi_b9.py
+
+      - name: Verify UniFi inherited and Phase-3 contracts
+        run: |
+          python tools/accept_unifi_phase2_b8.py
+          python tools/accept_unifi_phase3_b9.py
+
+      - name: Build UI Phase-3 candidate reproducibly
+        run: |
+          python tools/build_first_party_ui_build19.py --output-dir /tmp/phase3-ui-first
+          python tools/build_first_party_ui_build19.py --output-dir /tmp/phase3-ui-second
+          sha256sum /tmp/phase3-ui-first/com.sickicarus.monitorbox.ui-1.1.11-build19.zip > /tmp/ui-first.sha
+          sha256sum /tmp/phase3-ui-second/com.sickicarus.monitorbox.ui-1.1.11-build19.zip | sed 's#/tmp/phase3-ui-second#/tmp/phase3-ui-first#' > /tmp/ui-second.sha
+          diff -u /tmp/ui-first.sha /tmp/ui-second.sha
+          python tools/build_first_party_ui_build19.py
+
+      - name: Verify UI inherited and Phase-3 contracts
+        run: |
+          node tools/accept_ui_phase2_build18.mjs
+          node tools/accept_ui_phase3_build19.mjs
+          python tools/accept_ui_phase3_disclosure.py
+
+      - name: Prove Phase-3 candidate does not directly modify Core or channel authority
+        shell: bash
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+        run: |
+          set -euo pipefail
+          base="$PR_BASE_SHA"
+          if [[ -z "$base" ]]; then
+            git fetch --no-tags origin main:refs/remotes/origin/main
+            base="$(git merge-base HEAD refs/remotes/origin/main)"
+          fi
+          git cat-file -e "$base^{commit}"
+          git diff --name-only "$base" HEAD > /tmp/phase3-paths.txt
+          if grep -Eq '^(channels/|catalog\.source\.json$)' /tmp/phase3-paths.txt; then
+            echo '::error::Phase-3 PR directly changed channel/catalog publication authority'
+            cat /tmp/phase3-paths.txt
+            exit 1
+          fi
+          if grep -Eq '(^|/)core(/|$)' /tmp/phase3-paths.txt; then
+            echo '::error::Phase-3 module qualification unexpectedly changed Core-owned paths'
+            cat /tmp/phase3-paths.txt
+            exit 1
+          fi
