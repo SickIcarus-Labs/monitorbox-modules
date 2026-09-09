@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - sources/backup-restore/**
-      - release-intents/**
+      - release-intents/backup-restore-1.0.3-build4.json
       - tools/build_first_party_backup_restore_b4.py
       - tools/accept_backup_restore_phase4_b4.py
       - tools/stage_phase4_backup_vault.py
