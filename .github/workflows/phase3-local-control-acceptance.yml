@@ -1,0 +1,105 @@
+name: Phase 3 local control acceptance
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - sources/configuration-bootstrap/**
+      - sources/ui/**
+      - release-intents/**
+      - tools/stage_phase3_local_control.py
+      - tools/build_first_party_configuration_bootstrap_b5.py
+      - tools/build_first_party_ui_build20.py
+      - tools/accept_configuration_bootstrap_phase3_b5.py
+      - tools/accept_ui_phase3_build20.mjs
+      - tools/accept_ui_phase3_local_control_browser.py
+      - .github/workflows/phase3-local-control-acceptance.yml
+  push:
+    branches:
+      - phase3/p1-local-control-plane
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phase3-local-control-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  local-control-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Install browser/runtime acceptance dependencies
+        run: |
+          python -m pip install --disable-pip-version-check aiohttp==3.11.16 playwright==1.55.0
+          python -m playwright install --with-deps chromium
+
+      - name: Build Configuration Bootstrap candidate reproducibly
+        run: |
+          set -euo pipefail
+          python tools/build_first_party_configuration_bootstrap_b5.py --output-dir /tmp/phase3b-bootstrap-first
+          python tools/build_first_party_configuration_bootstrap_b5.py --output-dir /tmp/phase3b-bootstrap-second
+          target='com.sickicarus.monitorbox.configuration-bootstrap-1.0.4-build5.zip'
+          sha256sum "/tmp/phase3b-bootstrap-first/$target" > /tmp/bootstrap-first.sha
+          sha256sum "/tmp/phase3b-bootstrap-second/$target" | sed 's#/tmp/phase3b-bootstrap-second#/tmp/phase3b-bootstrap-first#' > /tmp/bootstrap-second.sha
+          diff -u /tmp/bootstrap-first.sha /tmp/bootstrap-second.sha
+          python tools/build_first_party_configuration_bootstrap_b5.py
+
+      - name: Verify Configuration Bootstrap Phase-3b contract
+        run: python tools/accept_configuration_bootstrap_phase3_b5.py
+
+      - name: Build UI candidate reproducibly
+        run: |
+          set -euo pipefail
+          python tools/build_first_party_ui_build20.py --output-dir /tmp/phase3b-ui-first
+          python tools/build_first_party_ui_build20.py --output-dir /tmp/phase3b-ui-second
+          target='com.sickicarus.monitorbox.ui-1.1.12-build20.zip'
+          sha256sum "/tmp/phase3b-ui-first/$target" > /tmp/ui-first.sha
+          sha256sum "/tmp/phase3b-ui-second/$target" | sed 's#/tmp/phase3b-ui-second#/tmp/phase3b-ui-first#' > /tmp/ui-second.sha
+          diff -u /tmp/ui-first.sha /tmp/ui-second.sha
+          python tools/build_first_party_ui_build20.py
+
+      - name: Verify inherited and Phase-3b UI contracts
+        run: |
+          node tools/accept_ui_phase3_build19.mjs
+          python tools/accept_ui_phase3_disclosure.py
+          node tools/accept_ui_phase3_build20.mjs
+          python tools/accept_ui_phase3_local_control_browser.py
+
+      - name: Prove local-control candidate stays inside module release boundaries
+        shell: bash
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+        run: |
+          set -euo pipefail
+          base="$PR_BASE_SHA"
+          if [[ -z "$base" ]]; then
+            git fetch --no-tags origin main:refs/remotes/origin/main
+            base="$(git merge-base HEAD refs/remotes/origin/main)"
+          fi
+          git cat-file -e "$base^{commit}"
+          git diff --name-only "$base" HEAD > /tmp/phase3b-paths.txt
+
+          if grep -Eq '^(channels/|catalog\.source\.json$|index\.json$)' /tmp/phase3b-paths.txt; then
+            echo '::error::#253 candidate directly changed signed/channel/catalog authority'
+            cat /tmp/phase3b-paths.txt
+            exit 1
+          fi
+          if grep -Eq '(^|/)core(/|$)' /tmp/phase3b-paths.txt; then
+            echo '::error::#253 candidate unexpectedly changed Core-owned paths'
+            cat /tmp/phase3b-paths.txt
+            exit 1
+          fi
+          if grep -Eq '^(tools/release_policy\.py|\.github/workflows/(publish|module-channel-publish|release-policy)\.yml)$' /tmp/phase3b-paths.txt; then
+            echo '::error::#253 candidate unexpectedly changed release-topology authority'
+            cat /tmp/phase3b-paths.txt
+            exit 1
+          fi

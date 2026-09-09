@@ -1,0 +1,75 @@
+.mb-local-recovery {
+  margin: .8rem 0 1rem;
+  padding: .85rem 1rem;
+  border: 1px solid currentColor;
+  border-radius: .8rem;
+  display: flex;
+  gap: .8rem;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+.mb-local-recovery[hidden] { display: none; }
+.mb-local-recovery > div {
+  display: grid;
+  gap: .2rem;
+  min-width: 0;
+}
+.mb-local-recovery span {
+  overflow-wrap: anywhere;
+  opacity: .82;
+}
+
+/* Recovery/debug actions are operator controls used heavily from iPad. Keep the
+   touch target valid at tablet/desktop viewport widths, not only phone media widths. */
+.mb-local-recovery .button,
+.debug-copy-fallback .button,
+.debug-copy-fallback .icon-button {
+  box-sizing: border-box;
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.debug-copy-fallback {
+  width: min(92vw, 760px);
+  max-height: 88vh;
+  padding: 0;
+  border: 0;
+  border-radius: .9rem;
+}
+.debug-copy-fallback::backdrop { background: rgb(0 0 0 / .58); }
+.debug-copy-fallback form {
+  display: grid;
+  gap: .85rem;
+  padding: 1rem;
+}
+.debug-copy-fallback header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+}
+.debug-copy-fallback p { margin: 0; }
+.debug-copy-fallback textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: min(52vh, 520px);
+  resize: vertical;
+  font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  white-space: pre;
+}
+.debug-copy-fallback .action-list {
+  display: flex;
+  gap: .65rem;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+@media (max-width: 700px) {
+  .mb-local-recovery { align-items: stretch; }
+  .mb-local-recovery .button { width: 100%; text-align: center; }
+  .debug-copy-fallback { width: 96vw; }
+  .debug-copy-fallback textarea { min-height: 55vh; font-size: 13px; }
+}
