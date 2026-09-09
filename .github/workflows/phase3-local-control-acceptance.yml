@@ -83,10 +83,11 @@ jobs:
           base="$PR_BASE_SHA"
           if [[ -z "$base" ]]; then
             git fetch --no-tags origin main:refs/remotes/origin/main
-            base="$(git merge-base HEAD refs/remotes/origin/main)"
+            base=refs/remotes/origin/main
           fi
           git cat-file -e "$base^{commit}"
-          git diff --name-only "$base" HEAD > /tmp/phase3b-paths.txt
+          boundary="$(git merge-base "$base" HEAD)"
+          git diff --name-only "$boundary" HEAD > /tmp/phase3b-paths.txt
 
           if grep -Eq '^(channels/|catalog\.source\.json$|index\.json$)' /tmp/phase3b-paths.txt; then
             echo '::error::#253 candidate directly changed signed/channel/catalog authority'
