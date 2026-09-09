@@ -63,6 +63,7 @@ jobs:
           --base-catalog "$RUNNER_TEMP/catalog.before.json"
           --candidate-catalog catalog.source.json
           --base-ref '${{ steps.base.outputs.ref }}'
+          --trusted-ref '${{ steps.base.outputs.ref }}'
           --require-packages
       - name: Prove stable signed authority is untouched
         shell: bash
