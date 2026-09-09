@@ -3,7 +3,7 @@
   "signed": {
     "repository_id": "official-dev",
     "display_name": "MonitorBox Official Dev",
-    "generated_at": "2026-09-09T20:12:37.353155Z",
+    "generated_at": "2026-09-09T20:24:41.891195Z",
     "modules": [
       {
         "manifest": {
@@ -270,6 +270,33 @@
           "sha256": "bf8b7b985a5d30e7a0165de24dc61ddc6e6205b14ed782a4135564e9a75d8761",
           "signature_identity": "official-ed25519-1",
           "signature": "FwGW9SNPSSu+x34vxaP/bZYxTW9z8vnio5CgjBgWybCScJWI0oCbfkQubRUVO+TGZqDr0DsjiO3D+4PqNbH7Ag=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.http",
+          "display_name": "HTTP(S) Integration",
+          "version": "1.0.1",
+          "build": 2,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "integration",
+          "entrypoints": {
+            "integration": "monitorbox_http_v101_b2:PLUGIN"
+          },
+          "requires_core": ">=2.3.1 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "optional"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.http-1.0.1-build2.zip",
+          "filename": "com.sickicarus.monitorbox.http-1.0.1-build2.zip",
+          "sha256": "45336504770f0e15e6575207d5471b92664749a09826c476cf8485c5ad8b371a",
+          "signature_identity": "official-ed25519-1",
+          "signature": "nDyuyAp6dhVFVP0V+NXgmR6ucB0htO7BCdHherccbqCFeZ/ZMFiB0QQKt+1rMkcu0pJCvTTN99CAKWduss84Bw=="
         }
       },
       {
@@ -1384,6 +1411,6 @@
   "signature": {
     "algorithm": "ed25519",
     "identity": "official-ed25519-1",
-    "value": "BIi6ZTZyFRoa/cr4dNS/AcJ0Nh5kZa4N+scQlrlhW1PdC227i7uAnnKpl8lBNM7hd7pL3HK0lvRqDOUu/2i4Bw=="
+    "value": "Gd9a9uij5AL4EyY/QTB2Wo1TMtsGvEQfpGSw/CDoQRm85JEz9wuJu4qpiXynwUivYgG9Da+aPd1UEA9muVVyCQ=="
   }
 }
