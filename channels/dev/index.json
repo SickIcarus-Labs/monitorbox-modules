@@ -3,7 +3,7 @@
   "signed": {
     "repository_id": "official-dev",
     "display_name": "MonitorBox Official Dev",
-    "generated_at": "2026-09-09T04:51:06.957885Z",
+    "generated_at": "2026-09-09T04:53:57.412136Z",
     "modules": [
       {
         "manifest": {
@@ -1125,9 +1125,9 @@
         "package": {
           "url": "packages/com.sickicarus.monitorbox.ui-1.1.12-build20.zip",
           "filename": "com.sickicarus.monitorbox.ui-1.1.12-build20.zip",
-          "sha256": "92a2f4a33d3209b292ac38d0f0aeae1efef746322d5328c87a62d6626fa3b100",
+          "sha256": "30d7bdcc88950eb5934c1f341cba6ade61797b87e2db3234427b8e2115e9fd0f",
           "signature_identity": "official-ed25519-1",
-          "signature": "VnDcHmEVl4rWnABTuVrN3cehypDwR563UFrmDuqqZzeQiSqhRIDNc3KVNdq4xUr5f6pg4BCpiLVF9/KTCxc+Bg=="
+          "signature": "h6Ykr/bdRoDz+bfECVmt9e269dhPgRJGPg2ap+/GKgdrXaJ5yLljGvQR3CfMOpr6pHfhuuUP0iDAEy4VxXF9Dg=="
         }
       },
       {
@@ -1297,6 +1297,6 @@
   "signature": {
     "algorithm": "ed25519",
     "identity": "official-ed25519-1",
-    "value": "xTR+e1lmeqHMHtTGNkvHg1K04wie4F/VK4J/BBRZ2lDI6QG4O8cnfnPgrfMTDKQGtDXGyP3ZEv7zy/dH7UakDA=="
+    "value": "LbcNUBZYAr9sUdvfGLV/lpZQcTrz2So1de/c1bXmjpwLtPk1TdajRBE0PmHXQd1Bqs1qJUNVOCkX+u/3/bPyCQ=="
   }
 }
