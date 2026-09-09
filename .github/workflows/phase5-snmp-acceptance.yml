@@ -1,0 +1,93 @@
+name: Phase 5 SNMP acceptance
+
+on:
+  pull_request:
+    paths:
+      - 'sources/snmp/**'
+      - 'tools/build_first_party_snmp_106.py'
+      - 'tools/accept_snmp_phase5_b8.py'
+      - 'tools/stage_phase5_snmp.py'
+      - 'release-intents/snmp-1.0.6-build8.json'
+      - '.github/workflows/phase5-snmp-acceptance.yml'
+  push:
+    branches:
+      - phase5/p1-snmp-maintenance-stability
+
+permissions:
+  contents: read
+
+jobs:
+  phase5-snmp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Compile Phase-5 source and tooling
+        run: |
+          python -m py_compile \
+            sources/snmp/1.0.6-build8/qnap_profile_cache.py \
+            tools/build_first_party_snmp_106.py \
+            tools/accept_snmp_phase5_b8.py \
+            tools/stage_phase5_snmp.py
+
+      - name: Build SNMP 1.0.6 build 8 reproducibly
+        shell: bash
+        run: |
+          set -euo pipefail
+          predecessor='packages/com.sickicarus.monitorbox.snmp-1.0.5-build7.zip'
+          test -f "$predecessor"
+          mkdir -p "$RUNNER_TEMP/snmp-build-a" "$RUNNER_TEMP/snmp-build-b"
+          cp "$predecessor" "$RUNNER_TEMP/snmp-build-a/"
+          cp "$predecessor" "$RUNNER_TEMP/snmp-build-b/"
+          python tools/build_first_party_snmp_106.py --output-dir "$RUNNER_TEMP/snmp-build-a"
+          python tools/build_first_party_snmp_106.py --output-dir "$RUNNER_TEMP/snmp-build-b"
+          candidate='com.sickicarus.monitorbox.snmp-1.0.6-build8.zip'
+          cmp "$RUNNER_TEMP/snmp-build-a/$candidate" "$RUNNER_TEMP/snmp-build-b/$candidate"
+          sha256sum "$RUNNER_TEMP/snmp-build-a/$candidate" "$RUNNER_TEMP/snmp-build-b/$candidate"
+          cp "$RUNNER_TEMP/snmp-build-a/$candidate" "packages/$candidate"
+
+      - name: Verify Phase-5 QNAP identity and inherited provider-loss truth
+        run: python tools/accept_snmp_phase5_b8.py
+
+      - name: Verify release staging against immutable build 7
+        run: |
+          cp catalog.source.json "$RUNNER_TEMP/phase5-catalog.json"
+          python - "$RUNNER_TEMP/phase5-catalog.json" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+          from tools import stage_phase5_snmp as stage
+
+          path = Path(sys.argv[1])
+          stage.stage(path)
+          document = json.loads(path.read_text())
+          ids = [stage.identity(item) for item in document['modules']]
+          predecessor = ids.index(stage.PREDECESSOR)
+          release = ids.index(stage.RELEASE)
+          if release != predecessor + 1:
+              raise SystemExit('SNMP build 8 was not staged immediately after immutable build 7')
+          print('Phase-5 release staging: PASS')
+          PY
+
+      - name: Prove Phase-5 scope stays inside SNMP module release boundaries
+        if: github.event_name == 'pull_request'
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          git cat-file -e "$BASE_SHA^{commit}"
+          git diff --name-only "$BASE_SHA"...HEAD | tee "$RUNNER_TEMP/phase5-paths.txt"
+          if grep -Eq '^(channels/|catalog\.source\.json$|packages/)' "$RUNNER_TEMP/phase5-paths.txt"; then
+            echo '::error::Phase-5 candidate directly mutated signed/materialized repository authority'
+            exit 1
+          fi
+          if grep -Ev '^(\.github/workflows/phase5-snmp-acceptance\.yml|release-intents/snmp-1\.0\.6-build8\.json|sources/snmp/1\.0\.6-build8/[^/]+|tools/(accept_snmp_phase5_b8|build_first_party_snmp_106|stage_phase5_snmp)\.py)$' "$RUNNER_TEMP/phase5-paths.txt" | grep -q .; then
+            echo '::error::Phase-5 candidate widened outside the declared SNMP release surface'
+            exit 1
+          fi
