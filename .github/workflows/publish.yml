@@ -60,6 +60,38 @@ jobs:
           echo "ref=$base" >> "$GITHUB_OUTPUT"
       - name: Stage and build only declared successor releases
         run: python tools/release_policy.py run-intents --base-ref '${{ steps.base.outputs.ref }}'
+      - name: Remove unreferenced builder byproducts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+
+          source = json.loads(Path("catalog.source.json").read_text(encoding="utf-8"))
+          referenced = set()
+          for row in source.get("modules", []):
+              package = row.get("package")
+              if isinstance(package, str) and package:
+                  referenced.add(Path(package).name)
+              elif isinstance(package, dict):
+                  filename = package.get("filename")
+                  if isinstance(filename, str) and filename:
+                      referenced.add(Path(filename).name)
+
+          for path in sorted(Path("packages").glob("*.zip")):
+              if path.name in referenced:
+                  continue
+              tracked = subprocess.run(
+                  ["git", "ls-files", "--error-unmatch", "--", str(path)],
+                  stdout=subprocess.DEVNULL,
+                  stderr=subprocess.DEVNULL,
+              ).returncode == 0
+              if not tracked:
+                  print(f"removing unreferenced builder byproduct: {path}")
+                  path.unlink()
+          PY
       - name: Enforce semantic module release authority
         run: >-
           python tools/release_policy.py validate
@@ -85,4 +117,12 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add catalog.source.json packages
           git commit -m "catalog: materialize module release source"
-          git push
+
+          # Other trusted repository writers (for example signed channel publication)
+          # share the module-repository-write concurrency group and may have advanced
+          # main while this push-triggered run waited. Preserve the trigger/base
+          # authority used above, then replay only this generated materialization
+          # commit on the current serialized main tip. Never force-push.
+          git fetch --no-tags origin main
+          git rebase origin/main
+          git push origin HEAD:main
