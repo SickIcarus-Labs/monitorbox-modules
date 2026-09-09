@@ -1,0 +1,100 @@
+name: Phase 4 backup vault acceptance
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - sources/backup-restore/**
+      - release-intents/**
+      - tools/build_first_party_backup_restore_b4.py
+      - tools/accept_backup_restore_phase4_b4.py
+      - tools/stage_phase4_backup_vault.py
+      - .github/workflows/phase4-backup-vault-acceptance.yml
+  push:
+    branches:
+      - phase4/p1-backup-vault-atomic
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phase4-backup-vault-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backup-vault-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Install inherited Backup Restore acceptance dependency
+        run: python -m pip install --disable-pip-version-check aiohttp==3.11.16
+
+      - name: Rebuild accepted Backup Restore predecessor
+        run: |
+          set -euo pipefail
+          python tools/build_first_party_backup_restore.py --output-dir /tmp/backup-predecessor-first
+          python tools/build_first_party_backup_restore.py --output-dir /tmp/backup-predecessor-second
+          sha256sum /tmp/backup-predecessor-first/*.zip | sed 's#/tmp/backup-predecessor-first/##' > /tmp/backup-predecessor-first.sha
+          sha256sum /tmp/backup-predecessor-second/*.zip | sed 's#/tmp/backup-predecessor-second/##' > /tmp/backup-predecessor-second.sha
+          diff -u /tmp/backup-predecessor-first.sha /tmp/backup-predecessor-second.sha
+
+      - name: Build Backup Restore build 4 reproducibly
+        run: |
+          set -euo pipefail
+          python tools/build_first_party_backup_restore_b4.py --output-dir /tmp/backup-b4-first
+          python tools/build_first_party_backup_restore_b4.py --output-dir /tmp/backup-b4-second
+          target='com.sickicarus.monitorbox.backup-restore-1.0.3-build4.zip'
+          sha256sum "/tmp/backup-b4-first/$target" > /tmp/backup-b4-first.sha
+          sha256sum "/tmp/backup-b4-second/$target" | sed 's#/tmp/backup-b4-second#/tmp/backup-b4-first#' > /tmp/backup-b4-second.sha
+          diff -u /tmp/backup-b4-first.sha /tmp/backup-b4-second.sha
+          python tools/build_first_party_backup_restore_b4.py
+
+      - name: Preserve inherited Backup Restore behavior
+        run: |
+          python tools/accept_backup_restore_behavior.py
+          python tools/accept_backup_restore_build3_behavior.py
+
+      - name: Verify crash-atomic saved-backup vault contract
+        run: python tools/accept_backup_restore_phase4_b4.py
+
+      - name: Prove Phase-4 candidate stays inside Backup Restore ownership
+        shell: bash
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+        run: |
+          set -euo pipefail
+          base="$PR_BASE_SHA"
+          if [[ -z "$base" ]]; then
+            git fetch --no-tags origin main:refs/remotes/origin/main
+            base="$(git merge-base HEAD refs/remotes/origin/main)"
+          fi
+          git cat-file -e "$base^{commit}"
+          git diff --name-only "$base" HEAD > /tmp/phase4-backup-paths.txt
+
+          if grep -Eq '^(channels/|catalog\.source\.json$|index\.json$)' /tmp/phase4-backup-paths.txt; then
+            echo '::error::#249 candidate directly changed signed/channel/catalog authority'
+            cat /tmp/phase4-backup-paths.txt
+            exit 1
+          fi
+          if grep -Eq '(^|/)core(/|$)' /tmp/phase4-backup-paths.txt; then
+            echo '::error::#249 candidate unexpectedly changed Core-owned paths'
+            cat /tmp/phase4-backup-paths.txt
+            exit 1
+          fi
+          if grep -Eq '^(tools/release_policy\.py|\.github/workflows/(publish|module-channel-publish|release-policy)\.yml)$' /tmp/phase4-backup-paths.txt; then
+            echo '::error::#249 candidate unexpectedly changed release-topology authority'
+            cat /tmp/phase4-backup-paths.txt
+            exit 1
+          fi
+          if grep -Ev '^((sources/backup-restore/|release-intents/|tools/(build_first_party_backup_restore_b4|accept_backup_restore_phase4_b4|stage_phase4_backup_vault)\.py$|\.github/workflows/phase4-backup-vault-acceptance\.yml$))' /tmp/phase4-backup-paths.txt | grep -q .; then
+            echo '::error::#249 candidate escaped Backup Restore Phase-4 scope'
+            cat /tmp/phase4-backup-paths.txt
+            exit 1
+          fi
