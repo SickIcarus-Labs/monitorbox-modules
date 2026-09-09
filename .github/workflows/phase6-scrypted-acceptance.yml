@@ -21,6 +21,9 @@ on:
       - tools/accept_scrypted_phase6.py
       - .github/workflows/phase6-scrypted-acceptance.yml
 
+env:
+  COMPANION_CORE_SHA: 0627ac23e10081bae13453f64ca8741150055895
+
 permissions:
   contents: read
 
@@ -39,6 +42,9 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
+
+      - name: Record paired Core checkpoint
+        run: echo "Phase-6C Scrypted acceptance pairs with monitorbox Core $COMPANION_CORE_SHA / PR #281"
 
       - name: Verify inherited Scrypted behavior
         run: |
