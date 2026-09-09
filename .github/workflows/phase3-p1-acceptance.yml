@@ -6,7 +6,6 @@ on:
     paths:
       - sources/unifi/**
       - sources/ui/**
-      - release-intents/**
       - tools/stage_phase3_p1.py
       - tools/build_first_party_unifi_b9.py
       - tools/build_first_party_ui_build19.py
@@ -62,7 +61,6 @@ jobs:
           sha256sum /tmp/phase3-ui-first/com.sickicarus.monitorbox.ui-1.1.11-build19.zip > /tmp/ui-first.sha
           sha256sum /tmp/phase3-ui-second/com.sickicarus.monitorbox.ui-1.1.11-build19.zip | sed 's#/tmp/phase3-ui-second#/tmp/phase3-ui-first#' > /tmp/ui-second.sha
           diff -u /tmp/ui-first.sha /tmp/ui-second.sha
-          python tools/build_first_party_ui_build19.py
 
       - name: Verify UI inherited and Phase-3 contracts
         run: |
