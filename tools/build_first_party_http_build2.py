@@ -56,7 +56,12 @@ def build(root: Path, output_dir: Path) -> Path:
     target = output_dir / FILENAME
     target.write_bytes(payload)
     print(f"built {target}: sha256={hashlib.sha256(payload).hexdigest()} entrypoint={IMPORT_PACKAGE}:PLUGIN")
-    unexpected = sorted(path.name for path in output_dir.glob(f"{MODULE_ID}-*.zip") if path.name != FILENAME)
+    allowed = {previous.FILENAME, FILENAME}
+    unexpected = sorted(
+        path.name
+        for path in output_dir.glob(f"{MODULE_ID}-*.zip")
+        if path.name not in allowed
+    )
     if unexpected:
         raise SystemExit(f"unexpected managed HTTP packages already present: {unexpected}")
     return target
