@@ -1,0 +1,87 @@
+name: Phase 6 HTTP acceptance
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - sources/http/**
+      - release-intents/http-1.0.1-build2.json
+      - tools/build_first_party_http_build2.py
+      - tools/stage_phase6_http.py
+      - tools/accept_http_phase6.py
+      - .github/workflows/phase6-http-acceptance.yml
+  push:
+    branches:
+      - phase6/p1-startup-convergence
+    paths:
+      - sources/http/**
+      - release-intents/http-1.0.1-build2.json
+      - tools/build_first_party_http_build2.py
+      - tools/stage_phase6_http.py
+      - tools/accept_http_phase6.py
+      - .github/workflows/phase6-http-acceptance.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phase6-http-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  http-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Verify inherited HTTP behavior
+        run: python tools/accept_http_behavior.py
+
+      - name: Verify Phase-6B startup semantics
+        run: python tools/accept_http_phase6.py
+
+      - name: Build HTTP candidate reproducibly
+        run: |
+          set -euo pipefail
+          python tools/build_first_party_http_build2.py --output-dir /tmp/phase6-http-first
+          python tools/build_first_party_http_build2.py --output-dir /tmp/phase6-http-second
+          target='com.sickicarus.monitorbox.http-1.0.1-build2.zip'
+          sha256sum "/tmp/phase6-http-first/$target" > /tmp/http-first.sha
+          sha256sum "/tmp/phase6-http-second/$target" | sed 's#/tmp/phase6-http-second#/tmp/phase6-http-first#' > /tmp/http-second.sha
+          diff -u /tmp/http-first.sha /tmp/http-second.sha
+          python - <<'PY'
+          import zipfile
+          path='/tmp/phase6-http-first/com.sickicarus.monitorbox.http-1.0.1-build2.zip'
+          with zipfile.ZipFile(path) as archive:
+              names=set(archive.namelist())
+          expected={
+              'monitorbox_http_v101_b2/__init__.py',
+              'monitorbox_http_v101_b2/_base.py',
+              'monitorbox_http_v101_b2/startup_confirmation.py',
+          }
+          assert names == expected, (names, expected)
+          PY
+
+      - name: Prove HTTP fix does not change Core authority
+        shell: bash
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+        run: |
+          set -euo pipefail
+          base="$PR_BASE_SHA"
+          if [[ -z "$base" ]]; then
+            git fetch --no-tags origin main:refs/remotes/origin/main
+            base="$(git merge-base HEAD refs/remotes/origin/main)"
+          fi
+          git diff --name-only "$base" HEAD > /tmp/phase6-http-paths.txt
+          if grep -Eq '(^|/)core(/|$)' /tmp/phase6-http-paths.txt; then
+            echo '::error::#166 unexpectedly changed Core-owned paths'
+            cat /tmp/phase6-http-paths.txt
+            exit 1
+          fi
