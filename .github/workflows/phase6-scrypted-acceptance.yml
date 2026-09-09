@@ -44,7 +44,8 @@ jobs:
           python-version: '3.13'
 
       - name: Record paired Core checkpoint
-        run: echo "Phase-6C Scrypted acceptance pairs with monitorbox Core $COMPANION_CORE_SHA / PR #281"
+        run: |
+          echo "Phase-6C Scrypted acceptance pairs with monitorbox Core $COMPANION_CORE_SHA / PR #281"
 
       - name: Verify inherited Scrypted behavior
         run: |
