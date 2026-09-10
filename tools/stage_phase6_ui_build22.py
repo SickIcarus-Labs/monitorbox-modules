@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Idempotently stage the Phase-6A replacement UI 1.1.14 build-22 candidate."""
+"""Idempotently stage the Phase-6A replacement UI 1.1.13 build-22 candidate."""
 from __future__ import annotations
 import json
 from pathlib import Path
@@ -9,12 +9,12 @@ from typing import Any
 # Preserve its source/history, but publish the replacement directly after the
 # last accepted UI release.
 PREDECESSOR=("com.sickicarus.monitorbox.ui","1.1.12",20)
-RELEASE=("com.sickicarus.monitorbox.ui","1.1.14",22)
+RELEASE=("com.sickicarus.monitorbox.ui","1.1.13",22)
 ENTRY={
   "manifest":{
     "module_id":"com.sickicarus.monitorbox.ui",
     "display_name":"MonitorBox UI",
-    "version":"1.1.14",
+    "version":"1.1.13",
     "build":22,
     "schema":1,
     "state_schema":1,
@@ -27,7 +27,7 @@ ENTRY={
     "permissions":[],
     "lifecycle_policy":"required"
   },
-  "package":"com.sickicarus.monitorbox.ui-1.1.14-build22.zip"
+  "package":"com.sickicarus.monitorbox.ui-1.1.13-build22.zip"
 }
 
 def identity(item:dict[str,Any])->tuple[str,str,int]:
@@ -45,7 +45,7 @@ def stage(path:Path)->bool:
     if len(indexes)!=1: raise SystemExit(f"expected exactly one accepted UI predecessor {PREDECESSOR}, found {len(indexes)}")
     modules.insert(indexes[0]+1,ENTRY)
     path.write_text(json.dumps(source,separators=(",",":"))+"\n",encoding="utf-8")
-    print("staged Phase-6A replacement UI 1.1.14 build 22 after accepted build 20")
+    print("staged Phase-6A replacement UI 1.1.13 build 22 after accepted build 20")
     return True
 
 def main()->None:
