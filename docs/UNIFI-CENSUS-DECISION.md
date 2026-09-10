@@ -1,56 +1,56 @@
-# Broad Leaf UniFi API census decision — #170/#228
+# Broad Leaf UniFi provider census outcome — #170/#228
 
-Sanitized physical census captured from Monitor on 2026-09-10. No production credentials or raw site identity are committed here.
+Sanitized physical census captured from Monitor on 2026-09-10 against UniFi Network `10.6.101`. No production credentials or raw site identity are committed here.
 
-## Qualified provider version
+## Final decision
 
-- UniFi Network application: `10.6.101`
-- Official Integration API prefix: `/proxy/network/integration`
-- Official schema: `/proxy/network/api-docs/integration.json`
+**Do not implement the official Integration API backend. Continue using the existing legacy username/password session backend with a dedicated read-only UniFi service account.**
 
-The census sanitizer did not preserve an exact UniFi OS version, so no OS version is asserted here.
+Issue #228 was intentionally an evidence-driven experiment. The census demonstrated that the official API does not add a MonitorBox monitoring capability that the legacy provider lacks, while several capabilities MonitorBox already uses remain richer or legacy-only. A dual-backend implementation would therefore add configuration, code, credentials, testing permutations, and new failure modes without allowing the legacy backend to be retired.
 
-## Capability disposition
+There is also no least-privilege benefit for Broad Leaf. The official API exposes write-capable operations; introducing a credential for that surface would increase credential impact for MonitorBox without a compensating monitoring benefit. The existing UniFi service account can instead remain constrained to read-only access.
 
-| MonitorBox dependency | Official API observation | Legacy observation | Disposition |
+Reconsider an official API backend only if a future UniFi release can replace the legacy provider without material capability loss **and** can be granted an equivalently narrow read-only credential scope.
+
+## Capability findings
+
+| MonitorBox dependency | Official API | Legacy provider | Decision |
 | --- | --- | --- | --- |
-| Network application/version | `/v1/info` | `stat/sysinfo` | Official equivalent |
-| Device inventory | `/v1/sites/{siteId}/devices` | `stat/device` | Official equivalent after normalization |
-| Device statistics | `/v1/sites/{siteId}/devices/{deviceId}/statistics/latest` | embedded/device statistics | Official different but sufficient for supported device-rate/system telemetry |
-| Connected clients | `/v1/sites/{siteId}/clients` | `stat/sta` | Official equivalent after normalization |
-| Networks | `/v1/sites/{siteId}/networks` | `rest/networkconf` | Official sufficient for network inventory; legacy retains richer configuration-only fields |
-| WAN inventory | `/v1/sites/{siteId}/wans` | `stat/health` + network configuration | Official exposes inventory only; legacy remains authoritative for current health detail |
-| Site-to-site VPN inventory | `/v1/sites/{siteId}/vpn/site-to-site-tunnels` | network configuration + `/vpn/connections` | Official exposes identity/type only; legacy remains authoritative for current operational status detail |
-| Switch port state | device detail `interfaces.ports` | `stat/device.port_table` | Official different but sufficient for basic per-port link/speed state |
-| Physical topology / peer-port identity | **not exposed** | `/topology` + `stat/device.uplink` | **Legacy-only authoritative capability** |
-| Detailed traffic flows | no Integration API endpoint | `/traffic-flows` read query | **Legacy-only capability** |
+| Network application/version | available | available | keep legacy |
+| Device inventory/statistics | available | available, richer current shape | keep legacy |
+| Connected clients | available | available | keep legacy |
+| Networks | available | available, richer configuration detail | keep legacy |
+| WAN state | inventory available | richer health/operational detail | keep legacy |
+| VPN state | inventory available | richer configuration/operational detail | keep legacy |
+| Switch port state | basic state available | richer `port_table` semantics | keep legacy |
+| Physical topology / peer-port identity | **not exposed authoritatively** | `/topology` + `stat/device.uplink` | **legacy-only authority** |
+| Detailed traffic flows | no equivalent observed | `/traffic-flows` | **legacy-only capability** |
 
-No capability is silently dropped. Backend/capability selection must be explicit and observable.
+## #170 authoritative topology evidence
 
-## #170 decision gate: disposition C
+The official API identifies an upstream device but does not expose the authoritative local/remote switch-port pair required for expectation-aware port recommendation.
 
-The official API is insufficient to prove the physical port pair required by #170. Its adopted-device detail exposes only the upstream **device** identifier. The controller-exposed OpenAPI defines the device-uplink overview with only `deviceId`, and exposes no topology, LLDP, or neighbor endpoint.
+The legacy API does expose that relationship. The sanitized census proves the known physical fixture as:
 
-The legacy API does expose authoritative physical topology. The sanitized census contains a provider edge with:
-
-- child/edge device: `<alias:fixture-edge>` / stable synthetic MAC identity;
+- child/edge device: `fixture-edge`;
 - child port: `9`;
-- parent/core device: `<alias:fixture-core>` / stable synthetic MAC identity;
+- parent/core device: `fixture-core`;
 - parent port: `15`;
 - link type: wired;
 - rate: `10000 Mbps`.
 
-The same relationship is independently present in legacy `stat/device` as the child uplink tuple (`port_idx`, `uplink_mac`, `uplink_remote_port`). Adjacent ordinary/unknown ports do not have this topology relationship.
+The same relationship is independently represented in legacy `stat/device` through the child uplink tuple (`port_idx`, `uplink_mac`, `uplink_remote_port`). Adjacent ordinary/unknown ports do not carry that topology relationship.
 
-Therefore #170 must use a narrowly bounded, explicit legacy topology read path. It must not infer infrastructure role from switch names, port numbers, speed, connector type, link state, or the fact that the official API names an upstream device.
+Therefore #170 should classify infrastructure ports from authoritative legacy topology identity, not from switch names, port numbers, speed, connector type, or other Broad Leaf-specific heuristics. Ordinary/unknown access ports remain optional.
 
-## #228 backend contract from this census
+## Implementation authority
 
-Implement one normalized provider with two explicit primary auth modes:
+For PR #65 and current MonitorBox UniFi work:
 
-- `auth_mode: api_key` — official Integration API for supported normalized capabilities;
-- `auth_mode: username_password` — existing legacy session backend.
-
-Where `api_key` mode needs a capability proven legacy-only (physical topology/recommendation authority, detailed traffic flows, and current rich WAN/VPN operational detail), it may use a separately configured **explicit legacy-read companion**. That companion is not fallback: failure/unavailability must remain visible and degrade only the dependent capability to provider/dependency unknown/optional truth. The official backend must never silently switch wholesale to legacy session auth.
-
-This decision is the implementation authority for PR #65 unless later physical evidence supersedes it.
+- supported auth/backend remains `username_password` via the existing legacy session path;
+- use a dedicated read-only UniFi service account;
+- retain existing auth-loss/backoff protections;
+- add only the bounded legacy topology normalization needed to solve #170;
+- preserve provider-loss truth (`unknown` / `monitor_dependency`);
+- do not add official API-key configuration, dual-backend behavior, or API-key secrets;
+- do not merge or close #170 until exact-candidate Broad Leaf physical acceptance proves the real infrastructure link is Recommended while ordinary/unknown ports remain Optional.
