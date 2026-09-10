@@ -7,8 +7,8 @@ import path from 'node:path';
 
 const root=path.resolve(path.dirname(new URL(import.meta.url).pathname),'..');
 const phase6=fs.readFileSync(path.join(root,'sources/ui/1.1.13-build21/phase6-convergence.js'),'utf8');
-const physical=fs.readFileSync(path.join(root,'sources/ui/1.1.14-build22/phase6-physical-convergence.js'),'utf8');
-const css=fs.readFileSync(path.join(root,'sources/ui/1.1.14-build22/phase6-physical-convergence.css'),'utf8');
+const physical=fs.readFileSync(path.join(root,'sources/ui/1.1.13-build22/phase6-physical-convergence.js'),'utf8');
+const css=fs.readFileSync(path.join(root,'sources/ui/1.1.13-build22/phase6-physical-convergence.css'),'utf8');
 const builder=fs.readFileSync(path.join(root,'tools/build_first_party_ui_build22.py'),'utf8');
 const stager=fs.readFileSync(path.join(root,'tools/stage_phase6_ui_build22.py'),'utf8');
 const fixture=fs.readFileSync(path.join(root,'tests/fixtures/phase6/core-a6ace917-advanced.html'),'utf8');
@@ -62,7 +62,7 @@ assert.equal(context.MonitorBoxPhase6Convergence.maintenanceMarkup({state:'healt
 assert.doesNotMatch(physical,/QNAP|SNMP|Goliath|Scrubbing/i);
 assert.match(css,/\.parity-card > \.phase6-maintenance/);
 assert.match(css,/@media \(pointer: coarse\)/);
-assert.match(builder,/UI_VERSION="1\.1\.14"/);
+assert.match(builder,/UI_VERSION="1\.1\.13"/);
 assert.match(builder,/UI_BUILD=22/);
 assert.match(builder,/build_first_party_ui_build21 as rejected/);
 assert.doesNotMatch(builder,/build20\.RELEASE20,rejected\.RELEASE21,RELEASE22/);
@@ -70,6 +70,7 @@ assert.match(builder,/build20\.RELEASE20,RELEASE22/);
 assert.match(builder,/_PHASE6_PHYSICAL_SCRIPT/);
 assert.match(builder,/phase6-physical-convergence\.js/);
 assert.match(stager,/PREDECESSOR=\("com\.sickicarus\.monitorbox\.ui","1\.1\.12",20\)/);
+assert.match(stager,/RELEASE=\("com\.sickicarus\.monitorbox\.ui","1\.1\.13",22\)/);
 assert.match(fixture,/a6ace91753f196ffc1ec4966880ca4bf839d0d74/);
 assert.match(fixture,/934267f49a9794addffbf721556dbf5c241c1a2e/);
 console.log('UI Phase-6 build-22 acceptance: PASS (real Advanced index + parity-card maintenance seams)');
