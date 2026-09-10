@@ -62,6 +62,20 @@ class Controller:
         return parsed.scheme.casefold(), (parsed.hostname or "").casefold(), parsed.port
 
 
+@dataclass(frozen=True)
+class LeakGuardValue:
+    """Protected material checked before sanitized census output is written.
+
+    High-value secrets use substring matching so they cannot survive embedded in
+    another serialized string. Low-entropy identifiers such as usernames use
+    exact-only matching to avoid false positives against harmless schema/static
+    text while still refusing an actual raw identifier value or object key.
+    """
+
+    value: str
+    exact_only: bool = False
+
+
 class Sanitizer:
     def __init__(self, aliases: Mapping[str, str] | None = None) -> None:
         self._aliases = {str(k): str(v) for k, v in dict(aliases or {}).items() if str(k)}
@@ -198,7 +212,12 @@ def _controller(raw: Mapping[str, Any]) -> Controller:
     return Controller(base_url, bool(raw.get("verify_tls", True)), timeout, max_bytes)
 
 
-def _secret(env_name: str, collected: list[str]) -> str:
+def _secret(
+    env_name: str,
+    collected: list[LeakGuardValue],
+    *,
+    exact_only: bool = False,
+) -> str:
     name = str(env_name or "").strip()
     if not name:
         raise CensusError("credential environment variable name is required")
@@ -208,14 +227,14 @@ def _secret(env_name: str, collected: list[str]) -> str:
         raise CensusError(f"credential environment variable is missing: {name}") from exc
     if not value:
         raise CensusError(f"credential environment variable is empty: {name}")
-    collected.append(value)
+    collected.append(LeakGuardValue(value=value, exact_only=exact_only))
     return value
 
 
 def _client_for_backend(
     controller: Controller,
     backend: Mapping[str, Any],
-    secrets: list[str],
+    secrets: list[LeakGuardValue],
 ) -> BackendClient:
     auth = backend.get("auth")
     if not isinstance(auth, Mapping):
@@ -228,7 +247,9 @@ def _client_for_backend(
         key = _secret(str(auth.get("env") or ""), secrets)
         return BackendClient(controller, {header: key, "Accept": "application/json"})
     if mode == "username_password":
-        username = _secret(str(auth.get("username_env") or ""), secrets)
+        username = _secret(
+            str(auth.get("username_env") or ""), secrets, exact_only=True
+        )
         password = _secret(str(auth.get("password_env") or ""), secrets)
         client = BackendClient(controller, {"Accept": "application/json"})
         login_path = str(auth.get("login_path") or "/api/auth/login")
@@ -248,7 +269,7 @@ def _client_for_backend(
             raise CensusError(f"legacy authentication returned HTTP {result['status']}")
         csrf = result["headers"].get("X-Csrf-Token") or result["headers"].get("X-CSRF-Token")
         if csrf:
-            secrets.append(csrf)
+            secrets.append(LeakGuardValue(value=csrf))
             client.headers["X-Csrf-Token"] = csrf
         return client
     raise CensusError(f"unsupported auth mode: {mode!r}")
@@ -292,9 +313,45 @@ def _probe(
     return record
 
 
-def _assert_no_secret_leak(serialized: str, secrets: Iterable[str]) -> None:
-    for secret in secrets:
-        if secret and secret in serialized:
+def _serialized_string_values(value: Any) -> Iterable[str]:
+    if isinstance(value, Mapping):
+        for key, nested in value.items():
+            yield str(key)
+            yield from _serialized_string_values(nested)
+        return
+    if isinstance(value, (list, tuple)):
+        for nested in value:
+            yield from _serialized_string_values(nested)
+        return
+    if isinstance(value, str):
+        yield value
+
+
+def _assert_no_secret_leak(
+    serialized: str,
+    secrets: Iterable[LeakGuardValue | str],
+) -> None:
+    normalized = [
+        item if isinstance(item, LeakGuardValue) else LeakGuardValue(value=item)
+        for item in secrets
+        if (item.value if isinstance(item, LeakGuardValue) else item)
+    ]
+    exact_values = {item.value for item in normalized if item.exact_only}
+    if exact_values:
+        try:
+            parsed = json.loads(serialized)
+        except json.JSONDecodeError as exc:
+            raise CensusError(
+                "cannot validate exact-only protected values in non-JSON census output"
+            ) from exc
+        for candidate in _serialized_string_values(parsed):
+            if candidate in exact_values:
+                raise CensusError(
+                    "sanitized census contains a raw credential/session secret; refusing to write output"
+                )
+
+    for item in normalized:
+        if not item.exact_only and item.value in serialized:
             raise CensusError(
                 "sanitized census contains a raw credential/session secret; refusing to write output"
             )
@@ -313,7 +370,7 @@ def collect(plan: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(backends, list) or not backends:
         raise CensusError("plan.backends must be a non-empty list")
 
-    secrets: list[str] = []
+    secrets: list[LeakGuardValue] = []
     records: list[dict[str, Any]] = []
     for backend in backends:
         if not isinstance(backend, Mapping):
