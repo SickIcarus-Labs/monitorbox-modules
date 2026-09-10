@@ -1,0 +1,77 @@
+name: Phase 7B observer truth acceptance
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - tools/accept_ui_phase7b_observer_truth.mjs
+      - .github/workflows/phase7b-observer-truth-acceptance.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phase7b-observer-truth-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  observer-truth:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Verify Portainer provider-loss and identity truth
+        run: python tools/accept_portainer_runtime.py
+
+      - name: Verify UI provider runtime-state authority
+        run: node tools/accept_ui_phase7b_observer_truth.mjs
+
+      - name: Verify accepted UI build 23 still carries provider-first authority
+        run: |
+          set -euo pipefail
+          python tools/build_first_party_ui_build23.py --output-dir /tmp/phase7b-ui
+          python - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          package = Path('/tmp/phase7b-ui/com.sickicarus.monitorbox.ui-1.1.13-build23.zip')
+          if not package.is_file():
+              raise SystemExit(f'missing current UI package: {package}')
+          with ZipFile(package) as archive:
+              scripts = {
+                  name: archive.read(name).decode('utf-8')
+                  for name in archive.namelist()
+                  if name.endswith('.js')
+              }
+          payload = '\n'.join(scripts.values())
+          assert 'UI 1.1.10 build 18' in payload, 'build23 lost inherited build18 authority layer'
+          assert 'provider inventory owns runtime' in payload.lower(), 'build23 lost provider runtime authority contract'
+          assert 'phase 6' in payload.lower(), 'build23 replacement convergence layer is missing'
+          print('UI build23 package lineage: PASS (build18 provider authority retained through build23)')
+          PY
+
+      - name: Prove Phase 7B acceptance branch is non-release
+        shell: bash
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+        run: |
+          set -euo pipefail
+          base="$PR_BASE_SHA"
+          if [[ -z "$base" ]]; then
+            git fetch --no-tags origin main:refs/remotes/origin/main
+            base="$(git merge-base HEAD refs/remotes/origin/main)"
+          fi
+          git cat-file -e "$base^{commit}"
+          boundary="$(git merge-base "$base" HEAD)"
+          git diff --name-only "$boundary" HEAD > /tmp/phase7b-paths.txt
+          cat /tmp/phase7b-paths.txt
+          if grep -Eq '^(sources/|packages/|release-intents/|channels/|catalog\.source\.json$|index\.json$)' /tmp/phase7b-paths.txt; then
+            echo '::error::Phase 7B acceptance hardening unexpectedly changed release/module authority'
+            exit 1
+          fi
