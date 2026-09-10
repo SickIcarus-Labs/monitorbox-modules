@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Replace physically rejected UI build 21 with v1.1.14 build 22.
+"""Replace physically rejected UI build 21 with v1.1.13 build 22.
 
 Build 22 binds Phase-6A presentation to the actual Advanced Configuration tree
 and v1-parity dashboard card renderer observed on Broad Leaf. Core remains
@@ -25,7 +25,7 @@ import build_first_party_ui_build19 as build19
 import build_first_party_ui_build20 as build20
 import build_first_party_ui_build21 as rejected
 
-UI_VERSION="1.1.14"
+UI_VERSION="1.1.13"
 UI_BUILD=22
 RELEASE22=stable.Release(build=UI_BUILD,certified_sha="phase6-physical-path-convergence",version=UI_VERSION)
 SOURCE_FILES=frozenset(("phase6-physical-convergence.js","phase6-physical-convergence.css"))
@@ -36,14 +36,14 @@ def _replace_once(payload:bytes,old:bytes,new:bytes,seam:str)->bytes:
     return payload.replace(old,new,1)
 
 def _build22_assets(root:Path)->dict[str,bytes]:
-    # Build 22 intentionally inherits the rejected build21 *source behavior* as
+    # Build 22 intentionally inherits the rejected build21 source behavior as
     # an implementation layer, then fixes its physical-path mistakes. It does
     # not make build21 a catalog/package predecessor.
     assets=rejected._build21_assets(root)
-    source_root=root/"sources"/"ui"/"1.1.14-build22"
+    source_root=root/"sources"/"ui"/"1.1.13-build22"
     actual={path.name for path in source_root.iterdir() if path.is_file()}
     if actual!=SOURCE_FILES:
-        raise SystemExit(f"UI 1.1.14 build-22 delta shape changed: missing={sorted(SOURCE_FILES-actual)}, extra={sorted(actual-SOURCE_FILES)}")
+        raise SystemExit(f"UI 1.1.13 build-22 delta shape changed: missing={sorted(SOURCE_FILES-actual)}, extra={sorted(actual-SOURCE_FILES)}")
     for name in SOURCE_FILES:
         assets[name]=(source_root/name).read_bytes()
     assets["dashboard.html"]=_replace_once(
@@ -59,7 +59,7 @@ def _build22_assets(root:Path)->dict[str,bytes]:
 def _standalone_application()->bytes:
     payload=rejected._standalone_application()
     replacements=(
-        (b"Standalone managed MonitorBox UI 1.1.13 build 21.",b"Standalone managed MonitorBox UI 1.1.14 build 22."),
+        (b"Standalone managed MonitorBox UI 1.1.13 build 21.",b"Standalone managed MonitorBox UI 1.1.13 build 22."),
         (
             b'    "phase6-convergence.css": "text/css",\n}',
             b'    "phase6-convergence.css": "text/css",\n'
