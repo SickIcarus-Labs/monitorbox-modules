@@ -47,15 +47,16 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
 
-      - name: Checkout accepted Core Advanced renderer fixture
-        uses: actions/checkout@v6
-        with:
-          repository: SickIcarus-Labs/monitorbox
-          ref: a6ace91753f196ffc1ec4966880ca4bf839d0d74
-          path: .phase6-core
-          fetch-depth: 1
-          sparse-checkout: src/monitorbox/v2/config_ui.py
-          sparse-checkout-cone-mode: false
+      - name: Fetch accepted Core Advanced renderer fixture
+        run: |
+          set -euo pipefail
+          core_sha='a6ace91753f196ffc1ec4966880ca4bf839d0d74'
+          mkdir -p .phase6-core/src/monitorbox/v2
+          curl --fail --location --silent --show-error \
+            "https://raw.githubusercontent.com/SickIcarus-Labs/monitorbox/${core_sha}/src/monitorbox/v2/config_ui.py" \
+            --output .phase6-core/src/monitorbox/v2/config_ui.py
+          test -s .phase6-core/src/monitorbox/v2/config_ui.py
+          grep -Fq '_SETTINGS_HTML' .phase6-core/src/monitorbox/v2/config_ui.py
 
       - uses: actions/setup-python@v6
         with:
