@@ -8,6 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
+import analyze_unifi_api_census as analyzer
 import unifi_api_census as module
 import unifi_api_census_migration as migration
 
@@ -225,5 +226,60 @@ except module.CensusError:
 else:
     raise AssertionError("migration traffic helper accepted a mutating path")
 
+# Analyzer must report observations without converting resemblance into authority.
+analysis_fixture = {
+    "format": "monitorbox-unifi-census-v2",
+    "records": [
+        {
+            "backend": "official",
+            "capability": "device_detail_topology_ports",
+            "path": "/integration/v1/sites/<id:a>/devices/<id:b>",
+            "status": 200,
+            "json": {
+                "uplink": {"port": 9, "peerId": "<id:c>"},
+                "ports": [{"idx": 9, "state": "UP"}],
+            },
+        },
+        {
+            "backend": "legacy",
+            "capability": "topology",
+            "path": "/proxy/network/v2/api/site/default/topology",
+            "status": 200,
+            "json": {"data": [{"remotePort": "25"}]},
+        },
+    ],
+}
+analysis_text = analyzer.render(analysis_fixture)
+assert "both observed; semantic parity requires review" in analysis_text
+assert "$.uplink" in analysis_text
+assert "$.uplink.peerId" in analysis_text
+assert "$.data[0].remotePort" in analysis_text
+assert "UNRESOLVED — physical/provider-semantic review required" in analysis_text
+assert "authoritative equivalent" in analysis_text
+
+# Missing/errored official evidence must never be promoted to equivalence.
+legacy_only_fixture = {
+    "format": "monitorbox-unifi-census-v2",
+    "records": [
+        {
+            "backend": "official",
+            "capability": "device_detail_topology_ports",
+            "path": "/integration/v1/devices/x",
+            "status": 404,
+            "json": {"code": "not-found"},
+        },
+        {
+            "backend": "legacy",
+            "capability": "topology",
+            "path": "/proxy/network/v2/api/site/default/topology",
+            "status": 200,
+            "json": {"data": [{"uplink": True}]},
+        },
+    ],
+}
+legacy_text = analyzer.render(legacy_only_fixture)
+assert "legacy-only in this census" in legacy_text
+assert "UNRESOLVED — physical/provider-semantic review required" in legacy_text
+
 del os.environ["CENSUS_TEST_API_KEY"]
-print("UniFi API census safety/coverage acceptance: PASS")
+print("UniFi API census safety/coverage/analyzer acceptance: PASS")
