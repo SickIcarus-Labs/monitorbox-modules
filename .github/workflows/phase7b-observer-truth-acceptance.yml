@@ -1,0 +1,76 @@
+name: Phase 7B observer truth acceptance
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - tools/accept_ui_phase7b_observer_truth.mjs
+      - .github/workflows/phase7b-observer-truth-acceptance.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phase7b-observer-truth-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  observer-truth:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Verify Portainer provider-loss and identity truth
+        run: python tools/accept_portainer_runtime.py
+
+      - name: Verify UI provider runtime-state authority
+        run: node tools/accept_ui_phase7b_observer_truth.mjs
+
+      - name: Verify accepted UI build 23 package identity
+        run: |
+          set -euo pipefail
+          python tools/build_first_party_ui_build23.py --output-dir /tmp/phase7b-ui
+          python - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          package = Path('/tmp/phase7b-ui/com.sickicarus.monitorbox.ui-1.1.13-build23.zip')
+          if not package.is_file():
+              raise SystemExit(f'missing current UI package: {package}')
+          with ZipFile(package) as archive:
+              names = set(archive.namelist())
+              init_name = next((name for name in names if name.endswith('/__init__.py')), None)
+              if init_name is None:
+                  raise AssertionError('build23 package has no standalone entrypoint')
+              init_payload = archive.read(init_name).decode('utf-8')
+              assert any(name.endswith('/assets/phase6-convergence.js') for name in names)
+              assert any(name.endswith('/assets/phase6-physical-convergence.js') for name in names)
+              assert 'Standalone managed MonitorBox UI 1.1.13 build 23.' in init_payload
+          print('UI build23 package identity: PASS (standalone build23 + expected Phase-6 replacement assets)')
+          PY
+
+      - name: Prove Phase 7B acceptance branch is non-release
+        shell: bash
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+        run: |
+          set -euo pipefail
+          base="$PR_BASE_SHA"
+          if [[ -z "$base" ]]; then
+            git fetch --no-tags origin main:refs/remotes/origin/main
+            base="$(git merge-base HEAD refs/remotes/origin/main)"
+          fi
+          git cat-file -e "$base^{commit}"
+          boundary="$(git merge-base "$base" HEAD)"
+          git diff --name-only "$boundary" HEAD > /tmp/phase7b-paths.txt
+          cat /tmp/phase7b-paths.txt
+          if grep -Eq '^(sources/|packages/|release-intents/|channels/|catalog\.source\.json$|index\.json$)' /tmp/phase7b-paths.txt; then
+            echo '::error::Phase 7B acceptance hardening unexpectedly changed release/module authority'
+            exit 1
+          fi
