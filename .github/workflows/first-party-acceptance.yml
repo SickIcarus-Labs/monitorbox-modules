@@ -90,6 +90,8 @@ jobs:
         run: python tools/accept_snmp_runtime.py
       - name: Verify managed UniFi Network runtime and state continuity
         run: python tools/accept_unifi_runtime.py
+      - name: Verify UniFi expectation-aware legacy topology policy
+        run: python tools/accept_unifi_topology_policy.py
       - name: Verify managed UniFi Network auth-loss recovery
         run: python tools/accept_unifi_auth_recovery.py
       - name: Verify managed UniFi Network auth rate-limit backoff
