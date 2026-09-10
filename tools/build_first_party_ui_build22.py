@@ -4,6 +4,8 @@
 Build 22 binds Phase-6A presentation to the actual Advanced Configuration tree
 and v1-parity dashboard card renderer observed on Broad Leaf. Core remains
 independent; canonical workspace and observation metadata stay authoritative.
+Build 21 remains source/test history only: it failed physical acceptance and
+never entered the trunk catalog, so this builder does not emit it as a release.
 """
 from __future__ import annotations
 from pathlib import Path
@@ -21,7 +23,7 @@ import build_first_party_ui_build17 as build17
 import build_first_party_ui_build18 as build18
 import build_first_party_ui_build19 as build19
 import build_first_party_ui_build20 as build20
-import build_first_party_ui_build21 as previous
+import build_first_party_ui_build21 as rejected
 
 UI_VERSION="1.1.14"
 UI_BUILD=22
@@ -34,7 +36,10 @@ def _replace_once(payload:bytes,old:bytes,new:bytes,seam:str)->bytes:
     return payload.replace(old,new,1)
 
 def _build22_assets(root:Path)->dict[str,bytes]:
-    assets=previous._build21_assets(root)
+    # Build 22 intentionally inherits the rejected build21 *source behavior* as
+    # an implementation layer, then fixes its physical-path mistakes. It does
+    # not make build21 a catalog/package predecessor.
+    assets=rejected._build21_assets(root)
     source_root=root/"sources"/"ui"/"1.1.14-build22"
     actual={path.name for path in source_root.iterdir() if path.is_file()}
     if actual!=SOURCE_FILES:
@@ -52,7 +57,7 @@ def _build22_assets(root:Path)->dict[str,bytes]:
     return assets
 
 def _standalone_application()->bytes:
-    payload=previous._standalone_application()
+    payload=rejected._standalone_application()
     replacements=(
         (b"Standalone managed MonitorBox UI 1.1.13 build 21.",b"Standalone managed MonitorBox UI 1.1.14 build 22."),
         (
@@ -78,7 +83,7 @@ def _standalone_application()->bytes:
 
 def _package_files(root:Path,release:stable.Release)->dict[str,bytes]:
     if release.build!=UI_BUILD:
-        return previous._package_files(root,release)
+        return rejected._package_files(root,release)
     package=release.import_package
     files={f"{package}/__init__.py":_standalone_application()}
     for name,payload in _build22_assets(root).items():
@@ -90,11 +95,13 @@ def _package_files(root:Path,release:stable.Release)->dict[str,bytes]:
     return files
 
 def main()->None:
+    # Build21 is deliberately absent: it failed Broad Leaf physical acceptance
+    # and never became trunk catalog history.
     stable.RELEASES=stable.RELEASES+(
         build9.RELEASE8,build9.RELEASE9,build10.RELEASE10,build11.RELEASE11,
         build12.RELEASE12,build13.RELEASE13,build14.RELEASE14,build15.RELEASE15,
         build16.RELEASE16,build17.RELEASE17,build18.RELEASE18,build19.RELEASE19,
-        build20.RELEASE20,previous.RELEASE21,RELEASE22,
+        build20.RELEASE20,RELEASE22,
     )
     stable._package_files=_package_files
     stable.main()
