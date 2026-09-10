@@ -26,11 +26,41 @@ fi
 if ! command -v docker >/dev/null 2>&1; then
   fail "docker is required on Monitor"
 fi
+if ! command -v python3 >/dev/null 2>&1; then
+  fail "python3 is required on Monitor for plan safety preflight"
+fi
 if ! PLAN="$(readlink -f "$PLAN" 2>/dev/null)"; then
   fail "cannot resolve plan path"
 fi
 if [[ ! -f "$PLAN" ]]; then
   fail "plan file does not exist: $PLAN"
+fi
+
+# Validate path-bearing local configuration before any credential is requested.
+# A site identifier is a provider identifier, not a path. Refuse dot segments,
+# slash-like escapes, whitespace, and other path syntax instead of relying on
+# URL quoting/normalization around the one permitted read-only traffic POST.
+if ! python3 - "$PLAN" <<'PY'
+import json
+import re
+import sys
+from pathlib import Path
+
+plan = json.loads(Path(sys.argv[1]).read_text())
+if not isinstance(plan, dict) or plan.get("preset") != "network-api-migration":
+    raise SystemExit("plan preset must be network-api-migration")
+legacy = plan.get("legacy")
+if legacy is not None:
+    if not isinstance(legacy, dict):
+        raise SystemExit("legacy plan must be an object")
+    site = str(legacy.get("site") or "default")
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", site):
+        raise SystemExit(
+            "legacy.site may contain only letters, digits, underscore, or hyphen"
+        )
+PY
+then
+  fail "plan safety preflight failed"
 fi
 
 if [[ -z "$OUT" ]]; then
