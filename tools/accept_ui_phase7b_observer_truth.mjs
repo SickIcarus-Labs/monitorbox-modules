@@ -74,10 +74,10 @@ assert.equal(rendered._canonical_presentation_authority,'goliath_ombi');
 // degraded for transitional/startup conditions. Later UI releases compose over
 // these accepted layers rather than creating a second provider-health model.
 assert.match(repairSource,/\.\.\.providerObject/);
+assert.match(repairSource,/provider inventory owns runtime/i);
 assert.doesNotMatch(repairSource,/state\s*:\s*canonical(?:\.|\?\.)state/);
 assert.match(serviceSource,/\$\{pill\(service\.state\)\}/);
 assert.match(providerSource,/if\(starting\)return\{state:'degraded'/);
-assert.match(providerSource,/provider inventory owns runtime/i);
 
 console.log(
   'Phase-7B UI observer-truth acceptance: PASS '+
