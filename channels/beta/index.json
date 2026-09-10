@@ -3,7 +3,7 @@
   "signed": {
     "repository_id": "official-beta",
     "display_name": "MonitorBox Official Beta",
-    "generated_at": "2026-09-09T18:43:23.448632Z",
+    "generated_at": "2026-09-10T04:58:10.464317Z",
     "modules": [
       {
         "manifest": {
@@ -270,6 +270,33 @@
           "sha256": "bf8b7b985a5d30e7a0165de24dc61ddc6e6205b14ed782a4135564e9a75d8761",
           "signature_identity": "official-ed25519-1",
           "signature": "FwGW9SNPSSu+x34vxaP/bZYxTW9z8vnio5CgjBgWybCScJWI0oCbfkQubRUVO+TGZqDr0DsjiO3D+4PqNbH7Ag=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.http",
+          "display_name": "HTTP(S) Integration",
+          "version": "1.0.1",
+          "build": 2,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "integration",
+          "entrypoints": {
+            "integration": "monitorbox_http_v101_b2:PLUGIN"
+          },
+          "requires_core": ">=2.3.1 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "optional"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.http-1.0.1-build2.zip",
+          "filename": "com.sickicarus.monitorbox.http-1.0.1-build2.zip",
+          "sha256": "45336504770f0e15e6575207d5471b92664749a09826c476cf8485c5ad8b371a",
+          "signature_identity": "official-ed25519-1",
+          "signature": "nDyuyAp6dhVFVP0V+NXgmR6ucB0htO7BCdHherccbqCFeZ/ZMFiB0QQKt+1rMkcu0pJCvTTN99CAKWduss84Bw=="
         }
       },
       {
@@ -621,6 +648,33 @@
           "sha256": "a5688c999bb4c2b60e3236172662b92a2462f0da30b8ccdade5b74f9f7b5081d",
           "signature_identity": "official-ed25519-1",
           "signature": "WLsZCUMcMUfD079eUST8C37cnBZ34kt/WvI/FxpwVEAAbn/Ze0sZyxECB4nVBkAk58zHj/FLLsltUA/bVTRBCg=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.scrypted",
+          "display_name": "Scrypted Integration",
+          "version": "2.1.3",
+          "build": 4,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "integration",
+          "entrypoints": {
+            "integration": "monitorbox_scrypted_v213_b4:PLUGIN"
+          },
+          "requires_core": ">=2.3.1 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "optional"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.scrypted-2.1.3-build4.zip",
+          "filename": "com.sickicarus.monitorbox.scrypted-2.1.3-build4.zip",
+          "sha256": "4cafde75de790e98c4fe7589d1dcea65909655e699ee8bda8c190c2e101cec1d",
+          "signature_identity": "official-ed25519-1",
+          "signature": "Mfb1GKssvQ8uNlmqL99F6fcaCxbPJHG5qmxw0u+Fp9Nu8N2ZXTx0Jo72T4aRJ1aP587DmUJ53IYJjfMcRCpwCw=="
         }
       },
       {
@@ -1192,6 +1246,33 @@
       },
       {
         "manifest": {
+          "module_id": "com.sickicarus.monitorbox.ui",
+          "display_name": "MonitorBox UI",
+          "version": "1.1.13",
+          "build": 23,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "ui",
+          "entrypoints": {
+            "webui": "monitorbox_ui_b23:install"
+          },
+          "requires_core": ">=2.3.1 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "required"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.ui-1.1.13-build23.zip",
+          "filename": "com.sickicarus.monitorbox.ui-1.1.13-build23.zip",
+          "sha256": "00311dd6915176cb6574697c523ecd9c79d05dbf029df3d2a5d9e9ff0654c93a",
+          "signature_identity": "official-ed25519-1",
+          "signature": "Vpte4KARKECx+ce/hNjMVcLEw5NyIpxhW8aCElYPCNmguIIi8B2E2ba1H3Iv7KJRndk3w5Ctw+aDgwRKLQuvBQ=="
+        }
+      },
+      {
+        "manifest": {
           "module_id": "com.sickicarus.monitorbox.unifi",
           "display_name": "UniFi Network Integration",
           "version": "1.0.0",
@@ -1357,6 +1438,6 @@
   "signature": {
     "algorithm": "ed25519",
     "identity": "official-ed25519-1",
-    "value": "4D95dzfv6uBrxGKFl6TZPc/8cC53J11sZOgG5VtxgfQd0iy0E6TWvE3qMwSkf8s1Irl0Jkp61xdPtLys7AqkBQ=="
+    "value": "KfhT1MsMrE4+sq7qGlCdYIzalIGMQKpoMb3k2NHKKeKXxtjNHIuqVqyX/WlMG2/xumPvp8b2DBmxzPApoqKxAg=="
   }
 }
