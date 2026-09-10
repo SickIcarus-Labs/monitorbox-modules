@@ -1,0 +1,37 @@
+{
+  "preset": "network-api-migration",
+  "controller": {
+    "base_url": "https://UNIFI-CONSOLE",
+    "verify_tls": false,
+    "timeout_seconds": 15,
+    "max_bytes": 4194304
+  },
+  "aliases": {
+    "Bonus Room": "fixture-edge",
+    "Aggregation": "fixture-core"
+  },
+  "official": {
+    "name": "official",
+    "auth": {
+      "mode": "api_key",
+      "header": "X-API-Key",
+      "env": "UNIFI_CENSUS_API_KEY"
+    },
+    "prefixes": [
+      "/integration",
+      "/proxy/network/integration"
+    ],
+    "max_sites": 8,
+    "max_devices": 64
+  },
+  "legacy": {
+    "name": "legacy",
+    "auth": {
+      "mode": "username_password",
+      "username_env": "UNIFI_CENSUS_USERNAME",
+      "password_env": "UNIFI_CENSUS_PASSWORD",
+      "login_path": "/api/auth/login"
+    },
+    "site": "default"
+  }
+}
