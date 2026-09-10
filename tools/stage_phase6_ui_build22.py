@@ -5,7 +5,10 @@ import json
 from pathlib import Path
 from typing import Any
 
-PREDECESSOR=("com.sickicarus.monitorbox.ui","1.1.13",21)
+# Build 21 was physically rejected on Broad Leaf and never entered trunk catalog.
+# Preserve its source/history, but publish the replacement directly after the
+# last accepted UI release.
+PREDECESSOR=("com.sickicarus.monitorbox.ui","1.1.12",20)
 RELEASE=("com.sickicarus.monitorbox.ui","1.1.14",22)
 ENTRY={
   "manifest":{
@@ -39,10 +42,10 @@ def stage(path:Path)->bool:
         if len(existing)!=1 or existing[0]!=ENTRY: raise SystemExit(f"catalog release conflicts with Phase-6A replacement contract: {RELEASE}")
         print("Phase-6A replacement UI candidate already staged"); return False
     indexes=[index for index,item in enumerate(modules) if identity(item)==PREDECESSOR]
-    if len(indexes)!=1: raise SystemExit(f"expected exactly one immutable predecessor {PREDECESSOR}, found {len(indexes)}")
+    if len(indexes)!=1: raise SystemExit(f"expected exactly one accepted UI predecessor {PREDECESSOR}, found {len(indexes)}")
     modules.insert(indexes[0]+1,ENTRY)
     path.write_text(json.dumps(source,separators=(",",":"))+"\n",encoding="utf-8")
-    print("staged Phase-6A replacement UI 1.1.14 build 22")
+    print("staged Phase-6A replacement UI 1.1.14 build 22 after accepted build 20")
     return True
 
 def main()->None:
