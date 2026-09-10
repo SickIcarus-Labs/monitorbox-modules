@@ -94,6 +94,8 @@ jobs:
         run: python tools/accept_unifi_auth_recovery.py
       - name: Verify managed UniFi Network auth rate-limit backoff
         run: python tools/accept_unifi_auth_backoff.py
+      - name: Verify UniFi API census safety contract
+        run: python tools/accept_unifi_api_census.py
       - name: Verify managed Scrypted connection, camera runtime, and provider-loss recovery
         run: python tools/accept_scrypted_runtime.py
       - name: Verify managed Wake-on-LAN action execution without network traffic
