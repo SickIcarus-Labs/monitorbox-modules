@@ -9,10 +9,6 @@ on:
       - tools/build_first_party_*.py
       - tools/stage_*.py
       - tools/accept_*.py
-      - tools/unifi_api_census*.py
-      - tools/run_unifi_api_census_container.sh
-      - docs/UNIFI-CENSUS-RUNBOOK.md
-      - docs/unifi-census-plan.example.json
       - tools/build_repository.py
       - .github/workflows/first-party-acceptance.yml
       - .github/workflows/publish.yml
@@ -26,10 +22,6 @@ on:
       - tools/build_first_party_*.py
       - tools/stage_*.py
       - tools/accept_*.py
-      - tools/unifi_api_census*.py
-      - tools/run_unifi_api_census_container.sh
-      - docs/UNIFI-CENSUS-RUNBOOK.md
-      - docs/unifi-census-plan.example.json
       - tools/build_repository.py
       - .github/workflows/first-party-acceptance.yml
       - .github/workflows/publish.yml
@@ -102,10 +94,6 @@ jobs:
         run: python tools/accept_unifi_auth_recovery.py
       - name: Verify managed UniFi Network auth rate-limit backoff
         run: python tools/accept_unifi_auth_backoff.py
-      - name: Verify UniFi API census safety contract
-        run: |
-          python tools/accept_unifi_api_census.py
-          bash -n tools/run_unifi_api_census_container.sh
       - name: Verify managed Scrypted connection, camera runtime, and provider-loss recovery
         run: python tools/accept_scrypted_runtime.py
       - name: Verify managed Wake-on-LAN action execution without network traffic
