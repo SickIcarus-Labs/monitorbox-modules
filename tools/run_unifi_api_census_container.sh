@@ -85,10 +85,10 @@ docker run --rm \
   --mount "type=bind,src=$ROOT,dst=/work,readonly" \
   --mount "type=bind,src=$PLAN,dst=/run/plan.json,readonly" \
   --mount "type=bind,src=$OUT,dst=/out" \
-  --workdir /work \
+  --workdir /work/tools \
   --pull missing \
   python:3.13-alpine \
-  python tools/unifi_api_census.py --plan /run/plan.json --output-dir /out
+  python unifi_api_census_migration.py --plan /run/plan.json --output-dir /out
 rc=$?
 
 if [[ $rc -ne 0 ]]; then
