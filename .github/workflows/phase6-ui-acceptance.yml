@@ -6,12 +6,16 @@ on:
     paths:
       - sources/ui/**
       - release-intents/ui-1.1.13-build22.json
+      - release-intents/ui-1.1.13-build23.json
       - tests/fixtures/phase6/core-a6ace917-advanced.html
       - tools/stage_phase6_ui_build22.py
+      - tools/stage_phase6_ui_build23.py
       - tools/build_first_party_ui_build22.py
+      - tools/build_first_party_ui_build23.py
       - tools/accept_ui_phase6_build21.mjs
       - tools/accept_ui_phase6_build22.mjs
-      - tools/accept_ui_phase6_build22_browser.py
+      - tools/accept_ui_phase6_build23.mjs
+      - tools/accept_ui_phase6_build23_browser.py
       - .github/workflows/phase6-ui-acceptance.yml
   push:
     branches:
@@ -19,12 +23,16 @@ on:
     paths:
       - sources/ui/**
       - release-intents/ui-1.1.13-build22.json
+      - release-intents/ui-1.1.13-build23.json
       - tests/fixtures/phase6/core-a6ace917-advanced.html
       - tools/stage_phase6_ui_build22.py
+      - tools/stage_phase6_ui_build23.py
       - tools/build_first_party_ui_build22.py
+      - tools/build_first_party_ui_build23.py
       - tools/accept_ui_phase6_build21.mjs
       - tools/accept_ui_phase6_build22.mjs
-      - tools/accept_ui_phase6_build22_browser.py
+      - tools/accept_ui_phase6_build23.mjs
+      - tools/accept_ui_phase6_build23_browser.py
       - .github/workflows/phase6-ui-acceptance.yml
 
 permissions:
@@ -62,20 +70,22 @@ jobs:
       - name: Build replacement UI candidate reproducibly
         run: |
           set -euo pipefail
-          python tools/build_first_party_ui_build22.py --output-dir /tmp/phase6-ui-first
-          python tools/build_first_party_ui_build22.py --output-dir /tmp/phase6-ui-second
-          target='com.sickicarus.monitorbox.ui-1.1.13-build22.zip'
+          python tools/build_first_party_ui_build23.py --output-dir /tmp/phase6-ui-first
+          python tools/build_first_party_ui_build23.py --output-dir /tmp/phase6-ui-second
+          target='com.sickicarus.monitorbox.ui-1.1.13-build23.zip'
           sha256sum "/tmp/phase6-ui-first/$target" > /tmp/ui-first.sha
           sha256sum "/tmp/phase6-ui-second/$target" | sed 's#/tmp/phase6-ui-second#/tmp/phase6-ui-first#' > /tmp/ui-second.sha
           diff -u /tmp/ui-first.sha /tmp/ui-second.sha
           test ! -e /tmp/phase6-ui-first/com.sickicarus.monitorbox.ui-1.1.13-build21.zip
+          test ! -e /tmp/phase6-ui-first/com.sickicarus.monitorbox.ui-1.1.13-build22.zip
 
       - name: Verify inherited and replacement Phase-6 UI contracts
         run: |
           node tools/accept_ui_phase3_build20.mjs
           node tools/accept_ui_phase6_build21.mjs
           node tools/accept_ui_phase6_build22.mjs
-          python tools/accept_ui_phase6_build22_browser.py
+          node tools/accept_ui_phase6_build23.mjs
+          python tools/accept_ui_phase6_build23_browser.py
 
       - name: Prove Phase-6 UI stays inside module release boundaries
         shell: bash
