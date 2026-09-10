@@ -118,13 +118,13 @@ docker run --rm \
   --workdir /work/tools \
   --pull missing \
   python:3.13-alpine \
-  python unifi_api_census_migration.py --plan /run/plan.json --output-dir /out
+  sh -c 'python unifi_api_census_migration.py --plan /run/plan.json --output-dir /out && python analyze_unifi_api_census.py /out/census.json --output /out/CENSUS-ANALYSIS.md'
 rc=$?
 
 if [[ $rc -ne 0 ]]; then
   fail "census container exited with status $rc"
 fi
-if [[ ! -s "$OUT/census.json" || ! -s "$OUT/CAPABILITY-OBSERVATIONS.md" ]]; then
+if [[ ! -s "$OUT/census.json" || ! -s "$OUT/CAPABILITY-OBSERVATIONS.md" || ! -s "$OUT/CENSUS-ANALYSIS.md" ]]; then
   fail "expected sanitized census artifacts were not produced"
 fi
 
