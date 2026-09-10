@@ -9,6 +9,10 @@ on:
       - tools/build_first_party_*.py
       - tools/stage_*.py
       - tools/accept_*.py
+      - tools/unifi_api_census*.py
+      - tools/run_unifi_api_census_container.sh
+      - docs/UNIFI-CENSUS-RUNBOOK.md
+      - docs/unifi-census-plan.example.json
       - tools/build_repository.py
       - .github/workflows/first-party-acceptance.yml
       - .github/workflows/publish.yml
@@ -22,6 +26,10 @@ on:
       - tools/build_first_party_*.py
       - tools/stage_*.py
       - tools/accept_*.py
+      - tools/unifi_api_census*.py
+      - tools/run_unifi_api_census_container.sh
+      - docs/UNIFI-CENSUS-RUNBOOK.md
+      - docs/unifi-census-plan.example.json
       - tools/build_repository.py
       - .github/workflows/first-party-acceptance.yml
       - .github/workflows/publish.yml
