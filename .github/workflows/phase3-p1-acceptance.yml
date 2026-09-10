@@ -77,10 +77,11 @@ jobs:
           base="$PR_BASE_SHA"
           if [[ -z "$base" ]]; then
             git fetch --no-tags origin main:refs/remotes/origin/main
-            base="$(git merge-base HEAD refs/remotes/origin/main)"
+            base=refs/remotes/origin/main
           fi
           git cat-file -e "$base^{commit}"
-          git diff --name-only "$base" HEAD > /tmp/phase3-paths.txt
+          boundary="$(git merge-base "$base" HEAD)"
+          git diff --name-only "$boundary" HEAD > /tmp/phase3-paths.txt
           if grep -Eq '^(channels/|catalog\.source\.json$)' /tmp/phase3-paths.txt; then
             echo '::error::Phase-3 PR directly changed channel/catalog publication authority'
             cat /tmp/phase3-paths.txt

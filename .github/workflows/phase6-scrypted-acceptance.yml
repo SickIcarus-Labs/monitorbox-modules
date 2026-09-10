@@ -1,0 +1,120 @@
+name: Phase 6 Scrypted acceptance
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - sources/scrypted/**
+      - release-intents/scrypted-2.1.3-build4.json
+      - tools/build_first_party_scrypted_213.py
+      - tools/stage_phase6_scrypted.py
+      - tools/accept_scrypted_phase6.py
+      - .github/workflows/phase6-scrypted-acceptance.yml
+  push:
+    branches:
+      - phase6/p1-startup-convergence
+    paths:
+      - sources/scrypted/**
+      - release-intents/scrypted-2.1.3-build4.json
+      - tools/build_first_party_scrypted_213.py
+      - tools/stage_phase6_scrypted.py
+      - tools/accept_scrypted_phase6.py
+      - .github/workflows/phase6-scrypted-acceptance.yml
+
+env:
+  COMPANION_CORE_SHA: 0627ac23e10081bae13453f64ca8741150055895
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phase6-scrypted-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scrypted-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Install acceptance dependencies
+        run: python -m pip install --disable-pip-version-check aiohttp==3.11.16 cryptography==50.0.1
+
+      - name: Record paired Core checkpoint
+        run: |
+          echo "Phase-6C Scrypted acceptance pairs with monitorbox Core $COMPANION_CORE_SHA / PR #281"
+
+      - name: Verify inherited Scrypted behavior
+        run: |
+          python tools/accept_scrypted_runtime.py
+          python tools/accept_scrypted_media.py
+          python tools/accept_scrypted_managed_state.py
+
+      - name: Verify Phase-6C startup convergence policy
+        run: python tools/accept_scrypted_phase6.py
+
+      - name: Verify release policy
+        run: python tools/accept_release_policy.py
+
+      - name: Build Scrypted candidate reproducibly
+        run: |
+          set -euo pipefail
+          predecessor='com.sickicarus.monitorbox.scrypted-2.1.2-build3.zip'
+          target='com.sickicarus.monitorbox.scrypted-2.1.3-build4.zip'
+          mkdir -p /tmp/phase6-scrypted-first /tmp/phase6-scrypted-second
+          cp "packages/$predecessor" /tmp/phase6-scrypted-first/
+          cp "packages/$predecessor" /tmp/phase6-scrypted-second/
+          python tools/build_first_party_scrypted_213.py --output-dir /tmp/phase6-scrypted-first
+          python tools/build_first_party_scrypted_213.py --output-dir /tmp/phase6-scrypted-second
+          sha256sum "/tmp/phase6-scrypted-first/$target" > /tmp/scrypted-first.sha
+          sha256sum "/tmp/phase6-scrypted-second/$target" | sed 's#/tmp/phase6-scrypted-second#/tmp/phase6-scrypted-first#' > /tmp/scrypted-second.sha
+          diff -u /tmp/scrypted-first.sha /tmp/scrypted-second.sha
+          python - <<'PY'
+          import zipfile
+
+          path = '/tmp/phase6-scrypted-first/com.sickicarus.monitorbox.scrypted-2.1.3-build4.zip'
+          with zipfile.ZipFile(path) as archive:
+              names = set(archive.namelist())
+              required = {
+                  'monitorbox_scrypted_v213_b4/__init__.py',
+                  'monitorbox_scrypted_v213_b4/runtime.py',
+                  'monitorbox_scrypted_v213_b4/adoption.py',
+                  'monitorbox_scrypted_v213_b4/startup_schedule.py',
+                  'monitorbox_scrypted_v213_b4/state_socket.py',
+              }
+              missing = required - names
+              assert not missing, missing
+              runtime = archive.read('monitorbox_scrypted_v213_b4/runtime.py').decode('utf-8')
+              adoption = archive.read('monitorbox_scrypted_v213_b4/adoption.py').decode('utf-8')
+              startup = archive.read('monitorbox_scrypted_v213_b4/startup_schedule.py').decode('utf-8')
+          assert 'async def reduce_schedule_delay(' in runtime
+          assert 'result = await self._execute_provider(request, context)' in runtime
+          assert 'self._startup_schedule.observe(request, result)' in runtime
+          assert 'scheduler_jitter_seconds' in adoption
+          assert 'STARTUP_JITTER_CAP_SECONDS = 15.0' in startup
+          assert 'STARTUP_ACQUISITION_WINDOW_SECONDS = 60.0' in startup
+          PY
+
+      - name: Prove provider release does not mutate Core authority
+        shell: bash
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+        run: |
+          set -euo pipefail
+          base="$PR_BASE_SHA"
+          if [[ -z "$base" ]]; then
+            git fetch --no-tags origin main:refs/remotes/origin/main
+            base="$(git merge-base HEAD refs/remotes/origin/main)"
+          fi
+          git diff --name-only "$base" HEAD > /tmp/phase6-scrypted-paths.txt
+          if grep -Eq '(^|/)core(/|$)' /tmp/phase6-scrypted-paths.txt; then
+            echo '::error::#246 provider candidate unexpectedly changed Core-owned paths'
+            cat /tmp/phase6-scrypted-paths.txt
+            exit 1
+          fi

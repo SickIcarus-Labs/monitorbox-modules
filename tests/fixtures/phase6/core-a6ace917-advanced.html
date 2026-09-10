@@ -1,0 +1,85 @@
+<!doctype html>
+<!--
+  Phase-6 frozen Advanced Configuration acceptance fixture.
+  Derived from the native renderer contract in:
+    SickIcarus-Labs/monitorbox commit a6ace91753f196ffc1ec4966880ca4bf839d0d74
+    src/monitorbox/v2/config_ui.py Git blob 934267f49a9794addffbf721556dbf5c241c1a2e
+
+  This is a rendered/behavioral test fixture, not shipped product code. It
+  intentionally preserves the native root-only Object tree behavior that
+  Broad Leaf physically exposed (dependent Server UPS omitted), so the managed
+  UI overlay must correct the presentation using canonical workspace state.
+-->
+<html lang="en">
+<head><meta charset="utf-8"><title>MonitorBox Advanced Configuration</title></head>
+<body>
+<header class="top"><a class="button" href="/settings">← Configuration</a><h1>Advanced Configuration</h1><span id="revision"></span><button id="reload">Reload</button><button id="validate">Validate changes</button></header>
+<div id="login" class="hidden"></div>
+<div id="app" class="shell hidden">
+  <aside class="nav">
+    <div class="section-head"><div><div class="eyebrow">Site</div><select id="siteSelect"></select></div></div>
+    <div class="section-head"><div><div class="eyebrow">Complete canonical model</div><h3>Configuration tree</h3></div><button id="addObject">+ Add</button></div>
+    <input id="objectSearch" class="tree-search" type="search" placeholder="Find an object…">
+    <div id="objects" class="object-list"></div>
+    <div id="advancedSemanticIndex"><div>Legacy semantic overlay placeholder</div></div>
+  </aside>
+  <main class="workspace"><div id="empty"><h2>Select an object</h2></div><div id="editor" class="hidden"></div></main>
+</div>
+<div id="toast"></div><dialog id="preview"></dialog><dialog id="secretDialog"></dialog>
+<script>
+const $=id=>document.getElementById(id);
+let csrf=null,current=null,working=null,catalog=null,secrets=new Set(),siteId=null,objectId=null,candidateId=null,resumeSetup=false;
+const expandedObjects=new Set();
+async function api(url,options={}){
+  const response=await fetch(url,options);
+  const text=await response.text();
+  const data=text?JSON.parse(text):{};
+  if(!response.ok)throw new Error(data.error||text||`HTTP ${response.status}`);
+  return data;
+}
+function deep(value){return JSON.parse(JSON.stringify(value));}
+function currentSite(){return (working?.sites||[]).find(site=>String(site.id)===String(siteId))||null;}
+function nativeRoots(site){
+  const objects=site?.objects||[];
+  return objects.filter(object=>!(Array.isArray(object.depends_on)&&object.depends_on.length));
+}
+function renderObjects(){
+  const site=currentSite();
+  const roots=nativeRoots(site);
+  const ups=roots.filter(object=>String(object.kind||'').toLowerCase()==='ups');
+  const host=roots.filter(object=>String(object.kind||'').toLowerCase()==='host');
+  const parts=[];
+  if(host.length)parts.push(`<details class="tree-group"><summary>Systems (${host.length})</summary>${host.map(object=>`<button class="object-button" data-native-id="${object.id}">${object.label}</button>`).join('')}</details>`);
+  if(ups.length)parts.push(`<details class="tree-group"><summary>Objects · UPS (${ups.length})</summary>${ups.map(object=>`<button class="object-button" data-native-id="${object.id}">${object.label}</button>`).join('')}</details>`);
+  $('objects').innerHTML=parts.join('');
+  $('objects').querySelectorAll('[data-native-id]').forEach(button=>button.onclick=()=>{objectId=button.dataset.nativeId;renderEditor();});
+}
+function renderEditor(){
+  const object=(currentSite()?.objects||[]).find(item=>String(item.id)===String(objectId));
+  if(!object){$('editor').classList.add('hidden');return;}
+  $('empty').classList.add('hidden');
+  $('editor').classList.remove('hidden');
+  $('editor').innerHTML=`<section class="card"><h2>${object.label}</h2><div class="field">ID <input value="${object.id}"></div></section><section class="card"><h3>Abilities / Metrics</h3></section>`;
+}
+async function load(){
+  const response=await api('/api/v2/config/current');
+  current=deep(response.config); working=deep(response.config);
+  catalog=await api('/api/v2/config/catalog');
+  const sites=working.sites||[];
+  siteId=sites[0]?.id||null;
+  $('siteSelect').innerHTML=sites.map(site=>`<option value="${site.id}">${site.label||site.id}</option>`).join('');
+  $('revision').textContent=`revision ${response.revision}`;
+  const site=currentSite();
+  if(!objectId)objectId=(site?.objects||[])[0]?.id||null;
+  renderObjects(); renderEditor();
+}
+async function boot(){
+  const status=await api('/api/v2/config/status');
+  if(status.authenticated){const session=await api('/api/v2/config/session');csrf=session.csrf_token||null;}
+  $('app').classList.remove('hidden');
+  await load();
+}
+$('reload').onclick=()=>load();
+boot();
+</script>
+</body></html>

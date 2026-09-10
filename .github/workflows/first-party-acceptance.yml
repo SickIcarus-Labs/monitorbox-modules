@@ -148,5 +148,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git diff --exit-code '${{ steps.base.outputs.ref }}' HEAD -- index.json channels
+          boundary="$(git merge-base '${{ steps.base.outputs.ref }}' HEAD)"
+          git diff --exit-code "$boundary" HEAD -- index.json channels
           git diff --exit-code -- index.json channels

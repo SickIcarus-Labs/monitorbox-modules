@@ -18,15 +18,17 @@ def main() -> None:
         for item in source.get("modules", [])
         if item.get("manifest", {}).get("module_id") == scrypted.SCRYPTED_ID
     }
-    expected = {
+    required = {
         scrypted.SCRYPTED_V1,
         scrypted.SCRYPTED_V2,
         scrypted.SCRYPTED_V21,
         repairs.SCRYPTED_RELEASE,
     }
-    if identities != expected:
+    missing = required - identities
+    if missing:
         raise AssertionError(
-            f"expected current Scrypted releases {sorted(expected)}, got {sorted(identities)}"
+            f"required historical Scrypted releases are missing: {sorted(missing)}; "
+            f"current releases={sorted(identities)}"
         )
     scrypted._validate_v1(root, source)
     scrypted._validate_worker_release(
@@ -44,7 +46,7 @@ def main() -> None:
         media=True,
     )
     repairs._accept_scrypted(root, source)
-    print("Current Scrypted catalog + 2.1/2.1.1 media package shape: PASS", flush=True)
+    print("Required Scrypted historical catalog + 2.1/2.1.1 media package shape: PASS", flush=True)
 
 
 if __name__ == "__main__":

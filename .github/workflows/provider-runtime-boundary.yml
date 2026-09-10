@@ -50,8 +50,13 @@ jobs:
         run: python -m pip install --disable-pip-version-check aiohttp==3.11.16 cryptography==50.0.1
       - name: Build current repaired managed providers
         run: |
+          set -euo pipefail
           python tools/build_first_party_nut.py
-          python tools/build_first_party_snmp_105.py
+          snmp_out=/tmp/provider-runtime-snmp-105
+          rm -rf "$snmp_out"
+          mkdir -p "$snmp_out"
+          cp packages/com.sickicarus.monitorbox.snmp-1.0.4-build6.zip "$snmp_out/"
+          python tools/build_first_party_snmp_105.py --output-dir "$snmp_out"
           python tools/build_first_party_scrypted_212.py
       - name: Verify NUT owns execution after Core prune
         run: python tools/accept_nut_behavior.py
