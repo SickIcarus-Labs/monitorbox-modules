@@ -56,9 +56,6 @@ async def advanced_case(page,root:Path,assets:dict[str,bytes])->None:
     fixture_path=root/"tests/fixtures/phase6/core-a6ace917-advanced.html"
     base=fixture_path.read_text(encoding="utf-8")
     assert FIXTURE_CORE_COMMIT in base and FIXTURE_CORE_BLOB in base
-    # Exercise build22 against the native Core DOM/selection contract. The
-    # older semantic helper remains loaded because build22 consumes its generic
-    # relationship graph; the physical overlay is what replaces the wrong tree.
     scripts=[
       assets["phase6-convergence.js"].decode(),
       assets["phase6-physical-convergence.js"].decode(),
@@ -82,15 +79,36 @@ async def advanced_case(page,root:Path,assets:dict[str,bytes])->None:
     await page.locator("#phase6AdvancedSummary").wait_for()
     summary=await page.locator("#phase6AdvancedSummary").inner_text()
     assert "Connections 2" in summary and "UPS 2" in summary,summary
-    assert await page.locator('#phase6AdvancedIndex [data-phase6-category="connections"] .phase6-advanced-connection').count()==2
+
+    systems=page.locator('#phase6AdvancedIndex [data-phase6-category="systems"]')
+    connections=page.locator('#phase6AdvancedIndex [data-phase6-category="connections"]')
     ups=page.locator('#phase6AdvancedIndex [data-phase6-category="ups"]')
+    assert "Systems (2)" in await systems.locator("summary").inner_text()
+    assert "Connections (2)" in await connections.locator("summary").inner_text()
     assert "Objects · UPS (2)" in await ups.locator("summary").inner_text()
+    assert await connections.locator('.phase6-advanced-connection').count()==2
     assert await ups.get_by_text("Network UPS",exact=True).count()==1
     assert await ups.get_by_text("Server UPS",exact=True).count()==1
-    a2=page.locator('#phase6AdvancedIndex [data-phase6-system="arrrrr2"]')
-    assert "NUT · Arrrrr2" in await a2.inner_text() and "Server UPS" in await a2.inner_text()
-    local=page.locator('#phase6AdvancedIndex [data-phase6-system="monitor"]')
-    assert "NUT · MonitorBox" in await local.inner_text() and "Network UPS" in await local.inner_text()
+
+    # Exercise the index like an operator. The canonical groups are collapsed
+    # by default, so visible relationship assertions must open their groups.
+    await systems.locator("summary").click()
+    a2=systems.locator('[data-phase6-system="arrrrr2"]')
+    a2_text=await a2.inner_text()
+    assert "NUT · Arrrrr2" in a2_text and "Server UPS" in a2_text,a2_text
+    local=systems.locator('[data-phase6-system="monitor"]')
+    local_text=await local.inner_text()
+    assert "NUT · MonitorBox" in local_text and "Network UPS" in local_text,local_text
+
+    await connections.locator("summary").click()
+    connection_text=await connections.inner_text()
+    assert "NUT · MonitorBox" in connection_text and "Network UPS" in connection_text,connection_text
+    assert "NUT · Arrrrr2" in connection_text and "Server UPS" in connection_text,connection_text
+
+    await ups.locator("summary").click()
+    assert await ups.get_by_text("Network UPS",exact=True).is_visible()
+    assert await ups.get_by_text("Server UPS",exact=True).is_visible()
+
     # Prove build22 displaced the physically wrong native root-only tree.
     assert await page.locator("#objects").get_attribute("aria-hidden")=="true"
     assert await page.locator("#advancedSemanticIndex").is_hidden()
