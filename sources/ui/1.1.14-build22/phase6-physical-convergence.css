@@ -1,0 +1,91 @@
+/* UI 1.1.14 build 22: physical-path convergence for #51 and #276. */
+#objects.phase6-native-tree,
+#advancedSemanticIndex[hidden] {
+  display: none !important;
+}
+.phase6-advanced-summary {
+  margin: 0 0 10px;
+}
+.phase6-advanced-index {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin: 0 0 12px;
+}
+.phase6-advanced-group > summary {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+}
+.phase6-advanced-group-body {
+  display: grid;
+  gap: 6px;
+}
+.phase6-advanced-row {
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text, #eef5ff);
+  padding: 8px;
+  text-align: left;
+}
+.phase6-advanced-row:not(.relation-only) { cursor: pointer; }
+.phase6-advanced-row:not(.relation-only):hover,
+.phase6-advanced-row:not(.relation-only):focus-visible {
+  background: var(--panel2, #142238);
+  border-color: var(--line, #293b55);
+}
+.phase6-advanced-row > span,
+.phase6-advanced-connection-head {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.phase6-advanced-row strong,
+.phase6-advanced-connection-head strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.phase6-advanced-row small,
+.phase6-advanced-connection-head small,
+.phase6-advanced-path-label,
+.phase6-advanced-path > span:first-child {
+  color: var(--muted, #98a9c0);
+  font-size: 11px;
+}
+.phase6-advanced-system,
+.phase6-advanced-connection {
+  border: 1px solid var(--line, #293b55);
+  border-radius: 9px;
+  background: #0a1524;
+  overflow: hidden;
+}
+.phase6-advanced-connection-head {
+  padding: 8px;
+}
+.phase6-advanced-system-paths,
+.phase6-advanced-path {
+  display: grid;
+  gap: 4px;
+  padding: 6px 8px 8px 18px;
+  border-top: 1px solid var(--line, #293b55);
+}
+.phase6-advanced-system-paths > .phase6-advanced-connection {
+  margin-top: 2px;
+}
+.phase6-advanced-path .phase6-advanced-row {
+  padding-left: 10px;
+}
+.parity-card > .phase6-maintenance {
+  margin-top: 8px;
+  padding-top: 7px;
+  border-top: 1px solid var(--line, #293b55);
+  color: var(--muted, #98a9c0);
+  text-align: left;
+}
+@media (pointer: coarse) {
+  .phase6-advanced-row,
+  .phase6-advanced-group > summary { min-height: 44px; }
+}
