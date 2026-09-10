@@ -113,9 +113,12 @@ The wrapper unsets its credential variables on exit and writes only sanitized ar
 ```text
 census.json
 CAPABILITY-OBSERVATIONS.md
+CENSUS-ANALYSIS.md
 ```
 
-It also creates a `.tar.gz` bundle and prints its SHA-256 when `sha256sum` is available.
+`CENSUS-ANALYSIS.md` is generated deterministically by `tools/analyze_unifi_api_census.py`. It summarizes successful/failed observations, produces a provisional official-vs-legacy capability matrix, and inventories topology-looking JSON paths. It intentionally leaves the #170 authority decision **UNRESOLVED** until the actual provider relationship is reviewed; matching field names or HTTP 200 responses are never enough to declare topology authoritative.
+
+The wrapper also creates a `.tar.gz` bundle and prints its SHA-256 when `sha256sum` is available.
 
 ## Required evidence review
 
