@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
-"""Browser regression against the real Advanced editor and v1-parity dashboard paths."""
+"""Browser regression against the accepted Core Advanced contract + v1-parity dashboard."""
 from __future__ import annotations
-import ast
 import asyncio
 import importlib.util
 import json
@@ -39,14 +38,8 @@ DASHBOARD_STATE={
   }]}]
 }
 
-def extract_constant(path:Path,name:str)->str:
-    tree=ast.parse(path.read_text(encoding="utf-8"))
-    for node in tree.body:
-        if isinstance(node,(ast.Assign,ast.AnnAssign)):
-            targets=node.targets if isinstance(node,ast.Assign) else [node.target]
-            if any(isinstance(target,ast.Name) and target.id==name for target in targets):
-                return ast.literal_eval(node.value)
-    raise RuntimeError(f"{name} not found in {path}")
+FIXTURE_CORE_COMMIT="a6ace91753f196ffc1ec4966880ca4bf839d0d74"
+FIXTURE_CORE_BLOB="934267f49a9794addffbf721556dbf5c241c1a2e"
 
 def load_builder(path:Path):
     sys.path.insert(0,str(path.parent))
@@ -59,12 +52,14 @@ def append_scripts(markup:str,scripts:list[str])->str:
     payload="\n".join(f"<script>{source}</script>" for source in scripts)
     return markup.replace("</body>",payload+"</body>")
 
-async def advanced_case(page,core_root:Path,assets:dict[str,bytes])->None:
-    base=extract_constant(core_root/"src/monitorbox/v2/config_ui.py","_SETTINGS_HTML")
+async def advanced_case(page,root:Path,assets:dict[str,bytes])->None:
+    fixture_path=root/"tests/fixtures/phase6/core-a6ace917-advanced.html"
+    base=fixture_path.read_text(encoding="utf-8")
+    assert FIXTURE_CORE_COMMIT in base and FIXTURE_CORE_BLOB in base
+    # Exercise build22 against the native Core DOM/selection contract. The
+    # older semantic helper remains loaded because build22 consumes its generic
+    # relationship graph; the physical overlay is what replaces the wrong tree.
     scripts=[
-      assets["followup-beta-polish.js"].decode(),
-      assets["advanced-v22-polish.js"].decode(),
-      assets["advanced-dirty-state.js"].decode(),
       assets["phase6-convergence.js"].decode(),
       assets["phase6-physical-convergence.js"].decode(),
     ]
@@ -96,6 +91,9 @@ async def advanced_case(page,core_root:Path,assets:dict[str,bytes])->None:
     assert "NUT · Arrrrr2" in await a2.inner_text() and "Server UPS" in await a2.inner_text()
     local=page.locator('#phase6AdvancedIndex [data-phase6-system="monitor"]')
     assert "NUT · MonitorBox" in await local.inner_text() and "Network UPS" in await local.inner_text()
+    # Prove build22 displaced the physically wrong native root-only tree.
+    assert await page.locator("#objects").get_attribute("aria-hidden")=="true"
+    assert await page.locator("#advancedSemanticIndex").is_hidden()
     await ups.locator('[data-phase6-advanced-id="server_ups"]').click()
     assert await page.locator("#editor h2").inner_text()=="Server UPS"
 
@@ -122,16 +120,15 @@ async def dashboard_case(page,assets:dict[str,bytes])->None:
 
 async def main()->None:
     root=Path(__file__).resolve().parent.parent
-    core_root=Path(sys.argv[1]).resolve() if len(sys.argv)>1 else root.parent/"monitorbox-core"
     builder=load_builder(root/"tools/build_first_party_ui_build22.py")
     assets=builder._build22_assets(root)
     async with async_playwright() as p:
         browser=await p.chromium.launch()
         advanced=await browser.new_page(viewport={"width":1400,"height":1000})
-        await advanced_case(advanced,core_root,assets)
+        await advanced_case(advanced,root,assets)
         dashboard=await browser.new_page(viewport={"width":1400,"height":1000})
         await dashboard_case(dashboard,assets)
         await browser.close()
-    print("UI Phase-6 build-22 browser acceptance: PASS (actual Advanced + v1-parity paths)")
+    print("UI Phase-6 build-22 browser acceptance: PASS (pinned Core Advanced contract + v1-parity paths)")
 
 if __name__=="__main__": asyncio.run(main())
