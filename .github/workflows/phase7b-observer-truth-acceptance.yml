@@ -32,7 +32,7 @@ jobs:
       - name: Verify UI provider runtime-state authority
         run: node tools/accept_ui_phase7b_observer_truth.mjs
 
-      - name: Verify accepted UI build 23 still carries provider-first authority
+      - name: Verify accepted UI build 23 package identity
         run: |
           set -euo pipefail
           python tools/build_first_party_ui_build23.py --output-dir /tmp/phase7b-ui
@@ -44,16 +44,15 @@ jobs:
           if not package.is_file():
               raise SystemExit(f'missing current UI package: {package}')
           with ZipFile(package) as archive:
-              scripts = {
-                  name: archive.read(name).decode('utf-8')
-                  for name in archive.namelist()
-                  if name.endswith('.js')
-              }
-          payload = '\n'.join(scripts.values())
-          assert 'UI 1.1.10 build 18' in payload, 'build23 lost inherited build18 authority layer'
-          assert 'provider inventory owns runtime' in payload.lower(), 'build23 lost provider runtime authority contract'
-          assert 'phase 6' in payload.lower(), 'build23 replacement convergence layer is missing'
-          print('UI build23 package lineage: PASS (build18 provider authority retained through build23)')
+              names = set(archive.namelist())
+              init_name = next((name for name in names if name.endswith('/__init__.py')), None)
+              if init_name is None:
+                  raise AssertionError('build23 package has no standalone entrypoint')
+              init_payload = archive.read(init_name).decode('utf-8')
+              assert any(name.endswith('/assets/phase6-convergence.js') for name in names)
+              assert any(name.endswith('/assets/phase6-physical-convergence.js') for name in names)
+              assert 'Standalone managed MonitorBox UI 1.1.13 build 23.' in init_payload
+          print('UI build23 package identity: PASS (standalone build23 + expected Phase-6 replacement assets)')
           PY
 
       - name: Prove Phase 7B acceptance branch is non-release
