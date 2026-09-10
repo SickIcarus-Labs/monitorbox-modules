@@ -6,10 +6,14 @@ on:
     paths:
       - sources/ui/**
       - release-intents/ui-1.1.13-build21.json
+      - release-intents/ui-1.1.14-build22.json
       - tools/stage_phase6_ui.py
+      - tools/stage_phase6_ui_build22.py
       - tools/build_first_party_ui_build21.py
+      - tools/build_first_party_ui_build22.py
       - tools/accept_ui_phase6_build21.mjs
-      - tools/accept_ui_phase6_build21_browser.py
+      - tools/accept_ui_phase6_build22.mjs
+      - tools/accept_ui_phase6_build22_browser.py
       - .github/workflows/phase6-ui-acceptance.yml
   push:
     branches:
@@ -17,10 +21,14 @@ on:
     paths:
       - sources/ui/**
       - release-intents/ui-1.1.13-build21.json
+      - release-intents/ui-1.1.14-build22.json
       - tools/stage_phase6_ui.py
+      - tools/stage_phase6_ui_build22.py
       - tools/build_first_party_ui_build21.py
+      - tools/build_first_party_ui_build22.py
       - tools/accept_ui_phase6_build21.mjs
-      - tools/accept_ui_phase6_build21_browser.py
+      - tools/accept_ui_phase6_build22.mjs
+      - tools/accept_ui_phase6_build22_browser.py
       - .github/workflows/phase6-ui-acceptance.yml
 
 permissions:
@@ -38,6 +46,17 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
+
+      - name: Checkout accepted Core Advanced renderer fixture
+        uses: actions/checkout@v6
+        with:
+          repository: SickIcarus-Labs/monitorbox
+          ref: a6ace91753f196ffc1ec4966880ca4bf839d0d74
+          path: .phase6-core
+          fetch-depth: 1
+          sparse-checkout: src/monitorbox/v2/config_ui.py
+          sparse-checkout-cone-mode: false
+
       - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
@@ -47,21 +66,22 @@ jobs:
           python -m pip install --disable-pip-version-check playwright==1.55.0
           python -m playwright install --with-deps chromium
 
-      - name: Build UI candidate reproducibly
+      - name: Build replacement UI candidate reproducibly
         run: |
           set -euo pipefail
-          python tools/build_first_party_ui_build21.py --output-dir /tmp/phase6-ui-first
-          python tools/build_first_party_ui_build21.py --output-dir /tmp/phase6-ui-second
-          target='com.sickicarus.monitorbox.ui-1.1.13-build21.zip'
+          python tools/build_first_party_ui_build22.py --output-dir /tmp/phase6-ui-first
+          python tools/build_first_party_ui_build22.py --output-dir /tmp/phase6-ui-second
+          target='com.sickicarus.monitorbox.ui-1.1.14-build22.zip'
           sha256sum "/tmp/phase6-ui-first/$target" > /tmp/ui-first.sha
           sha256sum "/tmp/phase6-ui-second/$target" | sed 's#/tmp/phase6-ui-second#/tmp/phase6-ui-first#' > /tmp/ui-second.sha
           diff -u /tmp/ui-first.sha /tmp/ui-second.sha
 
-      - name: Verify inherited and Phase-6 UI contracts
+      - name: Verify inherited and replacement Phase-6 UI contracts
         run: |
           node tools/accept_ui_phase3_build20.mjs
           node tools/accept_ui_phase6_build21.mjs
-          python tools/accept_ui_phase6_build21_browser.py
+          node tools/accept_ui_phase6_build22.mjs
+          python tools/accept_ui_phase6_build22_browser.py .phase6-core
 
       - name: Prove Phase-6 UI stays inside module release boundaries
         shell: bash
