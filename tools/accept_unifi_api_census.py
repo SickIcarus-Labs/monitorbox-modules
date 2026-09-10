@@ -84,6 +84,27 @@ except module.CensusError:
 else:
     raise AssertionError("raw secret leak was not blocked")
 
+# Low-entropy usernames are protected as exact identifiers. A username that is
+# also harmless static schema text must not fail the whole census, but an actual
+# raw identifier value/key must still be refused.
+username_guard = module.LeakGuardValue("monitorbox", exact_only=True)
+try:
+    module._assert_no_secret_leak(
+        '{"format":"monitorbox-unifi-census-v2"}', [username_guard]
+    )
+except module.CensusError:
+    raise AssertionError("username/schema substring collision caused false positive")
+for leaked_username in (
+    '{"username":"monitorbox"}',
+    '{"monitorbox":"value"}',
+):
+    try:
+        module._assert_no_secret_leak(leaked_username, [username_guard])
+    except module.CensusError:
+        pass
+    else:
+        raise AssertionError("raw exact-only username leak was not blocked")
+
 os.environ["CENSUS_TEST_API_KEY"] = "test-key-must-never-persist"
 backend_cfg = {
     "name": "official",
@@ -94,13 +115,48 @@ backend_cfg = {
     },
     "probes": [{"capability": "inventory", "path": "/integration/v1/example"}],
 }
-secrets: list[str] = []
+secrets: list[module.LeakGuardValue] = []
 backend = module._client_for_backend(controller, backend_cfg, secrets)
 assert backend.headers["X-API-Key"] == os.environ["CENSUS_TEST_API_KEY"]
-assert secrets == [os.environ["CENSUS_TEST_API_KEY"]]
+assert secrets == [module.LeakGuardValue(os.environ["CENSUS_TEST_API_KEY"])], secrets
 sanitized_headers = sanitizer.sanitize(backend.headers)
 assert sanitized_headers["X-API-Key"] == "<redacted>", sanitized_headers
 assert os.environ["CENSUS_TEST_API_KEY"] not in json.dumps(sanitized_headers)
+
+# Username/password auth must mark only the username exact-only; password and
+# session material remain strict substring-protected secrets.
+os.environ["CENSUS_TEST_USERNAME"] = "monitorbox"
+os.environ["CENSUS_TEST_PASSWORD"] = "password-value-must-never-persist"
+legacy_cfg = {
+    "name": "legacy",
+    "auth": {
+        "mode": "username_password",
+        "username_env": "CENSUS_TEST_USERNAME",
+        "password_env": "CENSUS_TEST_PASSWORD",
+        "login_path": "/api/auth/login",
+    },
+}
+original_request = module.BackendClient.request
+try:
+    module.BackendClient.request = lambda self, path, **kwargs: {
+        "status": 200,
+        "elapsed_ms": 1.0,
+        "content_type": "application/json",
+        "headers": {"X-Csrf-Token": "csrf-value-must-never-persist"},
+        "body": b"{}",
+        "truncated": False,
+    }
+    legacy_secrets: list[module.LeakGuardValue] = []
+    legacy_client = module._client_for_backend(controller, legacy_cfg, legacy_secrets)
+finally:
+    module.BackendClient.request = original_request
+
+assert legacy_secrets == [
+    module.LeakGuardValue("monitorbox", exact_only=True),
+    module.LeakGuardValue("password-value-must-never-persist"),
+    module.LeakGuardValue("csrf-value-must-never-persist"),
+], legacy_secrets
+assert legacy_client.headers["X-Csrf-Token"] == "csrf-value-must-never-persist"
 
 # Migration-specific default-deny sanitization and path pseudonymization.
 strict = migration.StrictSanitizer(
@@ -282,4 +338,6 @@ assert "legacy-only in this census" in legacy_text
 assert "UNRESOLVED — physical/provider-semantic review required" in legacy_text
 
 del os.environ["CENSUS_TEST_API_KEY"]
+del os.environ["CENSUS_TEST_USERNAME"]
+del os.environ["CENSUS_TEST_PASSWORD"]
 print("UniFi API census safety/coverage/analyzer acceptance: PASS")
