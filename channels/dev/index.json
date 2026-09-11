@@ -3,7 +3,7 @@
   "signed": {
     "repository_id": "official-dev",
     "display_name": "MonitorBox Official Dev",
-    "generated_at": "2026-09-11T05:20:05.717881Z",
+    "generated_at": "2026-09-11T05:35:50.869157Z",
     "modules": [
       {
         "manifest": {
@@ -1493,6 +1493,6 @@
   "signature": {
     "algorithm": "ed25519",
     "identity": "official-ed25519-1",
-    "value": "d8gEKX5vwnleY0VOjFCBUlNOkc1UM7bYNU+1ao93mph3DuyHeK24dDZ/00M9TlmPBC4MCY1SmdGnrEGxIBJgCg=="
+    "value": "9RY0g0hhDsipb9OujVwaDprkOkM82D2sJzWCcHNoIBVD4Uq3jNkFq8m07ZSN4dDJlKLDmuRBCXXt5ztxFRGICg=="
   }
 }
