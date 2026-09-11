@@ -69,10 +69,10 @@ def main() -> None:
         assert 'Beta printer' in (other.text_content() or '')
 
         existing = page.locator('[data-candidate="c1"]')
-        assert 'Keep monitoring' in existing.inner_text()
+        assert 'Keep monitoring' in (existing.text_content() or '')
         existing_checkbox = existing.locator('input[type="checkbox"][data-id]')
         existing_checkbox.uncheck()
-        assert 'Stop monitoring' in existing.inner_text()
+        assert 'Stop monitoring' in (existing.text_content() or '')
         assert '1 configuration change selected' in page.locator('#resultSummary').inner_text()
 
         # Re-render while a disclosure state has been changed; grouping must not alter candidate identity.
