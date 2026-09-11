@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Structural acceptance for P2 Phase-1 UI v1.1.14 build 27 brand correction."""
+"""Structural acceptance for P2 Phase-1 UI v1.1.14 build 27 brand correction.
+
+The four committed PNG derivatives are regenerated from the canonical dark-brand SVG
+before qualification; this test validates the actual package bytes, not source intent.
+"""
 from __future__ import annotations
 
 from collections import Counter
