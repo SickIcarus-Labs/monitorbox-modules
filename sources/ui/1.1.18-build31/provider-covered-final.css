@@ -1,0 +1,14 @@
+#results .provider-covered-final {
+  grid-template-columns: minmax(130px,180px) minmax(220px,1fr) minmax(180px,1fr) !important;
+  align-items: start;
+}
+#results .provider-covered-final > .discovery-proposed-action { grid-column: 1 !important; }
+#results .provider-covered-final > .provider-covered-identity { grid-column: 2 !important; }
+#results .provider-covered-final > .provider-covered-evidence { grid-column: 3 !important; }
+#results .provider-covered-final .provider-covered-tags { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+@media (max-width:759px) {
+  #results .provider-covered-final { grid-template-columns:minmax(105px,.48fr) minmax(0,1fr) !important; }
+  #results .provider-covered-final > .discovery-proposed-action { grid-column:1 !important; grid-row:1 / span 2; }
+  #results .provider-covered-final > .provider-covered-identity { grid-column:2 !important; grid-row:1; }
+  #results .provider-covered-final > .provider-covered-evidence { grid-column:2 !important; grid-row:2; }
+}
