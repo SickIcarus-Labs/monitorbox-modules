@@ -16,7 +16,7 @@ def main() -> None:
     assert stager.ENTRY["manifest"]["requires_core"].startswith(">=2.4.1")
     assets = candidate._build31_assets(ROOT)
     discovery = assets["discovery-coverage.js"].decode("utf-8")
-    hierarchy = assets["provider-service-hierarchy.js"].decode("utf-8")
+    service = assets["service-presentation.js"].decode("utf-8")
     standalone = candidate._standalone_application().decode("utf-8")
     for needle in (
         "monitoring_suppressed",
@@ -29,8 +29,8 @@ def main() -> None:
         assert needle in discovery, needle
     for forbidden in ("Add configured monitor", "Keep existing coverage", "provider-covered-static')"):
         assert forbidden not in discovery, forbidden
-    assert "monitoring_suppressions" in hierarchy
-    assert "portainer:${identity}" in hierarchy
+    assert "monitoring_suppressions" in service
+    assert "portainer:${identity}" in service
     assert "Standalone managed MonitorBox UI 1.1.18 build 31." in standalone
     for name in ("app-shell.js", "app-shell.css", "monitorbox.webmanifest"):
         assert b"1.1.18-31" in assets[name], name
