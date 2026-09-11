@@ -2,8 +2,9 @@
 """Real HTTP/Chromium acceptance for Phase-1 UI build 26.
 
 Exercises the generated standalone managed UI, not a hand-built shell fixture: generation
-URLs/cache headers, warm navigation with static delivery deliberately unavailable, the
-adopted Debug control, and non-blocking shell hydration under slow build/state APIs.
+URLs/cache headers, repeated warm Home navigation with static delivery deliberately
+unavailable, the adopted Debug control, representative warm-page latency, and non-blocking
+shell hydration under deliberately slow build/state APIs.
 """
 from __future__ import annotations
 
@@ -25,6 +26,8 @@ from playwright.sync_api import sync_playwright
 import build_first_party_ui_build26 as candidate
 
 GENERATION = "1.1.14-26"
+WARM_NAVIGATION_LIMIT_SECONDS = 0.5
+HOME_STRESS_ITERATIONS = 110
 
 
 class TestServer:
@@ -162,6 +165,24 @@ def static_script_style_requests(counter: Counter[str]) -> int:
     )
 
 
+def assert_styled_shell(page) -> None:
+    shell = page.locator("#mb-app-shell")
+    shell.wait_for(state="visible")
+    shell_style = shell.evaluate(
+        "el => ({position:getComputedStyle(el).position, background:getComputedStyle(el).backgroundColor})"
+    )
+    assert shell_style["position"] == "sticky", shell_style
+    assert shell_style["background"] not in {"rgba(0, 0, 0, 0)", "transparent"}, shell_style
+
+
+def timed_navigation(page, url: str) -> float:
+    started = time.perf_counter()
+    response = page.goto(url, wait_until="domcontentloaded")
+    assert response is not None and response.ok, url
+    assert_styled_shell(page)
+    return time.perf_counter() - started
+
+
 def main() -> None:
     with tempfile.TemporaryDirectory(prefix="monitorbox-ui-b26-") as directory:
         root = Path(directory)
@@ -193,7 +214,7 @@ def main() -> None:
                 response = page.goto(origin + "/", wait_until="networkidle")
                 assert response is not None and response.ok
                 assert response.headers.get("x-monitorbox-ui-generation") == GENERATION
-                page.locator("#mb-app-shell").wait_for(state="visible")
+                assert_styled_shell(page)
                 page.locator(".mb-shell-debug").wait_for(state="visible")
                 assert page.locator(".mb-shell-debug").get_attribute("id") == "debug-toggle"
                 assert page.locator("#debug-console").is_hidden()
@@ -210,27 +231,47 @@ def main() -> None:
                 first_static_count = static_script_style_requests(server.requests)
                 assert first_static_count > 5, first_static_count
 
-                # Warm navigation: make CSS/JS delivery fail at the server. A coherent
-                # immutable generation should require no revalidation and still return a
-                # fully styled, scripted Dashboard rather than the raw #303 failure mode.
-                page.goto("about:blank")
+                # #303 stress: after one coherent generation load, make CSS/JS delivery
+                # fail at the server and perform >100 managed-page -> Home round trips.
+                # Browser generation caching must make every Home usable without a single
+                # new CSS/JS request or raw/default-styled fallback.
                 server.controls["fail_static"] = True
-                second = page.goto(origin + "/", wait_until="domcontentloaded")
-                assert second is not None and second.ok
-                shell = page.locator("#mb-app-shell")
-                shell.wait_for(state="visible")
-                page.locator(".mb-shell-debug").wait_for(state="visible")
-                shell_style = shell.evaluate(
-                    "el => ({position:getComputedStyle(el).position, background:getComputedStyle(el).backgroundColor})"
+                for iteration in range(HOME_STRESS_ITERATIONS):
+                    away = page.goto(origin + "/settings/probe", wait_until="domcontentloaded")
+                    assert away is not None and away.ok, iteration
+                    assert_styled_shell(page)
+                    home = page.goto(origin + "/", wait_until="domcontentloaded")
+                    assert home is not None and home.ok, iteration
+                    assert_styled_shell(page)
+                    page.locator(".mb-shell-debug").wait_for(state="visible")
+                stressed_static_count = static_script_style_requests(server.requests)
+                assert stressed_static_count == first_static_count, (
+                    first_static_count,
+                    stressed_static_count,
                 )
-                assert shell_style["position"] == "sticky", shell_style
-                assert shell_style["background"] not in {"rgba(0, 0, 0, 0)", "transparent"}, shell_style
-                second_static_count = static_script_style_requests(server.requests)
-                assert second_static_count == first_static_count, (first_static_count, second_static_count)
 
-                # #304: shell health/build requests may be slow, but they are scheduled
-                # after load/idle and must not hold an ordinary shell-managed page hostage.
+                # #304 representative warm-navigation budget. These are local/Test-Lab
+                # bounds, not WAN/Safari promises. All managed assets are warm before
+                # measurement and shell visibility is included in elapsed time.
                 server.controls["fail_static"] = False
+                server.controls["slow_shell"] = False
+                representative = (
+                    ("Dashboard", "/"),
+                    ("Modules", "/modules"),
+                    ("Discoveries", "/settings/discover"),
+                    ("Settings", "/settings/probe"),
+                )
+                # Warm each route once before measuring it.
+                for _, path in representative:
+                    timed_navigation(page, origin + path)
+                timings: dict[str, float] = {}
+                for label, path in representative:
+                    elapsed = timed_navigation(page, origin + path)
+                    timings[label] = elapsed
+                    assert elapsed < WARM_NAVIGATION_LIMIT_SECONDS, (label, elapsed, timings)
+
+                # Shell build/state hydration is deliberately much slower than the page.
+                # It is post-load/idle work and must not become a serial page dependency.
                 server.controls["slow_shell"] = True
                 started = time.perf_counter()
                 probe = page.goto(origin + "/settings/probe", wait_until="domcontentloaded")
@@ -238,9 +279,13 @@ def main() -> None:
                 assert probe is not None and probe.ok
                 assert elapsed < 0.75, elapsed
                 assert page.locator("#probe").inner_text() == "Ready"
-                page.locator("#mb-app-shell").wait_for(state="visible")
+                assert_styled_shell(page)
                 assert page.locator("#mb-shell-core").inner_text()
 
+                print(
+                    "build26 warm timings: "
+                    + ", ".join(f"{label}={seconds * 1000:.1f}ms" for label, seconds in timings.items())
+                )
                 context.close()
                 browser.close()
         finally:
@@ -250,7 +295,10 @@ def main() -> None:
             except ValueError:
                 pass
 
-    print("P2 Phase-1 UI build26 real-server cache/debug/performance acceptance: PASS")
+    print(
+        f"P2 Phase-1 UI build26 real-server acceptance: PASS "
+        f"({HOME_STRESS_ITERATIONS} managed-page/Home stress cycles)"
+    )
 
 
 if __name__ == "__main__":
