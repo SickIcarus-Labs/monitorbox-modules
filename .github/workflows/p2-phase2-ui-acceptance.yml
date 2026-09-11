@@ -9,10 +9,10 @@ on:
       - 'sources/unifi/**'
       - 'tools/build_first_party_ui_*.py'
       - 'tools/build_first_party_unifi_*.py'
-      - 'tools/stage_p2_phase2_ui_build29.py'
-      - 'tools/stage_unifi_1_0_10_build11.py'
-      - 'tools/accept_ui_p2_phase2_build29*.py'
-      - 'tools/accept_unifi_recommendation_relationship_b11.py'
+      - 'tools/stage_p2_phase2_ui_build30.py'
+      - 'tools/stage_unifi_1_0_11_build12.py'
+      - 'tools/accept_ui_p2_phase2_build30*.py'
+      - 'tools/accept_unifi_recommendation_relationship_b12.py'
       - '.github/workflows/p2-phase2-ui-acceptance.yml'
 
 permissions:
@@ -33,9 +33,9 @@ jobs:
         run: |
           python -m pip install --disable-pip-version-check playwright==1.55.0
           python -m playwright install --with-deps chromium
-      - name: Verify build-29 package and release contract
-        run: python tools/accept_ui_p2_phase2_build29.py
-      - name: Verify UniFi recommendation relationship evidence
-        run: python tools/accept_unifi_recommendation_relationship_b11.py
-      - name: Verify physical-correction Discoveries semantics and preserved Quick Add ordering
-        run: python tools/accept_ui_p2_phase2_build29_browser.py
+      - name: Verify build-30 package and release contract
+        run: python tools/accept_ui_p2_phase2_build30.py
+      - name: Verify UniFi relationship evidence across topology authorities
+        run: python tools/accept_unifi_recommendation_relationship_b12.py
+      - name: Verify production-order Discoveries semantics
+        run: python tools/accept_ui_p2_phase2_build30_browser.py
