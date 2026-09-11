@@ -89,14 +89,14 @@ def main() -> None:
                 stats = rendered_raster_stats(page, assets[name])
                 size = (stats["width"], stats["height"])
                 require(size == expected_size, f"{name} dimensions drifted: {size} != {expected_size}")
-                require(stats["dark"] > 0, f"{name} has no canonical dark-brand pixels")
                 require(stats["white"] > 0, f"{name} has no visible white lighthouse artwork")
                 require(stats["health"] == 0, f"{name} retained the bright health/status green")
                 for index, sample in enumerate(stats["fieldSamples"], start=1):
                     require(
                         sample == DARK_BRAND_RGBA,
-                        f"{name} field sample {index} drifted: {sample} != {DARK_BRAND_RGBA}",
+                        f"{name} field sample {index} drifted: {sample} != {DARK_BRAND_RGBA}; counts dark={stats['dark']} white={stats['white']} health={stats['health']}",
                     )
+                require(stats["dark"] > 0, f"{name} has no canonical dark-brand pixels")
         finally:
             browser.close()
 
