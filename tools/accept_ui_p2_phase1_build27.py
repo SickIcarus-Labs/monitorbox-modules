@@ -15,6 +15,7 @@ EXPECTED_RASTERS = {
     "monitorbox-apple-180.png": (180, 180),
     "monitorbox-maskable-512.png": (512, 512),
 }
+DARK_BRAND_RGBA = [0x17, 0x40, 0x41, 0xFF]
 
 
 def require(condition: bool, message: str) -> None:
@@ -22,13 +23,13 @@ def require(condition: bool, message: str) -> None:
         raise SystemExit(message)
 
 
-def rendered_raster_stats(page, payload: bytes) -> dict[str, int]:
-    """Have Chromium decode the production PNG and inspect its rendered pixels.
+def rendered_raster_stats(page, payload: bytes) -> dict[str, object]:
+    """Have Chromium decode the production PNG and inspect rendered semantics.
 
     Candidate reproducibility is already proven by the first-party staging pass.
-    This assertion deliberately targets browser-visible semantics instead of PNG
-    encoder byte identity: correct dimensions, dark MonitorBox field present, and
-    the bright health/status token absent from application-icon artwork.
+    This check therefore targets browser-visible behavior rather than encoder-byte
+    identity: correct dimensions, known field samples at the canonical dark brand
+    color, visible white lighthouse artwork, and no health/status green in the icon.
     """
     source = "data:image/png;base64," + base64.b64encode(payload).decode("ascii")
     page.set_content(f'<img id="icon" src="{source}" alt="">')
@@ -44,11 +45,25 @@ def rendered_raster_stats(page, payload: bytes) -> dict[str, int]:
           const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
           let dark = 0;
           let health = 0;
+          let white = 0;
           for (let i = 0; i < pixels.length; i += 4) {
             if (pixels[i] === 0x17 && pixels[i + 1] === 0x40 && pixels[i + 2] === 0x41 && pixels[i + 3] === 0xff) dark += 1;
             if (pixels[i] === 0x75 && pixels[i + 1] === 0xd6 && pixels[i + 2] === 0x9a && pixels[i + 3] === 0xff) health += 1;
+            if (pixels[i] === 0xff && pixels[i + 1] === 0xff && pixels[i + 2] === 0xff && pixels[i + 3] === 0xff) white += 1;
           }
-          return {width: canvas.width, height: canvas.height, dark, health};
+          const rgbaAt = (xn, yn) => {
+            const x = Math.min(canvas.width - 1, Math.max(0, Math.floor(canvas.width * xn)));
+            const y = Math.min(canvas.height - 1, Math.max(0, Math.floor(canvas.height * yn)));
+            return Array.from(context.getImageData(x, y, 1, 1).data);
+          };
+          return {
+            width: canvas.width,
+            height: canvas.height,
+            dark,
+            health,
+            white,
+            fieldSamples: [rgbaAt(0.50, 0.10), rgbaAt(0.10, 0.50), rgbaAt(0.90, 0.50), rgbaAt(0.50, 0.90)],
+          };
         }"""
     )
 
@@ -74,11 +89,14 @@ def main() -> None:
                 stats = rendered_raster_stats(page, assets[name])
                 size = (stats["width"], stats["height"])
                 require(size == expected_size, f"{name} dimensions drifted: {size} != {expected_size}")
-                require(
-                    stats["dark"] >= (size[0] * size[1]) // 4,
-                    f"{name} does not visibly carry the dark MonitorBox field",
-                )
+                require(stats["dark"] > 0, f"{name} has no canonical dark-brand pixels")
+                require(stats["white"] > 0, f"{name} has no visible white lighthouse artwork")
                 require(stats["health"] == 0, f"{name} retained the bright health/status green")
+                for index, sample in enumerate(stats["fieldSamples"], start=1):
+                    require(
+                        sample == DARK_BRAND_RGBA,
+                        f"{name} field sample {index} drifted: {sample} != {DARK_BRAND_RGBA}",
+                    )
         finally:
             browser.close()
 
