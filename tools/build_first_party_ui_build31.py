@@ -27,11 +27,7 @@ import build_first_party_ui_build30 as previous
 UI_VERSION = "1.1.18"
 UI_BUILD = 31
 UI_GENERATION = f"{UI_VERSION}-{UI_BUILD}"
-RELEASE31 = stable.Release(
-    build=UI_BUILD,
-    certified_sha="p2-phase2-unified-monitoring-state",
-    version=UI_VERSION,
-)
+RELEASE31 = stable.Release(build=UI_BUILD, certified_sha="p2-phase2-unified-monitoring-state", version=UI_VERSION)
 SOURCE_FILES = frozenset(("unified-monitoring.css",))
 SOURCE_BLOBS = {"unified-monitoring.css": "3c97d55335279f25721f82b9e962c30ba5a67ef1"}
 
@@ -57,9 +53,6 @@ def _build31_assets(root: Path) -> dict[str, bytes]:
         raise SystemExit("UI build-31 CSS source blob changed")
 
     discovery = assets["discovery-coverage.js"]
-
-    # Build 29's late shim encoded the now-rejected provider-specific static state.
-    # Remove it entirely; build 30's recommendation reason fix is in the primary renderer.
     legacy_static = (root / "sources" / "ui" / "1.1.16-build29" / "phase2-physical-fixes.js").read_bytes()
     discovery = _replace_once(discovery, b"\n\n" + legacy_static, b"", "retired provider-static shim")
 
@@ -69,14 +62,12 @@ def _build31_assets(root: Path) -> dict[str, bytes]:
         b'''  function coverageState(item){\n    if(item?.configured_object_id||item?.state==='already_monitored')return {status:'covered',kind:'canonical',sourceLabel:''};\n    const coverage=providerCoverage(item);\n    if(!coverage)return null;\n    if(item?.monitoring_suppressed===true||item?.monitoring_state==='not_monitored')return null;\n    return coverage;\n  }\n''',
         "monitoring-state coverage",
     )
-
     discovery = _replace_once(
         discovery,
         b'''  function actionText(item,checkbox){\n    const coverage=coverageState(item);\n    if(item?.state==='needs_review')return 'Needs review';\n    if(item?.state==='auxiliary')return 'No action';\n    if(item?.configured_object_id||item?.state==='already_monitored')return checkbox.checked?'Keep monitoring':'Stop monitoring';\n    if(coverage)return 'Monitored';\n    return checkbox.checked?'Start monitoring':'Not staged';\n  }\n''',
         b'''  function actionText(item,checkbox){\n    if(item?.state==='needs_review')return 'Needs review';\n    if(item?.state==='auxiliary')return 'No action';\n    const provider=providerCoverage(item);\n    const baselineProviderMonitored=Boolean(provider&&item?.monitoring_suppressed!==true&&item?.monitoring_state!=='not_monitored');\n    if(item?.configured_object_id||item?.state==='already_monitored'||baselineProviderMonitored)return checkbox.checked?'Keep monitoring':'Stop monitoring';\n    return checkbox.checked?'Start monitoring':'Not now';\n  }\n''',
         "unified action semantics",
     )
-
     discovery = _replace_once(
         discovery,
         b'''    if(!row.dataset.discoveryCoverageDefaultApplied){\n      const coverage=coverageState(item);\n      if(coverage&&!item?.configured_object_id&&item?.state!=='already_monitored')checkbox.checked=false;\n      row.dataset.discoveryCoverageDefaultApplied='true';\n    }\n''',
@@ -85,23 +76,28 @@ def _build31_assets(root: Path) -> dict[str, bytes]:
     )
 
     old_static = b'''    const providerOnly=Boolean(coverageState(item)&&!item?.configured_object_id&&item?.state!=='already_monitored');\n    if(providerOnly){\n      row.classList.add('provider-covered-static');\n      checkbox.checked=false; checkbox.disabled=true; checkbox.tabIndex=-1;\n      checkbox.style.position='absolute'; checkbox.style.width='0'; checkbox.style.height='0'; checkbox.style.opacity='0'; checkbox.style.pointerEvents='none';\n      if(text)text.textContent='Monitored';\n      for(const control of [...row.querySelectorAll('input,select,button,textarea')]){\n        if(control===checkbox)continue;\n        const owner=control.closest('label');\n        if(owner&&owner!==wrapper)owner.remove(); else control.remove();\n      }\n    }else{\n      row.classList.remove('provider-covered-static');\n    }\n'''
-    new_unified = b'''    const providerOnly=Boolean(providerCoverage(item)&&!item?.configured_object_id&&item?.state!=='already_monitored');\n    if(providerOnly){\n      row.classList.remove('provider-covered-static');\n      row.classList.add('provider-unified-monitoring');\n      checkbox.disabled=false; checkbox.hidden=false; checkbox.tabIndex=0;\n      checkbox.style.removeProperty('position'); checkbox.style.removeProperty('width'); checkbox.style.removeProperty('height');\n      checkbox.style.removeProperty('opacity'); checkbox.style.removeProperty('pointer-events');\n      // Provider provenance does not create a second monitoring/configuration state.\n      // Keep the ordinary monitoring checkbox; remove controls that would imply a\n      // separate adoption or ability-editing operation for the same monitored item.\n      for(const control of [...row.querySelectorAll('select,textarea,input[type="checkbox"]:not([data-id]),button')]){\n        const owner=control.closest('label');\n        if(owner&&owner!==wrapper)owner.remove(); else control.remove();\n      }\n      const labelInput=row.querySelector('input[data-label-for]');\n      if(labelInput)labelInput.remove();\n      for(const node of [...row.querySelectorAll('*')]){\n        if(node.children.length)continue;\n        const value=String(node.textContent||'').trim();\n        if(value.toUpperCase()==='MONITOR ABILITIES')node.remove();\n        else if(/^Already monitored via /i.test(value)&&!node.classList.contains('pill'))node.remove();\n      }\n    }else{\n      row.classList.remove('provider-covered-static','provider-unified-monitoring');\n    }\n'''
+    new_unified = b'''    const providerOnly=Boolean(providerCoverage(item)&&!item?.configured_object_id&&item?.state!=='already_monitored');\n    if(providerOnly){\n      row.classList.remove('provider-covered-static');\n      row.classList.add('provider-unified-monitoring');\n      checkbox.disabled=false; checkbox.hidden=false; checkbox.tabIndex=0;\n      checkbox.style.removeProperty('position'); checkbox.style.removeProperty('width'); checkbox.style.removeProperty('height');\n      checkbox.style.removeProperty('opacity'); checkbox.style.removeProperty('pointer-events');\n      for(const control of [...row.querySelectorAll('select,textarea,input[type="checkbox"]:not([data-id]),button')]){\n        const owner=control.closest('label');\n        if(owner&&owner!==wrapper)owner.remove(); else control.remove();\n      }\n      const labelInput=row.querySelector('input[data-label-for]');\n      if(labelInput)labelInput.remove();\n      for(const node of [...row.querySelectorAll('*')]){\n        if(node.children.length)continue;\n        const value=String(node.textContent||'').trim();\n        if(value.toUpperCase()==='MONITOR ABILITIES')node.remove();\n        else if(/^Already monitored via /i.test(value)&&!node.classList.contains('pill'))node.remove();\n      }\n    }else{\n      row.classList.remove('provider-covered-static','provider-unified-monitoring');\n    }\n'''
     discovery = _replace_once(discovery, old_static, new_unified, "provider row normalization")
 
-    old_staged = b'''    const coverage=coverageState(item);\n    if(item?.configured_object_id||item?.state==='already_monitored'){\n      if(!checkbox.checked)return true;\n    }else if(checkbox.checked){\n      return true;\n    }\n'''
-    new_staged = b'''    const provider=providerCoverage(item);\n    if(item?.configured_object_id||item?.state==='already_monitored'){\n      if(!checkbox.checked)return true;\n    }else if(provider){\n      const baseline=item?.monitoring_suppressed!==true&&item?.monitoring_state!=='not_monitored';\n      if(checkbox.checked!==baseline)return true;\n    }else if(checkbox.checked){\n      return true;\n    }\n'''
-    discovery = _replace_once(discovery, old_staged, new_staged, "provider staged-change baseline")
+    discovery = _replace_once(
+        discovery,
+        b'''    const coverage=coverageState(item);\n    if(item?.configured_object_id||item?.state==='already_monitored'){\n      if(!checkbox.checked)return true;\n    }else if(checkbox.checked){\n      return true;\n    }\n''',
+        b'''    const provider=providerCoverage(item);\n    if(item?.configured_object_id||item?.state==='already_monitored'){\n      if(!checkbox.checked)return true;\n    }else if(provider){\n      const baseline=item?.monitoring_suppressed!==true&&item?.monitoring_state!=='not_monitored';\n      if(checkbox.checked!==baseline)return true;\n    }else if(checkbox.checked){\n      return true;\n    }\n''',
+        "provider staged-change baseline",
+    )
     assets["discovery-coverage.js"] = discovery
     assets["discovery-coverage.css"] = assets["discovery-coverage.css"].rstrip() + b"\n" + css
 
-    hierarchy = assets["provider-service-hierarchy.js"]
-    hierarchy = _replace_once(
-        hierarchy,
+    # Build 6 composes provider-service-hierarchy.js into service-presentation.js;
+    # patch the actual packaged asset rather than the historical source filename.
+    service = assets["service-presentation.js"]
+    service = _replace_once(
+        service,
         b'''  const local=inventory.filter(workload=>{\n    const environmentKey=String(workload?.environment_key||'').trim();\n    return owners.has(environmentKey)&&workload?.ignored!==true&&workload?.discovery_actionable!==false;\n  });\n''',
         b'''  const monitoringSuppressions=new Set(Array.isArray(site?.monitoring_suppressions)?site.monitoring_suppressions:[]);\n  const local=inventory.filter(workload=>{\n    const environmentKey=String(workload?.environment_key||'').trim();\n    const identity=String(workload?.identity||'').trim();\n    const monitoringToken=identity?`portainer:${identity}`:'';\n    return owners.has(environmentKey)&&workload?.ignored!==true&&workload?.discovery_actionable!==false&&!monitoringSuppressions.has(monitoringToken);\n  });\n''',
         "provider presentation suppression",
     )
-    assets["provider-service-hierarchy.js"] = hierarchy
+    assets["service-presentation.js"] = service
 
     for name in ("app-shell.js", "app-shell.css", "monitorbox.webmanifest"):
         assets[name] = assets[name].replace(b"1.1.17-30", b"1.1.18-31")
@@ -110,12 +106,7 @@ def _build31_assets(root: Path) -> dict[str, bytes]:
 
 def _standalone_application() -> bytes:
     payload = previous._standalone_application()
-    payload = _replace_once(
-        payload,
-        b"Standalone managed MonitorBox UI 1.1.17 build 30.",
-        b"Standalone managed MonitorBox UI 1.1.18 build 31.",
-        "standalone identity",
-    )
+    payload = _replace_once(payload, b"Standalone managed MonitorBox UI 1.1.17 build 30.", b"Standalone managed MonitorBox UI 1.1.18 build 31.", "standalone identity")
     return payload.replace(b"1.1.17-30", b"1.1.18-31")
 
 
