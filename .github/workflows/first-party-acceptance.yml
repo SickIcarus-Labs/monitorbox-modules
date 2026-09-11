@@ -134,6 +134,10 @@ jobs:
         run: python tools/accept_ui_p2_phase1_build25.py
       - name: Verify P2 Phase 1 build-25 desktop and iPad corrections
         run: python tools/accept_ui_p2_phase1_build25_browser.py
+      - name: Verify P2 Phase 1 build-26 static-coherence and shell contract
+        run: python tools/accept_ui_p2_phase1_build26.py
+      - name: Verify P2 Phase 1 build-26 real-server cache Debug and load behavior
+        run: python tools/accept_ui_p2_phase1_build26_browser.py
       - name: Upload exact changed candidates for Broad Leaf acceptance
         uses: actions/upload-artifact@v4
         with:
