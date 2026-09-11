@@ -116,21 +116,21 @@ def _standalone_application() -> bytes:
     middleware = b'''\n_APP_SHELL_STYLE = '<link rel="stylesheet" href="/static/app-shell.css?v=1.1.14-24">'\n_APP_SHELL_SCRIPT = '<script src="/static/app-shell.js?v=1.1.14-24" defer></script>'\n_APPLE_TOUCH_ICON = '<link rel="apple-touch-icon" sizes="180x180" href="/static/monitorbox-apple-180.png?v=1.1.14-24">'\n\n\ndef _uses_app_shell(path):\n    return (\n        path == "/"\n        or path.startswith("/modules")\n        or path.startswith("/settings")\n        or path.startswith("/setup")\n    )\n\n\n@web.middleware\nasync def app_shell_presentation(request, handler):\n    response = await handler(request)\n    if (\n        _uses_app_shell(request.path)\n        and isinstance(response, web.Response)\n        and response.content_type == "text/html"\n        and response.body\n    ):\n        markup = response.text\n        if _APP_SHELL_STYLE not in markup and "</head>" in markup:\n            markup = markup.replace("</head>", _APP_SHELL_STYLE + _APPLE_TOUCH_ICON + "</head>", 1)\n        if _APP_SHELL_SCRIPT not in markup and "</body>" in markup:\n            markup = markup.replace("</body>", _APP_SHELL_SCRIPT + "</body>", 1)\n        response.text = markup\n    return response\n\n'''
     payload = _replace_once(
         payload,
-        b"\nasync def asset(request):\n",
-        middleware + b"async def asset(request):\n",
+        b"\nasync def asset(request: web.Request) -> web.Response:\n",
+        middleware + b"async def asset(request: web.Request) -> web.Response:\n",
         "shared shell middleware",
     )
 
     payload = _replace_once(
         payload,
-        b'    if content_type is None:\n        return await factory.asset(request)\n    return web.Response(\n        text=_override_resource(name).read_text(encoding="utf-8"),\n        content_type=content_type,\n        charset="utf-8",\n        headers={"Cache-Control": "no-cache"},\n    )',
-        b'    if content_type is None:\n        return await factory.asset(request)\n    resource = _override_resource(name)\n    if content_type == "image/png":\n        return web.Response(\n            body=resource.read_bytes(),\n            content_type=content_type,\n            headers={"Cache-Control": "no-cache"},\n        )\n    return web.Response(\n        text=resource.read_text(encoding="utf-8"),\n        content_type=content_type,\n        charset="utf-8",\n        headers={"Cache-Control": "no-cache"},\n    )',
+        b'    if content_type is None:\n        raise web.HTTPNotFound()\n    return web.Response(\n        text=_resource(name).read_text(encoding="utf-8"),\n        content_type=content_type,\n        charset="utf-8",\n        headers={"Cache-Control": "no-cache"},\n    )',
+        b'    if content_type is None:\n        raise web.HTTPNotFound()\n    resource = _resource(name)\n    if content_type == "image/png":\n        return web.Response(\n            body=resource.read_bytes(),\n            content_type=content_type,\n            headers={"Cache-Control": "no-cache"},\n        )\n    return web.Response(\n        text=resource.read_text(encoding="utf-8"),\n        content_type=content_type,\n        charset="utf-8",\n        headers={"Cache-Control": "no-cache"},\n    )',
         "binary managed assets",
     )
     payload = _replace_once(
         payload,
-        b"def install(app):\n",
-        b"def install(app):\n    app.middlewares.append(app_shell_presentation)\n",
+        b"def install(app: web.Application) -> None:\n",
+        b"def install(app: web.Application) -> None:\n    app.middlewares.append(app_shell_presentation)\n",
         "shell install hook",
     )
     return payload
