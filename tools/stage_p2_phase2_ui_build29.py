@@ -5,7 +5,10 @@ import json
 from pathlib import Path
 from typing import Any
 
-PREDECESSOR=("com.sickicarus.monitorbox.ui","1.1.15",28)
+# Build 28 was dev-only and is admitted through supersedes_dev. Trunk still
+# contains the accepted build-27 predecessor, so publication stages build 29
+# directly after that immutable trunk authority.
+PREDECESSOR=("com.sickicarus.monitorbox.ui","1.1.14",27)
 RELEASE=("com.sickicarus.monitorbox.ui","1.1.16",29)
 ENTRY={
   "manifest":{
@@ -35,10 +38,10 @@ def stage(path:Path)->bool:
         if len(existing)!=1 or existing[0]!=ENTRY: raise SystemExit(f"catalog release conflicts with Phase-2 build29 contract: {RELEASE}")
         print("P2 Phase-2 UI build29 candidate already staged"); return False
     indexes=[index for index,item in enumerate(modules) if identity(item)==PREDECESSOR]
-    if len(indexes)!=1: raise SystemExit(f"expected exactly one UI predecessor {PREDECESSOR}, found {len(indexes)}")
+    if len(indexes)!=1: raise SystemExit(f"expected exactly one UI trunk predecessor {PREDECESSOR}, found {len(indexes)}")
     modules.insert(indexes[0]+1,ENTRY)
     path.write_text(json.dumps(source,separators=(",",":"))+"\n",encoding="utf-8")
-    print("staged P2 Phase-2 UI 1.1.16 build 29 after dev build 28")
+    print("staged P2 Phase-2 UI 1.1.16 build 29 after accepted trunk build 27; dev build 28 is superseded")
     return True
 
 def main()->None: stage(Path(__file__).resolve().parent.parent/"catalog.source.json")
