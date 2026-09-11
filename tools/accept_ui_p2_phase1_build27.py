@@ -2,9 +2,10 @@
 """Structural acceptance for P2 Phase-1 UI v1.1.14 build 27 brand correction."""
 from __future__ import annotations
 
-import struct
-import zlib
+import base64
 from pathlib import Path
+
+from playwright.sync_api import sync_playwright
 
 import build_first_party_ui_build27 as candidate
 
@@ -14,8 +15,6 @@ EXPECTED_RASTERS = {
     "monitorbox-apple-180.png": (180, 180),
     "monitorbox-maskable-512.png": (512, 512),
 }
-DARK_BRAND_RGBA = bytes((0x17, 0x40, 0x41, 0xFF))
-HEALTH_GREEN_RGBA = bytes((0x75, 0xD6, 0x9A, 0xFF))
 
 
 def require(condition: bool, message: str) -> None:
@@ -23,89 +22,35 @@ def require(condition: bool, message: str) -> None:
         raise SystemExit(message)
 
 
-def _paeth(a: int, b: int, c: int) -> int:
-    p = a + b - c
-    pa = abs(p - a)
-    pb = abs(p - b)
-    pc = abs(p - c)
-    if pa <= pb and pa <= pc:
-        return a
-    if pb <= pc:
-        return b
-    return c
+def rendered_raster_stats(page, payload: bytes) -> dict[str, int]:
+    """Have Chromium decode the production PNG and inspect its rendered pixels.
 
-
-def png_rgba(payload: bytes) -> tuple[tuple[int, int], bytes]:
-    """Decode the constrained RGBA PNGs used for the MonitorBox brand assets.
-
-    Acceptance cares about rendered pixels, not encoder-specific byte identity. The
-    repository candidate is already proven reproducible by the first-party staging
-    pass; this check independently proves that every raster carries the dark brand
-    field rather than the bright health/status token.
+    Candidate reproducibility is already proven by the first-party staging pass.
+    This assertion deliberately targets browser-visible semantics instead of PNG
+    encoder byte identity: correct dimensions, dark MonitorBox field present, and
+    the bright health/status token absent from application-icon artwork.
     """
-    require(payload.startswith(b"\x89PNG\r\n\x1a\n"), "brand raster is not PNG")
-    offset = 8
-    width = height = 0
-    idat = bytearray()
-    while offset + 12 <= len(payload):
-        length = struct.unpack(">I", payload[offset : offset + 4])[0]
-        chunk_type = payload[offset + 4 : offset + 8]
-        chunk = payload[offset + 8 : offset + 8 + length]
-        require(offset + 12 + length <= len(payload), "truncated PNG chunk")
-        offset += 12 + length
-        if chunk_type == b"IHDR":
-            require(len(chunk) == 13, "invalid PNG IHDR")
-            width, height, bit_depth, color_type, compression, filter_method, interlace = struct.unpack(
-                ">IIBBBBB", chunk
-            )
-            require(bit_depth == 8 and color_type == 6, "brand PNG must remain 8-bit RGBA")
-            require(compression == 0 and filter_method == 0 and interlace == 0, "unsupported brand PNG encoding")
-        elif chunk_type == b"IDAT":
-            idat.extend(chunk)
-        elif chunk_type == b"IEND":
-            break
-
-    require(width > 0 and height > 0 and idat, "brand PNG is missing image data")
-    raw = zlib.decompress(bytes(idat))
-    bpp = 4
-    stride = width * bpp
-    require(len(raw) == height * (stride + 1), "brand PNG scanline size drifted")
-
-    pixels = bytearray(height * stride)
-    previous = bytearray(stride)
-    src = 0
-    for row_index in range(height):
-        filter_type = raw[src]
-        src += 1
-        scan = raw[src : src + stride]
-        src += stride
-        recon = bytearray(stride)
-        for x, value in enumerate(scan):
-            left = recon[x - bpp] if x >= bpp else 0
-            up = previous[x]
-            upper_left = previous[x - bpp] if x >= bpp else 0
-            if filter_type == 0:
-                predictor = 0
-            elif filter_type == 1:
-                predictor = left
-            elif filter_type == 2:
-                predictor = up
-            elif filter_type == 3:
-                predictor = (left + up) // 2
-            elif filter_type == 4:
-                predictor = _paeth(left, up, upper_left)
-            else:
-                raise SystemExit(f"unsupported PNG filter {filter_type}")
-            recon[x] = (value + predictor) & 0xFF
-        start = row_index * stride
-        pixels[start : start + stride] = recon
-        previous = recon
-
-    return (width, height), bytes(pixels)
-
-
-def pixel_count(pixels: bytes, rgba: bytes) -> int:
-    return sum(1 for index in range(0, len(pixels), 4) if pixels[index : index + 4] == rgba)
+    source = "data:image/png;base64," + base64.b64encode(payload).decode("ascii")
+    page.set_content(f'<img id="icon" src="{source}" alt="">')
+    return page.evaluate(
+        """async () => {
+          const image = document.getElementById('icon');
+          await image.decode();
+          const canvas = document.createElement('canvas');
+          canvas.width = image.naturalWidth;
+          canvas.height = image.naturalHeight;
+          const context = canvas.getContext('2d', {willReadFrequently: true});
+          context.drawImage(image, 0, 0);
+          const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+          let dark = 0;
+          let health = 0;
+          for (let i = 0; i < pixels.length; i += 4) {
+            if (pixels[i] === 0x17 && pixels[i + 1] === 0x40 && pixels[i + 2] === 0x41 && pixels[i + 3] === 0xff) dark += 1;
+            if (pixels[i] === 0x75 && pixels[i + 1] === 0xd6 && pixels[i + 2] === 0x9a && pixels[i + 3] === 0xff) health += 1;
+          }
+          return {width: canvas.width, height: canvas.height, dark, health};
+        }"""
+    )
 
 
 def main() -> None:
@@ -121,12 +66,21 @@ def main() -> None:
     require("#174041" in mark, "brand mark does not use the dark MonitorBox field")
     require("#75d69a" not in mark.lower(), "bright health green leaked into the brand mark")
 
-    for name, expected_size in EXPECTED_RASTERS.items():
-        size, pixels = png_rgba(assets[name])
-        require(size == expected_size, f"{name} dimensions drifted")
-        dark_pixels = pixel_count(pixels, DARK_BRAND_RGBA)
-        require(dark_pixels >= (size[0] * size[1]) // 4, f"{name} does not visibly carry the dark MonitorBox field")
-        require(pixel_count(pixels, HEALTH_GREEN_RGBA) == 0, f"{name} retained the bright health/status green")
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        page = browser.new_page()
+        try:
+            for name, expected_size in EXPECTED_RASTERS.items():
+                stats = rendered_raster_stats(page, assets[name])
+                size = (stats["width"], stats["height"])
+                require(size == expected_size, f"{name} dimensions drifted: {size} != {expected_size}")
+                require(
+                    stats["dark"] >= (size[0] * size[1]) // 4,
+                    f"{name} does not visibly carry the dark MonitorBox field",
+                )
+                require(stats["health"] == 0, f"{name} retained the bright health/status green")
+        finally:
+            browser.close()
 
     # Brand and health are intentionally separate tokens: #174041 is the solid app/icon
     # field, while #75d69a remains the live healthy/status signal in the UI.
