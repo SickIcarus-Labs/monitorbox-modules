@@ -83,6 +83,16 @@ class TestServer:
                     content_type="text/html",
                 )
 
+            async def discovery_page(_: web.Request) -> web.Response:
+                # Core owns the settings routes in production. Supply a minimal Core-style
+                # Discoveries document here so the managed UI middleware can exercise the
+                # real Discoveries-specific presentation/static injection contract.
+                return web.Response(
+                    text="<!doctype html><html><head><title>Discoveries</title></head>"
+                         "<body data-mb-page-title='Discoveries'><main id='discoveries-probe'>Ready</main></body></html>",
+                    content_type="text/html",
+                )
+
             async def api_fallback(_: web.Request) -> web.Response:
                 return web.json_response({})
 
@@ -92,6 +102,7 @@ class TestServer:
                 app.router.add_get("/api/v2/debug/config", debug_config)
                 app.router.add_get("/api/v2/config/discovery/runtime/summary", discovery_summary)
                 app.router.add_get("/settings/probe", probe)
+                app.router.add_get("/settings/discover", discovery_page)
                 self.ui_module.install(app)
                 app.router.add_route("*", "/api/v2/{tail:.*}", api_fallback)
                 runner = web.AppRunner(app)
