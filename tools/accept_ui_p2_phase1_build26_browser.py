@@ -161,10 +161,6 @@ def static_request_snapshot(counter: Counter[str]) -> dict[str, int]:
     }
 
 
-def static_script_style_requests(counter: Counter[str]) -> int:
-    return sum(static_request_snapshot(counter).values())
-
-
 def request_delta(before: dict[str, int], after: dict[str, int]) -> dict[str, int]:
     return {
         path: after.get(path, 0) - before.get(path, 0)
@@ -215,6 +211,9 @@ def main() -> None:
                         ))
 
                 page.on("response", capture)
+
+                # Cold Dashboard load verifies exact-generation static URLs, immutable
+                # cache headers, generation diagnostics, and the real Debug control.
                 response = page.goto(origin + "/", wait_until="networkidle")
                 assert response is not None and response.ok
                 assert response.headers.get("x-monitorbox-ui-generation") == GENERATION
@@ -232,9 +231,25 @@ def main() -> None:
                     assert "max-age=31536000" in cache_control and "immutable" in cache_control, (url, cache_control)
                     assert generation == GENERATION, (url, generation)
 
+                representative = (
+                    ("Dashboard", "/"),
+                    ("Modules", "/modules"),
+                    ("Discoveries", "/settings/discover"),
+                    ("Settings", "/settings/probe"),
+                )
+
+                # Warm every representative surface before simulating static delivery loss.
+                # Settings-only compatibility scripts are not Dashboard assets and cannot be
+                # expected in cache until a settings page has actually been visited once.
+                for _, path in representative:
+                    timed_navigation(page, origin + path)
                 before_stress = static_request_snapshot(server.requests)
                 assert sum(before_stress.values()) > 5, before_stress
 
+                # #303 stress: with all participating surface assets now in this exact
+                # generation's cache, make server CSS/JS delivery fail and perform >100
+                # settings-page -> Home round trips. A warm generation must neither
+                # revalidate nor fall back to a raw/default-styled Dashboard.
                 server.controls["fail_static"] = True
                 for iteration in range(HOME_STRESS_ITERATIONS):
                     away = page.goto(origin + "/settings/probe", wait_until="domcontentloaded")
@@ -246,24 +261,24 @@ def main() -> None:
                     page.locator(".mb-shell-debug").wait_for(state="visible")
                 after_stress = static_request_snapshot(server.requests)
                 delta = request_delta(before_stress, after_stress)
-                assert not delta, {"unexpected_static_requests": delta, "before": before_stress, "after": after_stress}
+                assert not delta, {
+                    "unexpected_warm_static_requests": delta,
+                    "before": before_stress,
+                    "after": after_stress,
+                }
 
+                # #304 representative warm-navigation budget. All route-specific managed
+                # assets have already been loaded above; shell visibility is included.
                 server.controls["fail_static"] = False
                 server.controls["slow_shell"] = False
-                representative = (
-                    ("Dashboard", "/"),
-                    ("Modules", "/modules"),
-                    ("Discoveries", "/settings/discover"),
-                    ("Settings", "/settings/probe"),
-                )
-                for _, path in representative:
-                    timed_navigation(page, origin + path)
                 timings: dict[str, float] = {}
                 for label, path in representative:
                     elapsed = timed_navigation(page, origin + path)
                     timings[label] = elapsed
                     assert elapsed < WARM_NAVIGATION_LIMIT_SECONDS, (label, elapsed, timings)
 
+                # Shell build/state hydration is deliberately much slower than the page.
+                # It is post-load/idle work and must not become a serial page dependency.
                 server.controls["slow_shell"] = True
                 started = time.perf_counter()
                 probe = page.goto(origin + "/settings/probe", wait_until="domcontentloaded")
@@ -274,7 +289,10 @@ def main() -> None:
                 assert_styled_shell(page)
                 assert page.locator("#mb-shell-core").inner_text()
 
-                print("build26 warm timings: " + ", ".join(f"{label}={seconds * 1000:.1f}ms" for label, seconds in timings.items()))
+                print(
+                    "build26 warm timings: "
+                    + ", ".join(f"{label}={seconds * 1000:.1f}ms" for label, seconds in timings.items())
+                )
                 context.close()
                 browser.close()
         finally:
@@ -284,7 +302,10 @@ def main() -> None:
             except ValueError:
                 pass
 
-    print(f"P2 Phase-1 UI build26 real-server acceptance: PASS ({HOME_STRESS_ITERATIONS} managed-page/Home stress cycles)")
+    print(
+        f"P2 Phase-1 UI build26 real-server acceptance: PASS "
+        f"({HOME_STRESS_ITERATIONS} warmed settings-page/Home stress cycles)"
+    )
 
 
 if __name__ == "__main__":
