@@ -3,7 +3,7 @@
   "signed": {
     "repository_id": "official-dev",
     "display_name": "MonitorBox Official Dev",
-    "generated_at": "2026-09-11T04:31:42.101340Z",
+    "generated_at": "2026-09-11T05:20:05.717881Z",
     "modules": [
       {
         "manifest": {
@@ -1277,12 +1277,12 @@
           "display_name": "MonitorBox UI",
           "description": "MonitorBox web interface, shared application shell, and operator presentation.",
           "version": "1.1.14",
-          "build": 25,
+          "build": 26,
           "schema": 1,
           "state_schema": 1,
           "module_type": "ui",
           "entrypoints": {
-            "webui": "monitorbox_ui_b25:install"
+            "webui": "monitorbox_ui_b26:install"
           },
           "requires_core": ">=2.3.1 <3.0.0",
           "requires_runtime_api": ">=1 <2",
@@ -1292,11 +1292,11 @@
           "lifecycle_policy": "required"
         },
         "package": {
-          "url": "packages/com.sickicarus.monitorbox.ui-1.1.14-build25.zip",
-          "filename": "com.sickicarus.monitorbox.ui-1.1.14-build25.zip",
-          "sha256": "9c4d41c708d96bf2df3b4267a6ea1f876de22cd7155074a912e4c87acdd4e9a1",
+          "url": "packages/com.sickicarus.monitorbox.ui-1.1.14-build26.zip",
+          "filename": "com.sickicarus.monitorbox.ui-1.1.14-build26.zip",
+          "sha256": "b6e0c5859b9cf0eac9ceea7c79f1154eb635f6966a3ecbece4f9aa40356ed76f",
           "signature_identity": "official-ed25519-1",
-          "signature": "aO709iCrEAP7wjoOfs1cCDmiGkw2AE+sWtQJPMybsGr7HX1Mstn7SuWsnZXtjxMDA688PluP1yfmI0SS53oWDw=="
+          "signature": "c+v0HmO/Mfmujj+5o5I462gqmob3YaXPpA5QQ0h8nd5S1QnvXB0LAM1Mo5pI/m/fzAQGwPcVD3/cO1J/t7LWCg=="
         }
       },
       {
@@ -1493,6 +1493,6 @@
   "signature": {
     "algorithm": "ed25519",
     "identity": "official-ed25519-1",
-    "value": "agVOQPQHrX8BzzMj8IBRMCcqhOoNGjnJAbBe/EYDWnP6Ld3n8rk2KYQ+KflCP9D7cnFmnDec7hCs/jKJ5DDzCQ=="
+    "value": "d8gEKX5vwnleY0VOjFCBUlNOkc1UM7bYNU+1ao93mph3DuyHeK24dDZ/00M9TlmPBC4MCY1SmdGnrEGxIBJgCg=="
   }
 }
