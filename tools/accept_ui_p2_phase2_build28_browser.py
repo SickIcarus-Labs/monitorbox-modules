@@ -67,6 +67,7 @@ def main() -> None:
         assert 'Provider relationship evidence' in recommended.inner_text()
         assert 'Authoritative physical peer link' in recommended.inner_text()
         assert 'Beta printer' in (other.text_content() or '')
+        assert '2 configuration changes selected' in page.locator('#resultSummary').inner_text()
 
         covered = page.locator('[data-coverage-section="covered"]')
         existing = page.locator('[data-candidate="c1"]')
@@ -77,7 +78,7 @@ def main() -> None:
         existing_checkbox = existing.locator('input[type="checkbox"][data-id]')
         existing_checkbox.uncheck()
         assert 'Stop monitoring' in existing.inner_text()
-        assert '1 configuration change selected' in page.locator('#resultSummary').inner_text()
+        assert '3 configuration changes selected' in page.locator('#resultSummary').inner_text()
 
         # Re-render while disclosure state has changed; grouping must retain state and identity.
         other.locator('summary').click()
@@ -88,6 +89,7 @@ def main() -> None:
         assert before_ids == after_ids == ['c1','o1','r1','r2']
         assert page.locator('[data-discovery-subsection="other"]').get_attribute('open') is not None
         assert page.locator('[data-coverage-section="covered"]').get_attribute('open') is not None
+        assert '3 configuration changes selected' in page.locator('#resultSummary').inner_text()
 
         page.set_content(CONNECTION_HTML)
         page.add_script_tag(path=str(CONNECTIONS))
