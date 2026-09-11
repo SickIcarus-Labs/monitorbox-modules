@@ -1,0 +1,69 @@
+name: P2 Phase 1 brand rasterize
+
+on:
+  push:
+    branches:
+      - p2/phase1-ui-shell-289
+    paths:
+      - sources/ui/1.1.14-build27/monitorbox-mark.svg
+      - .github/workflows/p2-phase1-brand-rasterize.yml
+
+permissions:
+  contents: write
+
+jobs:
+  rasterize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: p2/phase1-ui-shell-289
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Install deterministic rasterizer
+        run: python -m pip install --disable-pip-version-check CairoSVG==2.8.2 Pillow==11.3.0
+      - name: Generate opaque dark-brand raster derivatives
+        run: |
+          python - <<'PY'
+          from io import BytesIO
+          from pathlib import Path
+          import cairosvg
+          from PIL import Image
+
+          root = Path('sources/ui/1.1.14-build27')
+          svg = (root / 'monitorbox-mark.svg').read_bytes()
+          dark = (0x17, 0x40, 0x41, 0xFF)
+          targets = {
+              'monitorbox-192.png': (192, 192),
+              'monitorbox-512.png': (512, 512),
+              'monitorbox-apple-180.png': (180, 180),
+              'monitorbox-maskable-512.png': (512, 512),
+          }
+
+          for name, (width, height) in targets.items():
+              rendered = cairosvg.svg2png(
+                  bytestring=svg,
+                  output_width=width,
+                  output_height=height,
+                  background_color='#174041',
+              )
+              image = Image.open(BytesIO(rendered)).convert('RGBA')
+              background = Image.new('RGBA', image.size, dark)
+              background.alpha_composite(image)
+              background.save(root / name, format='PNG', optimize=True)
+          PY
+      - name: Verify raster semantics before commit
+        run: python tools/accept_ui_p2_phase1_build27.py
+      - name: Commit regenerated raster assets
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- sources/ui/1.1.14-build27/*.png; then
+            echo 'Raster assets already match the canonical SVG.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add sources/ui/1.1.14-build27/*.png
+          git commit -m 'ui: regenerate valid build27 brand rasters (#290)'
+          git push origin HEAD:p2/phase1-ui-shell-289
