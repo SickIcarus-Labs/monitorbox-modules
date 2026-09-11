@@ -3,7 +3,7 @@
   "signed": {
     "repository_id": "official",
     "display_name": "MonitorBox Official",
-    "generated_at": "2026-09-08T01:33:46.507072Z",
+    "generated_at": "2026-09-11T00:42:52.124936Z",
     "modules": [
       {
         "manifest": {
@@ -106,6 +106,39 @@
       },
       {
         "manifest": {
+          "module_id": "com.sickicarus.monitorbox.backup-restore",
+          "display_name": "Backup / Restore",
+          "version": "1.0.3",
+          "build": 4,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "recovery",
+          "entrypoints": {
+            "recovery": "monitorbox_backup_restore_b4:install"
+          },
+          "requires_core": ">=2.3.1 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [
+            "recovery.snapshot",
+            "recovery.inspect",
+            "recovery.schedule",
+            "recovery.destination",
+            "saved-backup-vault"
+          ],
+          "lifecycle_policy": "optional"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.backup-restore-1.0.3-build4.zip",
+          "filename": "com.sickicarus.monitorbox.backup-restore-1.0.3-build4.zip",
+          "sha256": "082aebf0a138f47ec318d39bf5f787eb1ecde150ce63b413fc36b4b22ec3fac7",
+          "signature_identity": "official-ed25519-1",
+          "signature": "7Li2Q1kkZw0hY3D7jhJhesXOMsfSSRtykfGAP5bJZfaYfWBx5z2Xgowxx1nugbnsYFSVmfYssrTp+5RtzBdUDQ=="
+        }
+      },
+      {
+        "manifest": {
           "module_id": "com.sickicarus.monitorbox.configuration-bootstrap",
           "display_name": "Configuration / Bootstrap",
           "version": "1.0.0",
@@ -160,6 +193,60 @@
       },
       {
         "manifest": {
+          "module_id": "com.sickicarus.monitorbox.configuration-bootstrap",
+          "display_name": "Configuration / Bootstrap",
+          "version": "1.0.3",
+          "build": 4,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "configuration",
+          "entrypoints": {
+            "configuration": "monitorbox_configuration_bootstrap_b4:install"
+          },
+          "requires_core": ">=2.3.0 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "required"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.configuration-bootstrap-1.0.3-build4.zip",
+          "filename": "com.sickicarus.monitorbox.configuration-bootstrap-1.0.3-build4.zip",
+          "sha256": "703559aa365fb129357391678cc06adc5484df97525c8d67af8ce465edf23146",
+          "signature_identity": "official-ed25519-1",
+          "signature": "rSdhKZbR2cUNNwiKby8WSfddBkO68rNcZfW2BhZBvQwhJBwEE21HH1svG3Tc/pI6o2fCN2wz3hUkD4cl794kCA=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.configuration-bootstrap",
+          "display_name": "Configuration / Bootstrap",
+          "version": "1.0.4",
+          "build": 5,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "configuration",
+          "entrypoints": {
+            "configuration": "monitorbox_configuration_bootstrap_b5:install"
+          },
+          "requires_core": ">=2.3.0 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "required"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.configuration-bootstrap-1.0.4-build5.zip",
+          "filename": "com.sickicarus.monitorbox.configuration-bootstrap-1.0.4-build5.zip",
+          "sha256": "9a5417f6386a27d602410f3fe2a5041339dc22ce44166a4a02506f85b0b82ef1",
+          "signature_identity": "official-ed25519-1",
+          "signature": "l+XvAuoXHOtlv7wUfMbTyOKTUqkPbft/r13J9HOOl/QKLw7jtMVfmx2sWYRmDloAm9YlHeK6IvAnhM/45s3fBg=="
+        }
+      },
+      {
+        "manifest": {
           "module_id": "com.sickicarus.monitorbox.http",
           "display_name": "HTTP(S) Integration",
           "version": "1.0.0",
@@ -183,6 +270,33 @@
           "sha256": "bf8b7b985a5d30e7a0165de24dc61ddc6e6205b14ed782a4135564e9a75d8761",
           "signature_identity": "official-ed25519-1",
           "signature": "FwGW9SNPSSu+x34vxaP/bZYxTW9z8vnio5CgjBgWybCScJWI0oCbfkQubRUVO+TGZqDr0DsjiO3D+4PqNbH7Ag=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.http",
+          "display_name": "HTTP(S) Integration",
+          "version": "1.0.1",
+          "build": 2,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "integration",
+          "entrypoints": {
+            "integration": "monitorbox_http_v101_b2:PLUGIN"
+          },
+          "requires_core": ">=2.3.1 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "optional"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.http-1.0.1-build2.zip",
+          "filename": "com.sickicarus.monitorbox.http-1.0.1-build2.zip",
+          "sha256": "45336504770f0e15e6575207d5471b92664749a09826c476cf8485c5ad8b371a",
+          "signature_identity": "official-ed25519-1",
+          "signature": "nDyuyAp6dhVFVP0V+NXgmR6ucB0htO7BCdHherccbqCFeZ/ZMFiB0QQKt+1rMkcu0pJCvTTN99CAKWduss84Bw=="
         }
       },
       {
@@ -376,6 +490,33 @@
       },
       {
         "manifest": {
+          "module_id": "com.sickicarus.monitorbox.portainer",
+          "display_name": "Portainer Integration",
+          "version": "1.1.1",
+          "build": 7,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "integration",
+          "entrypoints": {
+            "integration": "monitorbox_portainer_b7:PLUGIN"
+          },
+          "requires_core": ">=2.3.0 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "optional"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.portainer-1.1.1-build7.zip",
+          "filename": "com.sickicarus.monitorbox.portainer-1.1.1-build7.zip",
+          "sha256": "cc45730a01d4be423308ea0a36a76bb7a566ce9404e632956ddc42f8f1a3e6e3",
+          "signature_identity": "official-ed25519-1",
+          "signature": "a+ePB3ynVsDRbfmNL4m+zFfhX01TVLLwmMqW3FWaRjckShd/sz7kRSXUIVkZththVDvvP7A8fNVbqhH/tJMOBQ=="
+        }
+      },
+      {
+        "manifest": {
           "module_id": "com.sickicarus.monitorbox.scrypted",
           "display_name": "Scrypted Integration",
           "version": "1.0.0",
@@ -507,6 +648,33 @@
           "sha256": "a5688c999bb4c2b60e3236172662b92a2462f0da30b8ccdade5b74f9f7b5081d",
           "signature_identity": "official-ed25519-1",
           "signature": "WLsZCUMcMUfD079eUST8C37cnBZ34kt/WvI/FxpwVEAAbn/Ze0sZyxECB4nVBkAk58zHj/FLLsltUA/bVTRBCg=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.scrypted",
+          "display_name": "Scrypted Integration",
+          "version": "2.1.3",
+          "build": 4,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "integration",
+          "entrypoints": {
+            "integration": "monitorbox_scrypted_v213_b4:PLUGIN"
+          },
+          "requires_core": ">=2.3.1 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "optional"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.scrypted-2.1.3-build4.zip",
+          "filename": "com.sickicarus.monitorbox.scrypted-2.1.3-build4.zip",
+          "sha256": "4cafde75de790e98c4fe7589d1dcea65909655e699ee8bda8c190c2e101cec1d",
+          "signature_identity": "official-ed25519-1",
+          "signature": "Mfb1GKssvQ8uNlmqL99F6fcaCxbPJHG5qmxw0u+Fp9Nu8N2ZXTx0Jo72T4aRJ1aP587DmUJ53IYJjfMcRCpwCw=="
         }
       },
       {
@@ -696,6 +864,33 @@
           "sha256": "2fec436e8f2da91fbdc94fc3e2a221e728eea57b1504c98eff71d74f79b5a3b0",
           "signature_identity": "official-ed25519-1",
           "signature": "me4PyTXv79kUjOE5qSY7yP5FqUUW2pELqxUgGvYO7RfWH3idwHsUCXUVNFqFwGPWjy+0NchRFT9yHReLRU2FAw=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.snmp",
+          "display_name": "SNMP Integration",
+          "version": "1.0.6",
+          "build": 8,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "integration",
+          "entrypoints": {
+            "integration": "monitorbox_snmp_v106_b8:PLUGIN"
+          },
+          "requires_core": ">=2.3.1 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "optional"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.snmp-1.0.6-build8.zip",
+          "filename": "com.sickicarus.monitorbox.snmp-1.0.6-build8.zip",
+          "sha256": "a6aeffd2060127db2fde32902803979c3408bab83e44f9c7e0720d1c1f021e5b",
+          "signature_identity": "official-ed25519-1",
+          "signature": "UGijqLOy/doLxIrkhzlxtkQlgCvJJJrP4RZFj04p3kazVYZo+El4+wfquwyO7kcP/D+Cz9uCMlU8XSR92cxiBg=="
         }
       },
       {
@@ -997,6 +1192,87 @@
       },
       {
         "manifest": {
+          "module_id": "com.sickicarus.monitorbox.ui",
+          "display_name": "MonitorBox UI",
+          "version": "1.1.11",
+          "build": 19,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "ui",
+          "entrypoints": {
+            "webui": "monitorbox_ui_b19:install"
+          },
+          "requires_core": ">=2.3.1 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "required"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.ui-1.1.11-build19.zip",
+          "filename": "com.sickicarus.monitorbox.ui-1.1.11-build19.zip",
+          "sha256": "a2c8b285e085d5a33a0ab061b41cd4bfe3267b4ed6304701d90ed09ce82737b7",
+          "signature_identity": "official-ed25519-1",
+          "signature": "upkpOtH90amwjMnrLsiULAHtLlplJVAzs2nl90jHkNNc0G3puowO70snxzPDUnG867yJiV/6XFaQmNbGHEcICw=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.ui",
+          "display_name": "MonitorBox UI",
+          "version": "1.1.12",
+          "build": 20,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "ui",
+          "entrypoints": {
+            "webui": "monitorbox_ui_b20:install"
+          },
+          "requires_core": ">=2.3.1 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "required"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.ui-1.1.12-build20.zip",
+          "filename": "com.sickicarus.monitorbox.ui-1.1.12-build20.zip",
+          "sha256": "30d7bdcc88950eb5934c1f341cba6ade61797b87e2db3234427b8e2115e9fd0f",
+          "signature_identity": "official-ed25519-1",
+          "signature": "h6Ykr/bdRoDz+bfECVmt9e269dhPgRJGPg2ap+/GKgdrXaJ5yLljGvQR3CfMOpr6pHfhuuUP0iDAEy4VxXF9Dg=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.ui",
+          "display_name": "MonitorBox UI",
+          "version": "1.1.13",
+          "build": 23,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "ui",
+          "entrypoints": {
+            "webui": "monitorbox_ui_b23:install"
+          },
+          "requires_core": ">=2.3.1 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "required"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.ui-1.1.13-build23.zip",
+          "filename": "com.sickicarus.monitorbox.ui-1.1.13-build23.zip",
+          "sha256": "00311dd6915176cb6574697c523ecd9c79d05dbf029df3d2a5d9e9ff0654c93a",
+          "signature_identity": "official-ed25519-1",
+          "signature": "Vpte4KARKECx+ce/hNjMVcLEw5NyIpxhW8aCElYPCNmguIIi8B2E2ba1H3Iv7KJRndk3w5Ctw+aDgwRKLQuvBQ=="
+        }
+      },
+      {
+        "manifest": {
           "module_id": "com.sickicarus.monitorbox.unifi",
           "display_name": "UniFi Network Integration",
           "version": "1.0.0",
@@ -1105,6 +1381,60 @@
       },
       {
         "manifest": {
+          "module_id": "com.sickicarus.monitorbox.unifi",
+          "display_name": "UniFi Network Integration",
+          "version": "1.0.8",
+          "build": 9,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "integration",
+          "entrypoints": {
+            "integration": "monitorbox_unifi_b9:PLUGIN"
+          },
+          "requires_core": ">=2.3.0 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "optional"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.unifi-1.0.8-build9.zip",
+          "filename": "com.sickicarus.monitorbox.unifi-1.0.8-build9.zip",
+          "sha256": "ed3d21d30f26270f037eaf59427af6e8b7691da46e6d9a3fd9555268490c7376",
+          "signature_identity": "official-ed25519-1",
+          "signature": "UPxb7WjLenEpFDLZ6k2DdhSAaCK6UInWr2xegCMXWFgyDnS5i7SFbBPQmZ1oqbzTnOnSynZzXVxu5FgcQhDLAg=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.unifi",
+          "display_name": "UniFi Network Integration",
+          "version": "1.0.9",
+          "build": 10,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "integration",
+          "entrypoints": {
+            "integration": "monitorbox_unifi_b10:PLUGIN"
+          },
+          "requires_core": ">=2.3.0 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "optional"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.unifi-1.0.9-build10.zip",
+          "filename": "com.sickicarus.monitorbox.unifi-1.0.9-build10.zip",
+          "sha256": "98aa3a5927d3c7dc6b7c22fd540db72353af0afb9e670efb80d4551f9d0b9fa7",
+          "signature_identity": "official-ed25519-1",
+          "signature": "i4uqUZnRkGKk6IMkFXZEq5ennbw9GoFywkOTms1QrSPiFIHjGfHm8PgyQiWYWIbAu4Qk4DrMVju7nuc0ZcqgBQ=="
+        }
+      },
+      {
+        "manifest": {
           "module_id": "com.sickicarus.monitorbox.wol",
           "display_name": "Wake-on-LAN Action",
           "version": "1.0.0",
@@ -1135,6 +1465,6 @@
   "signature": {
     "algorithm": "ed25519",
     "identity": "official-ed25519-1",
-    "value": "nttT3xRA3OGsPAAhRqxhv4A1t74TOy+dVHoSg//6nfCrOVzAJbIPXfwp9PtPbHwYmRSbvB7FETP3ZB1RJiCaAg=="
+    "value": "yVal4eoZuv/Yw2jCDZPUuXeQsoVnLkMiGkCmd5gcxsyPUOaUDqlR31uu73kgZVnPdSTJ5xLYMGMqBTu41NvYCQ=="
   }
 }
