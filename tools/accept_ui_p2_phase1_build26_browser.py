@@ -129,8 +129,6 @@ class TestServer:
 
 def write_runtime_package(root: Path) -> object:
     assets = candidate._build26_assets(Path(__file__).resolve().parent.parent)
-
-    # Stub only the generic Core build-info dependency required by the standalone UI.
     monitorbox = root / "monitorbox"
     (monitorbox / "v2").mkdir(parents=True)
     (monitorbox / "__init__.py").write_text("", encoding="utf-8")
@@ -144,25 +142,35 @@ def write_runtime_package(root: Path) -> object:
         "    return Identity()\n",
         encoding="utf-8",
     )
-
     package = root / "monitorbox_ui_b26"
     (package / "assets").mkdir(parents=True)
     (package / "__init__.py").write_bytes(candidate._standalone_application())
     for name, payload in assets.items():
         (package / "assets" / name).write_bytes(payload)
-
     sys.path.insert(0, str(root))
     importlib.invalidate_caches()
     return importlib.import_module("monitorbox_ui_b26")
 
 
-def static_script_style_requests(counter: Counter[str]) -> int:
-    return sum(
-        count
+def static_request_snapshot(counter: Counter[str]) -> dict[str, int]:
+    return {
+        raw_path: count
         for raw_path, count in counter.items()
         if raw_path.startswith("/static/")
         and urlparse(raw_path).path.endswith((".css", ".js"))
-    )
+    }
+
+
+def static_script_style_requests(counter: Counter[str]) -> int:
+    return sum(static_request_snapshot(counter).values())
+
+
+def request_delta(before: dict[str, int], after: dict[str, int]) -> dict[str, int]:
+    return {
+        path: after.get(path, 0) - before.get(path, 0)
+        for path in sorted(set(before) | set(after))
+        if after.get(path, 0) != before.get(path, 0)
+    }
 
 
 def assert_styled_shell(page) -> None:
@@ -190,7 +198,6 @@ def main() -> None:
         server = TestServer(ui_module)
         server.start()
         origin = f"http://127.0.0.1:{server.port}"
-
         try:
             with sync_playwright() as playwright:
                 browser = playwright.chromium.launch(headless=True)
@@ -208,9 +215,6 @@ def main() -> None:
                         ))
 
                 page.on("response", capture)
-
-                # Cold load: generated HTML must point every managed CSS/JS request at
-                # the exact generation, and matching responses are immutable.
                 response = page.goto(origin + "/", wait_until="networkidle")
                 assert response is not None and response.ok
                 assert response.headers.get("x-monitorbox-ui-generation") == GENERATION
@@ -228,13 +232,9 @@ def main() -> None:
                     assert "max-age=31536000" in cache_control and "immutable" in cache_control, (url, cache_control)
                     assert generation == GENERATION, (url, generation)
 
-                first_static_count = static_script_style_requests(server.requests)
-                assert first_static_count > 5, first_static_count
+                before_stress = static_request_snapshot(server.requests)
+                assert sum(before_stress.values()) > 5, before_stress
 
-                # #303 stress: after one coherent generation load, make CSS/JS delivery
-                # fail at the server and perform >100 managed-page -> Home round trips.
-                # Browser generation caching must make every Home usable without a single
-                # new CSS/JS request or raw/default-styled fallback.
                 server.controls["fail_static"] = True
                 for iteration in range(HOME_STRESS_ITERATIONS):
                     away = page.goto(origin + "/settings/probe", wait_until="domcontentloaded")
@@ -244,15 +244,10 @@ def main() -> None:
                     assert home is not None and home.ok, iteration
                     assert_styled_shell(page)
                     page.locator(".mb-shell-debug").wait_for(state="visible")
-                stressed_static_count = static_script_style_requests(server.requests)
-                assert stressed_static_count == first_static_count, (
-                    first_static_count,
-                    stressed_static_count,
-                )
+                after_stress = static_request_snapshot(server.requests)
+                delta = request_delta(before_stress, after_stress)
+                assert not delta, {"unexpected_static_requests": delta, "before": before_stress, "after": after_stress}
 
-                # #304 representative warm-navigation budget. These are local/Test-Lab
-                # bounds, not WAN/Safari promises. All managed assets are warm before
-                # measurement and shell visibility is included in elapsed time.
                 server.controls["fail_static"] = False
                 server.controls["slow_shell"] = False
                 representative = (
@@ -261,7 +256,6 @@ def main() -> None:
                     ("Discoveries", "/settings/discover"),
                     ("Settings", "/settings/probe"),
                 )
-                # Warm each route once before measuring it.
                 for _, path in representative:
                     timed_navigation(page, origin + path)
                 timings: dict[str, float] = {}
@@ -270,8 +264,6 @@ def main() -> None:
                     timings[label] = elapsed
                     assert elapsed < WARM_NAVIGATION_LIMIT_SECONDS, (label, elapsed, timings)
 
-                # Shell build/state hydration is deliberately much slower than the page.
-                # It is post-load/idle work and must not become a serial page dependency.
                 server.controls["slow_shell"] = True
                 started = time.perf_counter()
                 probe = page.goto(origin + "/settings/probe", wait_until="domcontentloaded")
@@ -282,10 +274,7 @@ def main() -> None:
                 assert_styled_shell(page)
                 assert page.locator("#mb-shell-core").inner_text()
 
-                print(
-                    "build26 warm timings: "
-                    + ", ".join(f"{label}={seconds * 1000:.1f}ms" for label, seconds in timings.items())
-                )
+                print("build26 warm timings: " + ", ".join(f"{label}={seconds * 1000:.1f}ms" for label, seconds in timings.items()))
                 context.close()
                 browser.close()
         finally:
@@ -295,10 +284,7 @@ def main() -> None:
             except ValueError:
                 pass
 
-    print(
-        f"P2 Phase-1 UI build26 real-server acceptance: PASS "
-        f"({HOME_STRESS_ITERATIONS} managed-page/Home stress cycles)"
-    )
+    print(f"P2 Phase-1 UI build26 real-server acceptance: PASS ({HOME_STRESS_ITERATIONS} managed-page/Home stress cycles)")
 
 
 if __name__ == "__main__":
