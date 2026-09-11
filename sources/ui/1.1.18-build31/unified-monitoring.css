@@ -1,0 +1,21 @@
+#results .provider-unified-monitoring {
+  grid-template-columns: minmax(130px,180px) minmax(220px,1fr) minmax(180px,1fr) !important;
+  align-items: start;
+}
+#results .provider-unified-monitoring > .discovery-proposed-action { grid-column: 1 !important; }
+#results .provider-unified-monitoring .discovery-proposed-action input[type="checkbox"] {
+  position: static !important;
+  width: auto !important;
+  height: auto !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+@media (max-width:759px) {
+  #results .provider-unified-monitoring {
+    grid-template-columns: minmax(105px,.48fr) minmax(0,1fr) !important;
+  }
+  #results .provider-unified-monitoring > .discovery-proposed-action {
+    grid-column: 1 !important;
+    grid-row: 1 / span 2;
+  }
+}
