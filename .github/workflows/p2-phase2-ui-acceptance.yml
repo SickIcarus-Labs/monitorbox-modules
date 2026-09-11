@@ -9,9 +9,9 @@ on:
       - 'sources/unifi/**'
       - 'tools/build_first_party_ui_*.py'
       - 'tools/build_first_party_unifi_*.py'
-      - 'tools/stage_p2_phase2_ui_build30.py'
+      - 'tools/stage_p2_phase2_ui_build*.py'
       - 'tools/stage_unifi_1_0_11_build12.py'
-      - 'tools/accept_ui_p2_phase2_build30*.py'
+      - 'tools/accept_ui_p2_phase2_build*.py'
       - 'tools/accept_unifi_recommendation_relationship_b12.py'
       - '.github/workflows/p2-phase2-ui-acceptance.yml'
 
@@ -33,9 +33,9 @@ jobs:
         run: |
           python -m pip install --disable-pip-version-check playwright==1.55.0
           python -m playwright install --with-deps chromium
-      - name: Verify build-30 package and release contract
-        run: python tools/accept_ui_p2_phase2_build30.py
-      - name: Verify UniFi relationship evidence across topology authorities
+      - name: Verify build-31 package and unified monitoring contract
+        run: python tools/accept_ui_p2_phase2_build31.py
+      - name: Verify accepted UniFi relationship evidence regression
         run: python tools/accept_unifi_recommendation_relationship_b12.py
-      - name: Verify production-order Discoveries semantics
-        run: python tools/accept_ui_p2_phase2_build30_browser.py
+      - name: Verify source-independent monitored checkbox semantics
+        run: python tools/accept_ui_p2_phase2_build31_browser.py
