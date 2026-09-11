@@ -32,7 +32,9 @@ MODULE_MODEL = {
             "module_id": "example.optional",
             "display_name": "Backup / Restore",
             "description": "A module-owned description carried through generic authority.",
-            "installed": {"version": "1.0.3", "build": 4, "source_repository_id": "official-beta", "artifact_identity": "sha256:one", "digest_sha256": "1" * 64, "lifecycle_policy": "optional", "lifecycle_state": "active", "enabled": True, "requires_core": ">=2.3.1 <3.0.0", "requires_runtime_api": ">=1 <2"},
+            # Install provenance stays dev, while Core projects the highest current
+            # official promotion state of this exact immutable artifact as stable.
+            "installed": {"version": "1.0.3", "build": 4, "source_repository_id": "official-dev", "release_channel": "stable", "artifact_identity": "sha256:one", "digest_sha256": "1" * 64, "lifecycle_policy": "optional", "lifecycle_state": "active", "enabled": True, "requires_core": ">=2.3.1 <3.0.0", "requires_runtime_api": ">=1 <2"},
             "previous": {"version": "1.0.2", "build": 3, "source_repository_id": "official-beta", "artifact_identity": "sha256:previous"},
             "available": {"version": "1.0.4", "build": 5, "repository_id": "official-dev", "digest_sha256": "2" * 64, "signature_identity": "test", "update_available": True, "requires_core": ">=2.3.1 <3.0.0", "requires_runtime_api": ">=1 <2"},
             "actions": ["update", "rollback", "remove"],
@@ -41,7 +43,7 @@ MODULE_MODEL = {
             "module_id": "example.required",
             "display_name": "Configuration / Bootstrap With A Longer Name",
             "description": None,
-            "installed": {"version": "1.0.4", "build": 5, "source_repository_id": "official-dev", "artifact_identity": "sha256:required", "digest_sha256": "3" * 64, "lifecycle_policy": "required", "lifecycle_state": "active", "enabled": True, "requires_core": ">=2.3.1 <3.0.0", "requires_runtime_api": ">=1 <2"},
+            "installed": {"version": "1.0.4", "build": 5, "source_repository_id": "official-dev", "release_channel": "beta", "artifact_identity": "sha256:required", "digest_sha256": "3" * 64, "lifecycle_policy": "required", "lifecycle_state": "active", "enabled": True, "requires_core": ">=2.3.1 <3.0.0", "requires_runtime_api": ">=1 <2"},
             "previous": None,
             "available": {"version": "1.0.5", "build": 6, "repository_id": "official-dev", "digest_sha256": "4" * 64, "signature_identity": "test", "update_available": True},
             "actions": ["update"],
@@ -152,8 +154,12 @@ def assert_modules(page) -> None:
     source_x = installed.locator(".modules-source").evaluate_all("els => els.map(el => el.getBoundingClientRect().left)")
     assert max(release_x) - min(release_x) < 2, release_x
     assert max(source_x) - min(source_x) < 2, source_x
-    assert installed.locator('[data-module-id="example.optional"] .modules-source').inner_text() == "beta"
-    assert installed.locator('[data-module-id="example.required"] .modules-source').inner_text() == "dev"
+
+    # Core owns promotion authority. UI consumes release_channel when supplied and does
+    # not display the repository the artifact happened to be installed from as its
+    # current release state.
+    assert installed.locator('[data-module-id="example.optional"] .modules-source').inner_text() == "stable"
+    assert installed.locator('[data-module-id="example.required"] .modules-source').inner_text() == "beta"
 
     # #287 remains intact after the physical-polish pass.
     optional = page.locator('[data-module-id="example.optional"]')
