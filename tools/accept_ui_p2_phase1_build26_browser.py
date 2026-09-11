@@ -217,10 +217,14 @@ def main() -> None:
                 server.controls["fail_static"] = True
                 second = page.goto(origin + "/", wait_until="domcontentloaded")
                 assert second is not None and second.ok
-                page.locator("#mb-app-shell").wait_for(state="visible")
+                shell = page.locator("#mb-app-shell")
+                shell.wait_for(state="visible")
                 page.locator(".mb-shell-debug").wait_for(state="visible")
-                body_background = page.evaluate("getComputedStyle(document.body).backgroundColor")
-                assert body_background not in {"rgb(255, 255, 255)", "rgba(0, 0, 0, 0)"}, body_background
+                shell_style = shell.evaluate(
+                    "el => ({position:getComputedStyle(el).position, background:getComputedStyle(el).backgroundColor})"
+                )
+                assert shell_style["position"] == "sticky", shell_style
+                assert shell_style["background"] not in {"rgba(0, 0, 0, 0)", "transparent"}, shell_style
                 second_static_count = static_script_style_requests(server.requests)
                 assert second_static_count == first_static_count, (first_static_count, second_static_count)
 
