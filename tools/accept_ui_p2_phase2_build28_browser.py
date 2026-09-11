@@ -68,14 +68,18 @@ def main() -> None:
         assert 'Authoritative physical peer link' in recommended.inner_text()
         assert 'Beta printer' in (other.text_content() or '')
 
+        covered = page.locator('[data-coverage-section="covered"]')
         existing = page.locator('[data-candidate="c1"]')
+        assert covered.get_attribute('open') is None
         assert 'Keep monitoring' in (existing.text_content() or '')
+        covered.locator('summary').click()
+        assert covered.get_attribute('open') is not None
         existing_checkbox = existing.locator('input[type="checkbox"][data-id]')
         existing_checkbox.uncheck()
-        assert 'Stop monitoring' in (existing.text_content() or '')
+        assert 'Stop monitoring' in existing.inner_text()
         assert '1 configuration change selected' in page.locator('#resultSummary').inner_text()
 
-        # Re-render while a disclosure state has been changed; grouping must not alter candidate identity.
+        # Re-render while disclosure state has changed; grouping must retain state and identity.
         other.locator('summary').click()
         assert other.get_attribute('open') is not None
         before_ids = page.locator('#results .candidate').evaluate_all("els => els.map(e => e.dataset.candidate).sort()")
@@ -83,6 +87,7 @@ def main() -> None:
         after_ids = page.locator('#results .candidate').evaluate_all("els => els.map(e => e.dataset.candidate).sort()")
         assert before_ids == after_ids == ['c1','o1','r1','r2']
         assert page.locator('[data-discovery-subsection="other"]').get_attribute('open') is not None
+        assert page.locator('[data-coverage-section="covered"]').get_attribute('open') is not None
 
         page.set_content(CONNECTION_HTML)
         page.add_script_tag(path=str(CONNECTIONS))
