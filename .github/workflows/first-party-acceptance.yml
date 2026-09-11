@@ -138,6 +138,8 @@ jobs:
         run: python tools/accept_ui_p2_phase1_build26.py
       - name: Verify P2 Phase 1 build-26 real-server cache Debug and load behavior
         run: python tools/accept_ui_p2_phase1_build26_browser.py
+      - name: Verify P2 Phase 1 build-27 dark brand icon contract
+        run: python tools/accept_ui_p2_phase1_build27.py
       - name: Upload exact changed candidates for Broad Leaf acceptance
         uses: actions/upload-artifact@v4
         with:
