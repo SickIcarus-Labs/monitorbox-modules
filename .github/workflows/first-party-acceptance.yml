@@ -126,6 +126,10 @@ jobs:
         env:
           UI_DISCOVERY_COVERAGE_SCREENSHOT: /tmp/ui-discovery-coverage.png
         run: python tools/accept_ui_discovery_coverage.py
+      - name: Verify P2 Phase 1 UI structure and release contract
+        run: python tools/accept_ui_p2_phase1_build24.py
+      - name: Verify P2 Phase 1 UI on desktop and iPad viewports
+        run: python tools/accept_ui_p2_phase1_build24_browser.py
       - name: Upload exact changed candidates for Broad Leaf acceptance
         uses: actions/upload-artifact@v4
         with:
