@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">MonitorBox lighthouse mark</title>
+  <desc id="desc">White lighthouse and keeper cottage with a single monitoring beam on the canonical MonitorBox healthy green field.</desc>
+  <rect width="512" height="512" rx="92" fill="#75d69a"/>
+  <path fill="#FFFFFF" d="M250 139 L430 111 L430 184 Z"/>
+  <path fill="#FFFFFF" d="M125 374 L146 203 L236 203 L252 374 Z"/>
+  <path fill="#FFFFFF" d="M135 139 L191 95 L247 139 Z"/>
+  <path fill="#FFFFFF" fill-rule="evenodd" d="M145 142 H237 V194 H252 V207 H130 V194 H145 Z M158 151 V184 H174 V151 Z M184 151 V184 H200 V151 Z M210 151 V184 H226 V151 Z"/>
+  <rect x="180" y="242" width="20" height="36" rx="2" fill="#75d69a"/>
+  <path fill="#FFFFFF" d="M215 315 L285 258 L365 323 L348 341 L285 290 L231 334 Z"/>
+  <path fill="#FFFFFF" d="M226 326 H348 V397 H226 Z"/>
+  <rect x="301" y="351" width="25" height="46" rx="2" fill="#75d69a"/>
+  <rect x="246" y="348" width="28" height="28" rx="2" fill="#75d69a"/>
+  <path stroke="#75d69a" stroke-width="5" d="M260 348 V376 M246 362 H274"/>
+  <path fill="#FFFFFF" d="M92 399 C121 373 158 374 188 385 C217 396 242 391 266 385 C300 376 337 378 367 391 C392 402 415 402 432 416 C407 429 367 434 321 433 H156 C126 432 102 422 92 399 Z"/>
+</svg>

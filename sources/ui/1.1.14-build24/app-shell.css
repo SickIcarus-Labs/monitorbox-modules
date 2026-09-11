@@ -1,0 +1,196 @@
+:root {
+  --mb-shell-bg:#07111f;
+  --mb-shell-panel:#0c1d33;
+  --mb-shell-line:#153454;
+  --mb-shell-text:#edf4ff;
+  --mb-shell-muted:#9fb4cf;
+  --mb-shell-healthy:#75d69a;
+  --mb-shell-degraded:#f9d976;
+  --mb-shell-critical:#ff8a8a;
+  --mb-shell-unknown:#9fb4cf;
+}
+
+.mb-app-shell {
+  position:sticky;
+  top:0;
+  z-index:1000;
+  display:grid;
+  grid-template-columns:auto auto minmax(0,1fr) auto;
+  align-items:center;
+  gap:10px;
+  min-height:58px;
+  padding:8px max(12px, env(safe-area-inset-right)) 8px max(12px, env(safe-area-inset-left));
+  color:var(--mb-shell-text);
+  background:color-mix(in srgb, var(--mb-shell-bg) 94%, transparent);
+  border-bottom:1px solid var(--mb-shell-line);
+  box-shadow:0 6px 24px #0004;
+  backdrop-filter:blur(16px);
+  -webkit-backdrop-filter:blur(16px);
+}
+.mb-app-shell::after {
+  content:"";
+  position:absolute;
+  inset:auto 0 -1px 0;
+  height:2px;
+  background:var(--mb-shell-unknown);
+  opacity:.9;
+}
+.mb-app-shell.mb-health-healthy::after{background:var(--mb-shell-healthy)}
+.mb-app-shell.mb-health-degraded::after{background:var(--mb-shell-degraded)}
+.mb-app-shell.mb-health-critical::after{background:var(--mb-shell-critical)}
+.mb-app-shell.mb-health-unknown::after{background:var(--mb-shell-unknown)}
+
+.mb-shell-menu,.mb-shell-home,.mb-shell-up {
+  min-width:42px;
+  min-height:42px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border:1px solid var(--mb-shell-line);
+  border-radius:11px;
+  background:var(--mb-shell-panel);
+  color:var(--mb-shell-text);
+  text-decoration:none;
+}
+.mb-shell-menu {
+  font:700 20px/1 system-ui,-apple-system,sans-serif;
+  cursor:pointer;
+}
+.mb-shell-menu:hover,.mb-shell-home:hover,.mb-shell-up:hover{border-color:#5273a2}
+.mb-shell-menu:focus-visible,.mb-shell-home:focus-visible,.mb-shell-up:focus-visible,.mb-shell-nav a:focus-visible{
+  outline:2px solid #7da6ff;
+  outline-offset:2px;
+}
+
+.mb-shell-home{width:44px;padding:5px}
+.mb-shell-glyph{
+  width:32px;
+  height:32px;
+  display:block;
+  background:currentColor;
+  -webkit-mask:url("/static/monitorbox-glyph.svg?v=1.1.14-24") center/contain no-repeat;
+  mask:url("/static/monitorbox-glyph.svg?v=1.1.14-24") center/contain no-repeat;
+}
+.mb-health-healthy .mb-shell-home{border-color:color-mix(in srgb,var(--mb-shell-healthy) 55%,var(--mb-shell-line))}
+.mb-health-degraded .mb-shell-home{border-color:color-mix(in srgb,var(--mb-shell-degraded) 55%,var(--mb-shell-line))}
+.mb-health-critical .mb-shell-home{border-color:color-mix(in srgb,var(--mb-shell-critical) 55%,var(--mb-shell-line))}
+
+.mb-shell-hierarchy{
+  min-width:0;
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr);
+  grid-template-areas:"product title";
+  align-items:baseline;
+  column-gap:10px;
+}
+.mb-shell-product{
+  grid-area:product;
+  color:var(--mb-shell-muted);
+  font:650 12px/1.2 system-ui,-apple-system,sans-serif;
+  letter-spacing:.02em;
+}
+.mb-shell-title{
+  grid-area:title;
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font:720 16px/1.25 system-ui,-apple-system,sans-serif;
+}
+.mb-shell-up{
+  grid-column:1/-1;
+  min-width:0;
+  min-height:0;
+  justify-content:flex-start;
+  width:max-content;
+  max-width:100%;
+  padding:0;
+  border:0;
+  background:transparent;
+  color:var(--mb-shell-muted);
+  font:600 11px/1.2 system-ui,-apple-system,sans-serif;
+}
+.mb-shell-up:hover{color:var(--mb-shell-text);border:0}
+
+.mb-shell-runtime{
+  display:flex;
+  align-items:flex-end;
+  flex-direction:column;
+  gap:2px;
+  min-width:0;
+  text-align:right;
+  font:600 11px/1.25 system-ui,-apple-system,sans-serif;
+}
+.mb-shell-core,.mb-shell-site{
+  max-width:40vw;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.mb-shell-core{color:var(--mb-shell-muted)}
+.mb-shell-site{color:var(--mb-shell-text)}
+.mb-health-healthy .mb-shell-site::before{content:"● ";color:var(--mb-shell-healthy)}
+.mb-health-degraded .mb-shell-site::before{content:"● ";color:var(--mb-shell-degraded)}
+.mb-health-critical .mb-shell-site::before{content:"● ";color:var(--mb-shell-critical)}
+.mb-health-unknown .mb-shell-site::before{content:"● ";color:var(--mb-shell-unknown)}
+
+.mb-shell-nav{
+  position:absolute;
+  top:calc(100% + 6px);
+  left:max(12px, env(safe-area-inset-left));
+  width:min(320px,calc(100vw - 24px));
+  padding:8px;
+  border:1px solid var(--mb-shell-line);
+  border-radius:13px;
+  background:#0a1728f7;
+  box-shadow:0 14px 42px #0009;
+}
+.mb-shell-nav[hidden]{display:none}
+.mb-shell-nav a{
+  display:block;
+  padding:10px 12px;
+  border-radius:8px;
+  color:var(--mb-shell-text);
+  text-decoration:none;
+  font:650 13px/1.25 system-ui,-apple-system,sans-serif;
+}
+.mb-shell-nav a:hover{background:#142742}
+
+.mb-page-actions{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+  gap:8px;
+  padding:10px max(14px,env(safe-area-inset-right)) 0 max(14px,env(safe-area-inset-left));
+  background:var(--mb-shell-bg);
+}
+.mb-page-actions:empty{display:none}
+
+/* The build-24 shell owns global chrome; old global headers are retained only
+   long enough for app-shell.js to migrate page-local controls. */
+.mb-shell-mounted > .v22-topbar,
+.mb-shell-mounted > .modules-topbar,
+.mb-shell-mounted > nav#v22-menu{display:none!important}
+
+@media(max-width:760px){
+  .mb-app-shell{
+    grid-template-columns:auto auto minmax(0,1fr);
+    grid-template-rows:auto auto;
+  }
+  .mb-shell-runtime{
+    grid-column:1/-1;
+    grid-row:2;
+    width:100%;
+    flex-direction:row;
+    justify-content:space-between;
+    text-align:left;
+  }
+  .mb-shell-core,.mb-shell-site{max-width:48vw}
+}
+@media(max-width:460px){
+  .mb-shell-product{display:none}
+  .mb-shell-hierarchy{grid-template-columns:1fr}
+  .mb-shell-title{font-size:15px}
+  .mb-shell-home{width:42px}
+}

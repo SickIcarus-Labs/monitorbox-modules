@@ -1,0 +1,103 @@
+/* Broad Leaf physical-acceptance polish for the compact Modules surface. */
+.modules-page .modules-heading{gap:12px;margin-bottom:14px}
+.modules-page .modules-heading h1{margin-bottom:4px}
+.modules-page .modules-heading p{margin-top:4px;max-width:760px}
+
+/* Healthy admin state is normal operating context, not a full card. Authentication
+   failure still exposes the original full login surface because the form is visible. */
+.modules-page .modules-auth:has(.modules-login-form[hidden]){
+  min-height:38px;
+  display:flex;
+  align-items:center;
+  padding:7px 10px;
+  border-color:#244865;
+  border-radius:9px;
+  background:#0b1728;
+}
+.modules-page .modules-auth:has(.modules-login-form[hidden])>div{
+  display:flex;
+  align-items:center;
+  min-width:0;
+}
+.modules-page .modules-auth:has(.modules-login-form[hidden]) .eyebrow,
+.modules-page .modules-auth:has(.modules-login-form[hidden]) h2{display:none}
+.modules-page .modules-auth:has(.modules-login-form[hidden]) p{
+  margin:0;
+  color:#9fb4cf;
+  font-size:12px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+/* One explicit disclosure language everywhere. Native markers are inconsistent across
+   Safari/Chromium and were effectively invisible in the physical iPad candidate. */
+.modules-disclosure>summary,
+.modules-repository-add>summary{
+  position:relative;
+  list-style:none;
+}
+.modules-disclosure>summary::-webkit-details-marker,
+.modules-repository-add>summary::-webkit-details-marker{display:none}
+.modules-disclosure>summary::marker,
+.modules-repository-add>summary::marker{content:""}
+.modules-disclosure>summary::before,
+.modules-repository-add>summary::before{
+  content:"›";
+  position:absolute;
+  left:10px;
+  top:50%;
+  width:14px;
+  transform:translateY(-50%) rotate(0deg);
+  transform-origin:50% 50%;
+  color:#9fb4cf;
+  font:800 20px/1 system-ui,-apple-system,sans-serif;
+}
+.modules-disclosure[open]>summary::before,
+.modules-repository-add[open]>summary::before{
+  transform:translateY(-50%) rotate(90deg);
+  color:#dbe9fb;
+}
+.modules-group-summary{padding-left:34px}
+.modules-tile-summary{padding-left:34px}
+.modules-repository-details>summary{padding:7px 7px 7px 28px;min-height:34px;display:flex;align-items:center}
+.modules-repository-add>summary{padding-left:32px}
+.modules-technical>summary{padding:5px 5px 5px 28px;min-height:30px;display:flex;align-items:center}
+
+/* Fixed shared tracks make release/source/status scan vertically instead of wandering
+   according to each module name or badge width. */
+.modules-tile-summary{
+  grid-template-columns:minmax(0,1fr) 190px;
+  column-gap:14px;
+}
+.modules-tile-identity{
+  grid-template-columns:minmax(0,1fr) 180px 135px;
+  column-gap:14px;
+}
+.modules-tile-name{font-weight:750}
+.modules-release,.modules-source{justify-self:start}
+.modules-tile-summary>.modules-badges{
+  width:190px;
+  min-width:190px;
+  justify-content:flex-end;
+  align-items:center;
+}
+
+@media(max-width:900px){
+  .modules-tile-summary{grid-template-columns:minmax(0,1fr) 160px}
+  .modules-tile-identity{grid-template-columns:minmax(0,1fr) 160px 115px;column-gap:10px}
+  .modules-tile-summary>.modules-badges{width:160px;min-width:160px}
+}
+
+@media(max-width:760px){
+  .modules-page .modules-auth:has(.modules-login-form[hidden]) p{white-space:normal}
+  .modules-tile-summary{grid-template-columns:1fr}
+  .modules-tile-summary>.modules-badges{width:auto;min-width:0;justify-content:flex-start}
+  .modules-tile-identity{grid-template-columns:minmax(0,1fr) 155px;gap:3px 9px}
+  .modules-tile-identity .modules-source{grid-column:1/-1}
+}
+
+@media(max-width:460px){
+  .modules-tile-identity{grid-template-columns:1fr}
+  .modules-tile-identity .modules-source{grid-column:auto}
+}

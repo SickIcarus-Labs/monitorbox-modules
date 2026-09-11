@@ -42,7 +42,7 @@ jobs:
           python-version: '3.13'
       - name: Install repository and browser acceptance dependencies
         run: |
-          python -m pip install --disable-pip-version-check aiohttp==3.11.16 cryptography==50.0.1 playwright==1.55.0
+          python -m pip install --disable-pip-version-check aiohttp==3.11.16 cryptography==50.0.1 playwright==1.55.0 Pillow==11.3.0
           python -m playwright install --with-deps chromium
       - id: base
         name: Resolve exact candidate base authority
@@ -126,6 +126,20 @@ jobs:
         env:
           UI_DISCOVERY_COVERAGE_SCREENSHOT: /tmp/ui-discovery-coverage.png
         run: python tools/accept_ui_discovery_coverage.py
+      - name: Verify P2 Phase 1 build-24 regression baseline
+        run: python tools/accept_ui_p2_phase1_build24.py
+      - name: Verify P2 Phase 1 build-24 browser regression baseline
+        run: python tools/accept_ui_p2_phase1_build24_browser.py
+      - name: Verify P2 Phase 1 build-25 physical-polish contract
+        run: python tools/accept_ui_p2_phase1_build25.py
+      - name: Verify P2 Phase 1 build-25 desktop and iPad corrections
+        run: python tools/accept_ui_p2_phase1_build25_browser.py
+      - name: Verify P2 Phase 1 build-26 static-coherence and shell contract
+        run: python tools/accept_ui_p2_phase1_build26.py
+      - name: Verify P2 Phase 1 build-26 real-server cache Debug and load behavior
+        run: python tools/accept_ui_p2_phase1_build26_browser.py
+      - name: Verify P2 Phase 1 build-27 dark brand icon contract
+        run: python tools/accept_ui_p2_phase1_build27.py
       - name: Upload exact changed candidates for Broad Leaf acceptance
         uses: actions/upload-artifact@v4
         with:

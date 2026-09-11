@@ -56,7 +56,7 @@ jobs:
       - name: Verify Configuration Bootstrap Phase-3b contract
         run: python tools/accept_configuration_bootstrap_phase3_b5.py
 
-      - name: Build UI candidate reproducibly
+      - name: Reconstruct accepted UI build 20 reproducibly
         run: |
           set -euo pipefail
           python tools/build_first_party_ui_build20.py --output-dir /tmp/phase3b-ui-first
@@ -64,8 +64,9 @@ jobs:
           target='com.sickicarus.monitorbox.ui-1.1.12-build20.zip'
           sha256sum "/tmp/phase3b-ui-first/$target" > /tmp/ui-first.sha
           sha256sum "/tmp/phase3b-ui-second/$target" | sed 's#/tmp/phase3b-ui-second#/tmp/phase3b-ui-first#' > /tmp/ui-second.sha
+          sha256sum "packages/$target" | sed 's#packages#/tmp/phase3b-ui-first#' > /tmp/ui-repository.sha
           diff -u /tmp/ui-first.sha /tmp/ui-second.sha
-          python tools/build_first_party_ui_build20.py
+          diff -u /tmp/ui-first.sha /tmp/ui-repository.sha
 
       - name: Verify inherited and Phase-3b UI contracts
         run: |
