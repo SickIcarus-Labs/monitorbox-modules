@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Build UI v1.1.15 build 25 from the rejected build-24 physical candidate.
+"""Build UI v1.1.14 build 25 from the rejected build-24 physical candidate.
 
-Build 25 keeps build 24 immutable and carries the Broad Leaf physical-review
-corrections for #286/#289: visible disclosures, aligned module summary columns,
-compact healthy authentication, concise repository channels, and one global
-shell navigation affordance.
+Build 25 keeps build 24 immutable and carries Broad Leaf physical-review
+corrections for the same unaccepted v1.1.14 patch: visible disclosures, aligned
+module summary columns, compact healthy authentication, concise repository
+channels, and one global shell navigation affordance.
 """
 from __future__ import annotations
 from pathlib import Path
@@ -25,7 +25,7 @@ import build_first_party_ui_build20 as build20
 import build_first_party_ui_build23 as accepted
 import build_first_party_ui_build24 as previous
 
-UI_VERSION = "1.1.15"
+UI_VERSION = "1.1.14"
 UI_BUILD = 25
 RELEASE25 = stable.Release(
     build=UI_BUILD,
@@ -55,11 +55,11 @@ def _replace_region(payload: bytes, start_marker: bytes, end_marker: bytes, repl
 
 def _build25_assets(root: Path) -> dict[str, bytes]:
     assets = previous._build24_assets(root)
-    source_root = root / "sources" / "ui" / "1.1.15-build25"
+    source_root = root / "sources" / "ui" / "1.1.14-build25"
     actual = {path.name for path in source_root.iterdir() if path.is_file()}
     if actual != SOURCE_FILES:
         raise SystemExit(
-            "UI 1.1.15 build-25 delta shape changed: "
+            "UI 1.1.14 build-25 delta shape changed: "
             f"missing={sorted(SOURCE_FILES-actual)}, extra={sorted(actual-SOURCE_FILES)}"
         )
 
@@ -88,10 +88,10 @@ def _build25_assets(root: Path) -> dict[str, bytes]:
         "legacy shell-action migration",
     )
 
-    # Build 25 changes the shell JS/CSS package bytes, so advance cache-busting
-    # identity rather than allowing Safari to reuse the rejected build-24 shell.
+    # Same logical v1.1.14 patch, new immutable physical candidate build. Advance the
+    # cache-busting build identity so Safari cannot reuse rejected build-24 shell bytes.
     for name in ("app-shell.js", "app-shell.css", "monitorbox.webmanifest"):
-        assets[name] = assets[name].replace(b"1.1.14-24", b"1.1.15-25")
+        assets[name] = assets[name].replace(b"1.1.14-24", b"1.1.14-25")
     return assets
 
 
@@ -100,10 +100,10 @@ def _standalone_application() -> bytes:
     payload = _replace_once(
         payload,
         b"Standalone managed MonitorBox UI 1.1.14 build 24.",
-        b"Standalone managed MonitorBox UI 1.1.15 build 25.",
+        b"Standalone managed MonitorBox UI 1.1.14 build 25.",
         "standalone release identity",
     )
-    payload = payload.replace(b"1.1.14-24", b"1.1.15-25")
+    payload = payload.replace(b"1.1.14-24", b"1.1.14-25")
     return payload
 
 
@@ -126,8 +126,8 @@ def _package_files(root: Path, release: stable.Release) -> dict[str, bytes]:
 
 def main() -> None:
     # Build 24 was an immutable dev/physical candidate but was rejected before
-    # acceptance. Build 25 therefore follows accepted build23 in catalog history
-    # while inheriting build24's code as its implementation predecessor.
+    # acceptance. Build 25 remains the same logical v1.1.14 patch and follows the
+    # accepted build23 in catalog history while inheriting build24 implementation.
     stable.RELEASES = stable.RELEASES + (
         build9.RELEASE8, build9.RELEASE9, build10.RELEASE10, build11.RELEASE11,
         build12.RELEASE12, build13.RELEASE13, build14.RELEASE14, build15.RELEASE15,

@@ -52,7 +52,6 @@
   transform-origin:50% 50%;
   color:#9fb4cf;
   font:800 20px/1 system-ui,-apple-system,sans-serif;
-  transition:transform .12s ease,color .12s ease;
 }
 .modules-disclosure[open]>summary::before,
 .modules-repository-add[open]>summary::before{

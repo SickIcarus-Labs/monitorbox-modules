@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Structural acceptance for P2 Phase-1 Broad Leaf correction UI v1.1.15 build 25."""
+"""Structural acceptance for P2 Phase-1 Broad Leaf correction UI v1.1.14 build 25."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -16,17 +16,18 @@ def main() -> None:
     root = Path(__file__).resolve().parent.parent
     assets = candidate._build25_assets(root)
     app = candidate._standalone_application()
-    renderer = (root / "sources/ui/1.1.15-build25/modules-render.js").read_text(encoding="utf-8")
-    polish = (root / "sources/ui/1.1.15-build25/modules-polish.css").read_text(encoding="utf-8")
-    shell_actions = (root / "sources/ui/1.1.15-build25/app-shell-actions.js").read_text(encoding="utf-8")
+    renderer = (root / "sources/ui/1.1.14-build25/modules-render.js").read_text(encoding="utf-8")
+    polish = (root / "sources/ui/1.1.14-build25/modules-polish.css").read_text(encoding="utf-8")
+    shell_actions = (root / "sources/ui/1.1.14-build25/app-shell-actions.js").read_text(encoding="utf-8")
 
-    require(candidate.UI_VERSION == "1.1.15" and candidate.UI_BUILD == 25, "wrong build-25 identity")
-    require(candidate.RELEASE25.version == "1.1.15", "build25 semantic version drift")
+    require(candidate.UI_VERSION == "1.1.14" and candidate.UI_BUILD == 25, "wrong build-25 identity")
+    require(candidate.RELEASE25.version == "1.1.14", "build25 semantic version drift")
     require(candidate.accepted.RELEASE23.build == 23, "build25 catalog predecessor must remain accepted build23")
 
-    # Rejected build24 is an implementation predecessor only; build25 must carry a fresh cache identity.
-    require(b"1.1.15-25" in app and b"1.1.14-24" not in app, "standalone shell cache identity was not advanced")
-    require(b"1.1.15-25" in assets["app-shell.js"], "app shell cache identity was not advanced")
+    # Rejected build24 is an implementation predecessor only; build25 remains the same
+    # logical patch but must carry a fresh build cache identity.
+    require(b"1.1.14-25" in app and b"1.1.14-24" not in app, "standalone shell cache identity was not advanced")
+    require(b"1.1.14-25" in assets["app-shell.js"], "app shell cache identity was not advanced")
 
     # #286 physical feedback: visible disclosures, fixed scan columns, compact healthy auth,
     # concise official channel labels, and continued Core-action authority.

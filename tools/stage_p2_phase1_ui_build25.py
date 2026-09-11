@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
-"""Idempotently stage the P2 Phase-1 UI v1.1.15 build-25 physical-polish candidate."""
+"""Idempotently stage the P2 Phase-1 UI v1.1.14 build-25 physical-polish candidate."""
 from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any
 
 PREDECESSOR=("com.sickicarus.monitorbox.ui","1.1.13",23)
-RELEASE=("com.sickicarus.monitorbox.ui","1.1.15",25)
+RELEASE=("com.sickicarus.monitorbox.ui","1.1.14",25)
 ENTRY={
   "manifest":{
     "module_id":"com.sickicarus.monitorbox.ui",
     "display_name":"MonitorBox UI",
     "description":"MonitorBox web interface, shared application shell, and operator presentation.",
-    "version":"1.1.15",
+    "version":"1.1.14",
     "build":25,
     "schema":1,
     "state_schema":1,
@@ -25,7 +25,7 @@ ENTRY={
     "permissions":[],
     "lifecycle_policy":"required"
   },
-  "package":"com.sickicarus.monitorbox.ui-1.1.15-build25.zip"
+  "package":"com.sickicarus.monitorbox.ui-1.1.14-build25.zip"
 }
 
 def identity(item:dict[str,Any])->tuple[str,str,int]:
@@ -43,7 +43,7 @@ def stage(path:Path)->bool:
     if len(indexes)!=1: raise SystemExit(f"expected exactly one accepted UI predecessor {PREDECESSOR}, found {len(indexes)}")
     modules.insert(indexes[0]+1,ENTRY)
     path.write_text(json.dumps(source,separators=(",",":"))+"\n",encoding="utf-8")
-    print("staged P2 Phase-1 UI 1.1.15 build 25 after accepted build 23; rejected build24 remains out of catalog history")
+    print("staged P2 Phase-1 UI 1.1.14 build 25 after accepted build 23; rejected build24 remains out of catalog history")
     return True
 
 def main()->None:

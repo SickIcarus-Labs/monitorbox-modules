@@ -60,9 +60,9 @@ MODULE_MODEL = {
 
 
 def shellify(markup: str) -> str:
-    style = '<link rel="stylesheet" href="/static/app-shell.css?v=1.1.15-25">'
-    icon = '<link rel="apple-touch-icon" sizes="180x180" href="/static/monitorbox-apple-180.png?v=1.1.15-25">'
-    script = '<script src="/static/app-shell.js?v=1.1.15-25" defer></script>'
+    style = '<link rel="stylesheet" href="/static/app-shell.css?v=1.1.14-25">'
+    icon = '<link rel="apple-touch-icon" sizes="180x180" href="/static/monitorbox-apple-180.png?v=1.1.14-25">'
+    script = '<script src="/static/app-shell.js?v=1.1.14-25" defer></script>'
     return markup.replace("</head>", style + icon + "</head>").replace("</body>", script + "</body>")
 
 
@@ -143,6 +143,7 @@ def assert_modules(page) -> None:
     closed_transform = available_summary.evaluate("el => getComputedStyle(el, '::before').transform")
     assert "›" in content, content
     available_summary.click()
+    assert available.evaluate("el => el.open")
     open_transform = available_summary.evaluate("el => getComputedStyle(el, '::before').transform")
     assert open_transform != closed_transform, (closed_transform, open_transform)
 
