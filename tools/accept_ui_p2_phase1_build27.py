@@ -24,13 +24,7 @@ def require(condition: bool, message: str) -> None:
 
 
 def rendered_raster_stats(page, payload: bytes) -> dict[str, object]:
-    """Have Chromium decode the production PNG and inspect rendered semantics.
-
-    Candidate reproducibility is already proven by the first-party staging pass.
-    This check therefore targets browser-visible behavior rather than encoder-byte
-    identity: correct dimensions, known field samples at the canonical dark brand
-    color, visible white lighthouse artwork, and no health/status green in the icon.
-    """
+    """Have Chromium decode the production PNG and inspect rendered semantics."""
     source = "data:image/png;base64," + base64.b64encode(payload).decode("ascii")
     page.set_content(f'<img id="icon" src="{source}" alt="">')
     return page.evaluate(
@@ -46,16 +40,23 @@ def rendered_raster_stats(page, payload: bytes) -> dict[str, object]:
           let dark = 0;
           let health = 0;
           let white = 0;
+          const opaqueColors = new Map();
           for (let i = 0; i < pixels.length; i += 4) {
-            if (pixels[i] === 0x17 && pixels[i + 1] === 0x40 && pixels[i + 2] === 0x41 && pixels[i + 3] === 0xff) dark += 1;
-            if (pixels[i] === 0x75 && pixels[i + 1] === 0xd6 && pixels[i + 2] === 0x9a && pixels[i + 3] === 0xff) health += 1;
-            if (pixels[i] === 0xff && pixels[i + 1] === 0xff && pixels[i + 2] === 0xff && pixels[i + 3] === 0xff) white += 1;
+            const r = pixels[i], g = pixels[i + 1], b = pixels[i + 2], a = pixels[i + 3];
+            if (r === 0x17 && g === 0x40 && b === 0x41 && a === 0xff) dark += 1;
+            if (r === 0x75 && g === 0xd6 && b === 0x9a && a === 0xff) health += 1;
+            if (r === 0xff && g === 0xff && b === 0xff && a === 0xff) white += 1;
+            if (a === 0xff) {
+              const key = `${r},${g},${b},${a}`;
+              opaqueColors.set(key, (opaqueColors.get(key) || 0) + 1);
+            }
           }
           const rgbaAt = (xn, yn) => {
             const x = Math.min(canvas.width - 1, Math.max(0, Math.floor(canvas.width * xn)));
             const y = Math.min(canvas.height - 1, Math.max(0, Math.floor(canvas.height * yn)));
             return Array.from(context.getImageData(x, y, 1, 1).data);
           };
+          const topColors = [...opaqueColors.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
           return {
             width: canvas.width,
             height: canvas.height,
@@ -63,6 +64,7 @@ def rendered_raster_stats(page, payload: bytes) -> dict[str, object]:
             health,
             white,
             fieldSamples: [rgbaAt(0.50, 0.10), rgbaAt(0.10, 0.50), rgbaAt(0.90, 0.50), rgbaAt(0.50, 0.90)],
+            topColors,
           };
         }"""
     )
@@ -87,6 +89,7 @@ def main() -> None:
         try:
             for name, expected_size in EXPECTED_RASTERS.items():
                 stats = rendered_raster_stats(page, assets[name])
+                print(f"{name} rendered stats: {stats}", flush=True)
                 size = (stats["width"], stats["height"])
                 require(size == expected_size, f"{name} dimensions drifted: {size} != {expected_size}")
                 require(stats["white"] > 0, f"{name} has no visible white lighthouse artwork")
@@ -94,14 +97,12 @@ def main() -> None:
                 for index, sample in enumerate(stats["fieldSamples"], start=1):
                     require(
                         sample == DARK_BRAND_RGBA,
-                        f"{name} field sample {index} drifted: {sample} != {DARK_BRAND_RGBA}; counts dark={stats['dark']} white={stats['white']} health={stats['health']}",
+                        f"{name} field sample {index} drifted: {sample} != {DARK_BRAND_RGBA}",
                     )
                 require(stats["dark"] > 0, f"{name} has no canonical dark-brand pixels")
         finally:
             browser.close()
 
-    # Brand and health are intentionally separate tokens: #174041 is the solid app/icon
-    # field, while #75d69a remains the live healthy/status signal in the UI.
     shell_css = assets["app-shell.css"].decode("utf-8").lower()
     require("#75d69a" in shell_css, "bright healthy/status green was accidentally removed")
     require("#174041" not in shell_css, "dark brand field leaked into shell health-state styling")
