@@ -1,0 +1,41 @@
+name: P2 Phase 2 UI acceptance
+
+on:
+  pull_request:
+    paths:
+      - 'release-intents/ui-*.json'
+      - 'release-intents/unifi-*.json'
+      - 'sources/ui/**'
+      - 'sources/unifi/**'
+      - 'tools/build_first_party_ui_*.py'
+      - 'tools/build_first_party_unifi_*.py'
+      - 'tools/stage_p2_phase2_ui_build*.py'
+      - 'tools/stage_unifi_1_0_11_build12.py'
+      - 'tools/accept_ui_p2_phase2_build*.py'
+      - 'tools/accept_unifi_recommendation_relationship_b12.py'
+      - '.github/workflows/p2-phase2-ui-acceptance.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  ui-phase2:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Install Chromium acceptance dependency
+        run: |
+          python -m pip install --disable-pip-version-check playwright==1.55.0
+          python -m playwright install --with-deps chromium
+      - name: Verify build-31 package and unified monitoring contract
+        run: python tools/accept_ui_p2_phase2_build31.py
+      - name: Verify accepted UniFi relationship evidence regression
+        run: python tools/accept_unifi_recommendation_relationship_b12.py
+      - name: Verify source-independent monitored checkbox semantics
+        run: python tools/accept_ui_p2_phase2_build31_browser.py

@@ -1,0 +1,46 @@
+/* MonitorBox UI v1.1.15 build 28 — nested recommendation review hierarchy (#297). */
+#results .discovery-subsection {
+  margin: 0;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel) 98%, transparent);
+}
+
+#results .discovery-subsection:last-child { border-bottom: 0; }
+
+#results .discovery-subsection > summary {
+  min-height: 44px;
+  padding: 8px 12px 8px 18px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  color: var(--muted);
+}
+
+#results .discovery-subsection-recommended > summary strong { color: var(--text); }
+#results .discovery-subsection[open] > summary { border-bottom: 1px solid var(--line); }
+
+#results .discovery-subsection-rows > .candidate {
+  border-left: 0 !important;
+  border-right: 0 !important;
+  border-top: 0 !important;
+  border-radius: 0 !important;
+}
+
+#results .discovery-subsection-rows > .candidate:last-child { border-bottom: 0 !important; }
+
+#results .discovery-recommendation-reason {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+@media (max-width: 759px) {
+  #results .discovery-subsection > summary {
+    min-height: 44px;
+    padding-left: 14px;
+  }
+}
