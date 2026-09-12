@@ -66,7 +66,7 @@ def main() -> None:
         box = monitored.locator('input[data-id="p1"]')
         assert box.is_enabled()
         assert box.is_checked()
-        assert box.bounding_box() is not None
+        assert box.is_visible()
         assert "Keep monitoring" in monitored.inner_text()
         assert "Already monitored via Portainer" in monitored.inner_text()
         for forbidden in ("Keep existing coverage", "Add configured monitor", "MONITOR ABILITIES", "Ability"):
@@ -77,13 +77,17 @@ def main() -> None:
         after = page.locator('#resultSummary').inner_text()
         assert after != before
 
-        # A previously stopped provider-backed item remains discoverable and uses
-        # the ordinary not-monitored -> Start monitoring state transition.
+        # A stopped provider-backed item belongs in New / not yet monitored.
+        # Open its own grouping before requiring an actionable control; the item
+        # must remain discoverable and expose the ordinary Start monitoring path.
         not_monitored = page.locator('input[data-id="p2"]').locator('xpath=ancestor::div[contains(@class,"candidate")]')
         start_box = not_monitored.locator('input[data-id="p2"]')
+        stopped_section = start_box.locator('xpath=ancestor::details[1]')
+        assert stopped_section.get_attribute('data-coverage-section') == 'new'
+        stopped_section.evaluate('(el)=>{el.open=true}')
         assert start_box.is_enabled()
         assert not start_box.is_checked()
-        assert start_box.bounding_box() is not None
+        assert start_box.is_visible()
         start_box.check()
         assert "Start monitoring" in not_monitored.inner_text()
 
