@@ -27,8 +27,16 @@ def main() -> None:
         "provider-unified-monitoring",
     ):
         assert needle in discovery, needle
-    for forbidden in ("Add configured monitor", "Keep existing coverage", "provider-covered-static')"):
+    for forbidden in (
+        "Add configured monitor",
+        "Keep existing coverage",
+        "row.classList.add('provider-covered-static')",
+        "checkbox.disabled=true",
+        "checkbox.tabIndex=-1",
+        "checkbox.style.position='absolute'",
+    ):
         assert forbidden not in discovery, forbidden
+    assert "row.classList.remove('provider-covered-static')" in discovery
     assert "monitoring_suppressions" in service
     assert "portainer:${identity}" in service
     assert "Standalone managed MonitorBox UI 1.1.18 build 31." in standalone
