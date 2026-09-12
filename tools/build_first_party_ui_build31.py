@@ -82,7 +82,7 @@ def _build31_assets(root: Path) -> dict[str, bytes]:
     discovery = _replace_once(
         discovery,
         b'''    const coverage=coverageState(item);\n    if(item?.configured_object_id||item?.state==='already_monitored'){\n      if(!checkbox.checked)return true;\n    }else if(checkbox.checked){\n      return true;\n    }\n''',
-        b'''    const provider=providerCoverage(item);\n    if(item?.configured_object_id||item?.state==='already_monitored'){\n      if(!checkbox.checked)return true;\n    }else if(provider){\n      const baseline=item?.monitoring_suppressed!==true&&item?.monitoring_state!=='not_monitored';\n      if(checkbox.checked!==baseline)return true;\n    }else if(checkbox.checked){\n      return true;\n    }\n''',
+        b'''    const coverage=coverageState(item);\n    const provider=providerCoverage(item);\n    if(item?.configured_object_id||item?.state==='already_monitored'){\n      if(!checkbox.checked)return true;\n    }else if(provider){\n      const baseline=item?.monitoring_suppressed!==true&&item?.monitoring_state!=='not_monitored';\n      if(checkbox.checked!==baseline)return true;\n    }else if(checkbox.checked){\n      return true;\n    }\n''',
         "provider staged-change baseline",
     )
     assets["discovery-coverage.js"] = discovery
