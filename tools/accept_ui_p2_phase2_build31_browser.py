@@ -77,13 +77,13 @@ def main() -> None:
         after = page.locator('#resultSummary').inner_text()
         assert after != before
 
-        # A stopped provider-backed item belongs in New / not yet monitored.
-        # Open its own grouping before requiring an actionable control; the item
-        # must remain discoverable and expose the ordinary Start monitoring path.
+        # A stopped provider-backed item is classified as New / not yet monitored,
+        # remains present there, and exposes the ordinary Start monitoring path.
         not_monitored = page.locator('input[data-id="p2"]').locator('xpath=ancestor::div[contains(@class,"candidate")]')
         start_box = not_monitored.locator('input[data-id="p2"]')
-        stopped_section = start_box.locator('xpath=ancestor::details[1]')
-        assert stopped_section.get_attribute('data-coverage-section') == 'new'
+        assert not_monitored.get_attribute('data-discovery-coverage-section') == 'new'
+        stopped_section = page.locator('[data-coverage-section="new"]')
+        assert stopped_section.locator('input[data-id="p2"]').count() == 1
         stopped_section.evaluate('(el)=>{el.open=true}')
         assert start_box.is_enabled()
         assert not start_box.is_checked()
