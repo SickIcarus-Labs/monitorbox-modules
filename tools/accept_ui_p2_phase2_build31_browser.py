@@ -79,12 +79,14 @@ def main() -> None:
 
         # A stopped provider-backed item is classified as New / not yet monitored,
         # remains present there, and exposes the ordinary Start monitoring path.
+        # Discoveries also has a nested recommendation grouping layer, so open all
+        # of this row's legitimate ancestor details before asserting clickability.
         not_monitored = page.locator('input[data-id="p2"]').locator('xpath=ancestor::div[contains(@class,"candidate")]')
         start_box = not_monitored.locator('input[data-id="p2"]')
         assert not_monitored.get_attribute('data-discovery-coverage-section') == 'new'
         stopped_section = page.locator('[data-coverage-section="new"]')
         assert stopped_section.locator('input[data-id="p2"]').count() == 1
-        stopped_section.evaluate('(el)=>{el.open=true}')
+        start_box.evaluate("""el=>{for(let node=el.parentElement;node;node=node.parentElement){if(node.tagName==='DETAILS')node.open=true;}}""")
         assert start_box.is_enabled()
         assert not start_box.is_checked()
         assert start_box.is_visible()
