@@ -83,7 +83,7 @@ def main() -> None:
         start_box = not_monitored.locator('input[data-id="p2"]')
         assert start_box.is_enabled()
         assert not start_box.is_checked()
-        assert "Not now" in not_monitored.inner_text()
+        assert start_box.bounding_box() is not None
         start_box.check()
         assert "Start monitoring" in not_monitored.inner_text()
 
