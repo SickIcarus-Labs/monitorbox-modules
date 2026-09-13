@@ -11,6 +11,7 @@ import threading
 from pathlib import Path
 
 from aiohttp import web
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import sync_playwright
 
 import build_first_party_ui_build33 as parent
@@ -213,9 +214,33 @@ def package_contract() -> None:
         assert forbidden not in js.casefold(), forbidden
 
 
-def assert_shell(page, *, narrow: bool) -> None:
+def assert_shell(page, *, narrow: bool, label: str, browser_errors: list[str]) -> None:
     shell = page.locator("#mb-app-shell.mb-settings-shell")
-    shell.wait_for(state="visible")
+    try:
+        shell.wait_for(state="visible")
+    except PlaywrightTimeoutError as exc:
+        snapshot = page.evaluate(
+            """() => ({
+                url: location.href,
+                readyState: document.readyState,
+                bodyClass: document.body?.className || '',
+                shellCount: document.querySelectorAll('#mb-app-shell').length,
+                shellClass: document.getElementById('mb-app-shell')?.className || null,
+                shellGeneration: document.getElementById('mb-app-shell')?.dataset?.uiGeneration || null,
+                settingsGlobal: typeof globalThis.MonitorBoxSettingsShell,
+                appShellGlobal: typeof globalThis.MonitorBoxShell,
+                debugGlobal: typeof globalThis.monitorboxDebug,
+                debugCount: document.querySelectorAll('#debug-toggle').length,
+                consoleCount: document.querySelectorAll('#debug-console').length,
+                scripts: [...document.scripts].map(node => node.src || '<inline>'),
+                styles: [...document.querySelectorAll('link[rel="stylesheet"]')].map(node => node.href),
+            })"""
+        )
+        raise AssertionError(
+            f"build34 shell mount timeout [{label}]: snapshot={snapshot!r}; "
+            f"browser_errors={browser_errors!r}"
+        ) from exc
+
     assert page.locator(".mb-shell-menu").count() == 0
     assert page.locator("#mb-shell-nav").count() == 0
     assert page.locator("#mb-shell-settings").count() == 1
@@ -304,11 +329,23 @@ def main() -> None:
                 for name, viewport, narrow in fixtures:
                     context = browser.new_context(viewport=viewport)
                     page = context.new_page()
+                    browser_errors: list[str] = []
+                    page.on("pageerror", lambda error: browser_errors.append(f"pageerror: {error}"))
+                    page.on(
+                        "console",
+                        lambda message: browser_errors.append(f"console:{message.type}: {message.text}")
+                        if message.type == "error" else None,
+                    )
                     for path in surfaces:
+                        browser_errors.clear()
+                        label = f"{name}:{path}"
+                        print(f"build34 browser acceptance: {label}", flush=True)
                         response = page.goto(origin + path, wait_until="networkidle")
                         assert response is not None and response.ok, (name, path)
-                        assert_shell(page, narrow=narrow)
+                        assert_shell(page, narrow=narrow, label=label, browser_errors=browser_errors)
 
+                    browser_errors.clear()
+                    label = f"{name}:editor-return-home"
                     response = page.goto(
                         origin + "/settings/configuration/editor?ref=mbx1%2Fresource%2Flab%2Fservice-a",
                         wait_until="networkidle",
@@ -322,7 +359,7 @@ def main() -> None:
                     with page.expect_navigation():
                         page.locator(".mb-shell-home").click()
                     assert page.url.rstrip("/") == origin
-                    assert_shell(page, narrow=narrow)
+                    assert_shell(page, narrow=narrow, label=label, browser_errors=browser_errors)
 
                     page.locator("#debug-console").wait_for(state="hidden")
                     page.locator("#debug-toggle").click()
