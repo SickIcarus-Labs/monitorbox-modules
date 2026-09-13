@@ -1,0 +1,101 @@
+.mb-app-shell.mb-settings-shell{
+  grid-template-columns:auto minmax(0,1fr) auto auto auto;
+}
+.mb-settings-shell .mb-shell-home{
+  grid-column:1;
+  grid-row:1;
+  min-width:44px;
+  min-height:44px;
+  margin-left:max(0px,env(safe-area-inset-left));
+}
+.mb-settings-shell .mb-shell-hierarchy{grid-column:2;grid-row:1;min-width:0}
+.mb-settings-shell .mb-shell-debug{
+  grid-column:3;
+  grid-row:1;
+  min-width:58px;
+  min-height:44px;
+}
+.mb-settings-shell .mb-shell-runtime{grid-column:4;grid-row:1}
+.mb-shell-settings-wrap{
+  grid-column:5;
+  grid-row:1;
+  justify-self:end;
+  align-self:center;
+  position:relative;
+  margin-right:max(0px,env(safe-area-inset-right));
+}
+.mb-shell-settings{
+  width:44px;
+  height:44px;
+  padding:0;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border:1px solid var(--mb-shell-line);
+  border-radius:10px;
+  background:var(--mb-shell-panel);
+  color:var(--mb-shell-text);
+  cursor:pointer;
+}
+.mb-shell-settings::before{
+  content:"\2699";
+  font:700 21px/1 system-ui,-apple-system,sans-serif;
+}
+.mb-shell-settings:hover{border-color:#5273a2}
+.mb-shell-settings:focus-visible{outline:2px solid #7da6ff;outline-offset:2px}
+.mb-shell-settings[aria-expanded="true"]{border-color:#7da6ff;background:#142742}
+.mb-settings-menu{
+  position:absolute;
+  z-index:1002;
+  top:calc(100% + 8px);
+  right:0;
+  min-width:220px;
+  padding:6px;
+  border:1px solid var(--mb-shell-line);
+  border-radius:12px;
+  background:var(--mb-shell-bg);
+  box-shadow:0 14px 36px rgba(0,0,0,.32);
+}
+.mb-settings-menu[hidden]{display:none}
+.mb-settings-link{
+  min-height:44px;
+  padding:0 12px;
+  display:flex;
+  align-items:center;
+  border-radius:8px;
+  color:var(--mb-shell-text);
+  text-decoration:none;
+  font:650 13px/1.2 system-ui,-apple-system,sans-serif;
+}
+.mb-settings-link:hover,.mb-settings-link:focus-visible{background:var(--mb-shell-panel)}
+.mb-settings-link:focus-visible{outline:2px solid #7da6ff;outline-offset:-2px}
+
+@media(max-width:760px){
+  .mb-app-shell.mb-settings-shell{
+    grid-template-columns:auto minmax(0,1fr) auto auto;
+  }
+  .mb-settings-shell .mb-shell-home{grid-column:1;grid-row:1}
+  .mb-settings-shell .mb-shell-hierarchy{grid-column:2;grid-row:1}
+  .mb-settings-shell .mb-shell-debug{grid-column:3;grid-row:1}
+  .mb-settings-shell .mb-shell-settings-wrap{grid-column:4;grid-row:1}
+  .mb-settings-shell .mb-shell-runtime{grid-column:1/-1;grid-row:2}
+}
+
+@media(max-width:520px){
+  .mb-settings-shell .mb-shell-debug{
+    min-width:44px;
+    width:44px;
+    min-height:44px;
+    padding:0;
+    font-size:0;
+  }
+  .mb-settings-shell .mb-shell-debug::before{
+    content:">_";
+    font:700 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;
+    letter-spacing:-.08em;
+  }
+  .mb-settings-menu{
+    width:min(280px,calc(100vw - 24px - env(safe-area-inset-left) - env(safe-area-inset-right)));
+    min-width:0;
+  }
+}
