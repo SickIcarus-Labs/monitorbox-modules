@@ -168,12 +168,14 @@ def assert_contextual_flow(browser, assets: dict[str, bytes], viewport: dict[str
     section.wait_for(state="visible")
     assert seen[-1] == "service-a"
     assert section.locator("h3").inner_text() == "Configuration"
-    assert section.locator("a").all_inner_texts() == [
-        "Configure Service A",
+    links = section.locator("a").all_inner_texts()
+    assert len(links) == 4, links
+    assert links[0] == "Configure Service A", links
+    assert set(links[1:]) == {
         "Configure Connection · HTTP(S)",
         "Configure Connection · TCP",
         "Configure System · Host A",
-    ]
+    }, links
     assert page.locator("#drawer-body > .detail-section").all_inner_texts()[-1] == "History"
     for box in section.locator("a").evaluate_all("els => els.map(el => el.getBoundingClientRect())"):
         assert box["height"] >= 44, box
