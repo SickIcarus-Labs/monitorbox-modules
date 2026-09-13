@@ -176,10 +176,23 @@ def package_contract() -> None:
     assert candidate.UI_GENERATION.encode() in init
     assert candidate.PARENT_GENERATION.encode() not in init
     assert b"settings_shell_presentation" in init
+    assert b"global_debug_presentation" in init
+    assert b"_canonical_global_debug_fragments" in init
     assert b"settings-shell.js" in init and b"settings-shell.css" in init
     assert "settings-shell.js" in assets and "settings-shell.css" in assets
 
     parent_files = parent._package_files(ROOT)
+    parent_prefix = parent.TARGET_IMPORT_PACKAGE + "/assets/"
+    for name in ("global-debug.js", "global-debug.css", "dashboard.html"):
+        assert name in assets, name
+        assert parent_prefix + name in parent_files, name
+        expected = parent_files[parent_prefix + name].replace(
+            candidate.PARENT_GENERATION.encode(), candidate.UI_GENERATION.encode()
+        ).replace(
+            candidate.PARENT_IMPORT_PACKAGE.encode(), candidate.TARGET_IMPORT_PACKAGE.encode()
+        )
+        assert assets[name] == expected, name
+
     assert assets["contextual-configuration.js"] == parent_files[
         f"{parent.TARGET_IMPORT_PACKAGE}/assets/contextual-configuration.js"
     ]
@@ -208,6 +221,10 @@ def assert_shell(page, *, narrow: bool) -> None:
     assert page.locator("#mb-shell-settings").count() == 1
     assert page.locator("#mb-settings-menu").count() == 1
     assert page.locator("#debug-toggle").count() == 1
+    assert page.locator("#debug-console").count() == 1
+    assert page.locator('script[src*="/static/global-debug.js"]').count() == 1
+    assert page.locator('link[href*="/static/global-debug.css"]').count() == 1
+    assert page.evaluate("typeof globalThis.monitorboxDebug === 'object'")
 
     home = page.locator(".mb-shell-home")
     settings = page.locator("#mb-shell-settings")
