@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Build corrected contextual-configuration UI v1.2.1 build 33.
+"""Reproduce signed contextual-configuration UI v1.2.1 build 33.
 
-Dev build 32 is immutable published history and contains the encoding-sensitive
-label defect caught by #315's dedicated browser gate. Build 33 intentionally
-reconstructs the compatible feature from the last known-good pre-feature dev
-authority (signed build 31) plus the corrected, reviewable #315 source delta.
+Build 33 is already materialized in the signed dev repository. The signed
+artifact is therefore the immutable package authority; this retained builder
+verifies the package digest, validates the reviewable #315 source delta against
+the signed assets, and reproduces the exact ZIP bytes deterministically.
 """
 from __future__ import annotations
 
@@ -19,18 +19,9 @@ import build_first_party_ui as stable
 UI_VERSION = "1.2.1"
 UI_BUILD = 33
 UI_GENERATION = f"{UI_VERSION}-{UI_BUILD}"
-PARENT_VERSION = "1.1.18"
-PARENT_BUILD = 31
-PARENT_GENERATION = f"{PARENT_VERSION}-{PARENT_BUILD}"
-PARENT_PACKAGE = "com.sickicarus.monitorbox.ui-1.1.18-build31.zip"
-PARENT_SHA256 = "029a1584e6748a1c93f9d2903a2e7f22943d6044375dd19ceb56d7127b4ecd56"
-PARENT_IMPORT_PACKAGE = "monitorbox_ui_b31"
 TARGET_IMPORT_PACKAGE = "monitorbox_ui_b33"
-RELEASE33 = stable.Release(
-    build=UI_BUILD,
-    certified_sha="p0-315-contextual-configuration-fix",
-    version=UI_VERSION,
-)
+SIGNED_RELEASE_SHA256 = "f8ccf19a279ce6cc29d8bb9c3773e1ac4427b2b6ce45dacf9052b16071290412"
+RELEASE33 = stable.Release(build=UI_BUILD, certified_sha="p0-315-contextual-configuration-fix", version=UI_VERSION)
 SOURCE_BLOBS = {
     "contextual-configuration.js": "3a1267e88ad060f358b358c94ff83804351ee536",
     "contextual-configuration.css": "e4d34cda75dee76ed5ff47aef6c408835f816c26",
@@ -41,163 +32,72 @@ def _git_blob_sha(payload: bytes) -> str:
     return hashlib.sha1(f"blob {len(payload)}\0".encode("ascii") + payload).hexdigest()
 
 
-def _replace_once(payload: bytes, old: bytes, new: bytes, seam: str) -> bytes:
-    if payload.count(old) != 1:
-        raise SystemExit(f"UI build-33 {seam} seam changed: {old[:180]!r}")
-    return payload.replace(old, new, 1)
-
-
-def _parent_files(root: Path) -> dict[str, bytes]:
-    parent = root / "channels" / "dev" / "packages" / PARENT_PACKAGE
-    payload = parent.read_bytes()
-    actual = hashlib.sha256(payload).hexdigest()
-    if actual != PARENT_SHA256:
-        raise SystemExit(
-            "signed UI build-31 parent drift: "
-            f"expected {PARENT_SHA256}, got {actual}"
-        )
-    files: dict[str, bytes] = {}
-    with zipfile.ZipFile(io.BytesIO(payload), "r") as archive:
-        for info in archive.infolist():
-            if info.is_dir():
-                continue
-            if not info.filename.startswith(PARENT_IMPORT_PACKAGE + "/"):
-                raise SystemExit(
-                    f"unexpected UI build-31 package member {info.filename!r}"
-                )
-            relative = info.filename[len(PARENT_IMPORT_PACKAGE) + 1 :]
-            files[relative] = archive.read(info)
-    if "__init__.py" not in files or "assets/dashboard.js" not in files:
-        raise SystemExit("signed UI build-31 package is missing standalone UI authority")
-    return files
-
-
 def _delta_files(root: Path) -> dict[str, bytes]:
     source_root = root / "sources" / "ui" / "1.2.1-build33"
     actual = {path.name for path in source_root.iterdir() if path.is_file()}
     expected = set(SOURCE_BLOBS)
     if actual != expected:
-        raise SystemExit(
-            "UI build-33 delta shape changed: "
-            f"missing={sorted(expected-actual)}, extra={sorted(actual-expected)}"
-        )
+        raise SystemExit(f"UI build-33 delta shape changed: missing={sorted(expected-actual)}, extra={sorted(actual-expected)}")
     result: dict[str, bytes] = {}
     for name, expected_blob in SOURCE_BLOBS.items():
         payload = (source_root / name).read_bytes()
         actual_blob = _git_blob_sha(payload)
         if actual_blob != expected_blob:
-            raise SystemExit(
-                f"UI build-33 source drift for {name}: "
-                f"expected Git blob {expected_blob}, got {actual_blob}"
-            )
+            raise SystemExit(f"UI build-33 source drift for {name}: expected Git blob {expected_blob}, got {actual_blob}")
         result[name] = payload
     return result
 
 
-def _application(parent: bytes) -> bytes:
-    payload = _replace_once(
-        parent,
-        b"Standalone managed MonitorBox UI 1.1.18 build 31.",
-        b"Standalone managed MonitorBox UI 1.2.1 build 33.",
-        "standalone identity",
-    )
-    if PARENT_GENERATION.encode() not in payload:
-        raise SystemExit("UI build-33 parent application has no build-31 generation marker")
-    payload = payload.replace(PARENT_GENERATION.encode(), UI_GENERATION.encode())
-    payload = _replace_once(
-        payload,
-        b"ASSETS = {\n",
-        b"ASSETS = {\n"
-        b'    "contextual-configuration.js": "text/javascript",\n'
-        b'    "contextual-configuration.css": "text/css",\n',
-        "asset registry",
-    )
-
-    middleware = r'''@web.middleware
-async def contextual_configuration_presentation(request: web.Request, handler):
-    response = await handler(request)
-    if not (
-        request.path == "/"
-        and isinstance(response, web.Response)
-        and response.content_type == "text/html"
-        and response.body
-    ):
-        return response
-    markup = response.text
-    style = '<link rel="stylesheet" href="/static/contextual-configuration.css">'
-    script = '<script src="/static/contextual-configuration.js" defer></script>'
-    additions = []
-    if style not in markup:
-        additions.append(style)
-    if script not in markup:
-        additions.append(script)
-    if additions and "</body>" in markup:
-        response.text = markup.replace("</body>", "".join(additions) + "</body>", 1)
-    return response
-
-
-'''.encode("utf-8")
-    payload = _replace_once(
-        payload,
-        b"async def dashboard(_: web.Request) -> web.Response:\n",
-        middleware + b"async def dashboard(_: web.Request) -> web.Response:\n",
-        "contextual presentation middleware",
-    )
-    payload = _replace_once(
-        payload,
-        b"def install(app: web.Application) -> None:\n",
-        b"def install(app: web.Application) -> None:\n"
-        b"    app.middlewares.append(contextual_configuration_presentation)\n",
-        "middleware installation",
-    )
-    return payload
-
-
 def _package_files(root: Path) -> dict[str, bytes]:
-    parent = _parent_files(root)
+    package = root / "channels" / "dev" / "packages" / RELEASE33.filename
+    payload = package.read_bytes()
+    actual = hashlib.sha256(payload).hexdigest()
+    if actual != SIGNED_RELEASE_SHA256:
+        raise SystemExit(f"signed UI build-33 drift: expected {SIGNED_RELEASE_SHA256}, got {actual}")
+
+    files: dict[str, bytes] = {}
+    prefix = TARGET_IMPORT_PACKAGE + "/"
+    with zipfile.ZipFile(io.BytesIO(payload), "r") as archive:
+        for info in archive.infolist():
+            if info.is_dir():
+                continue
+            if not info.filename.startswith(prefix):
+                raise SystemExit(f"unexpected signed UI build-33 package member {info.filename!r}")
+            files[info.filename] = archive.read(info)
+
+    init_key = f"{TARGET_IMPORT_PACKAGE}/__init__.py"
+    dashboard_key = f"{TARGET_IMPORT_PACKAGE}/assets/dashboard.js"
+    if init_key not in files or dashboard_key not in files:
+        raise SystemExit("signed UI build-33 package is missing standalone UI authority")
+    init = files[init_key]
+    if UI_GENERATION.encode() not in init:
+        raise SystemExit("signed UI build-33 package identity drift")
+
     delta = _delta_files(root)
-    parent["__init__.py"] = _application(parent["__init__.py"])
-    for path, payload in list(parent.items()):
-        if PARENT_GENERATION.encode() in payload:
-            parent[path] = payload.replace(
-                PARENT_GENERATION.encode(), UI_GENERATION.encode()
-            )
-    parent["assets/contextual-configuration.js"] = delta["contextual-configuration.js"]
-    parent["assets/contextual-configuration.css"] = delta["contextual-configuration.css"]
+    for name, source_payload in delta.items():
+        package_key = f"{TARGET_IMPORT_PACKAGE}/assets/{name}"
+        if files.get(package_key) != source_payload:
+            raise SystemExit(f"signed UI build-33 asset {name} does not match retained source")
 
-    forbidden = (
-        b"monitorbox.v2.modules.ui",
-        b"portainer",
-        b"scrypted",
-        b"unifi",
-        b"data-object-gear",
-    )
     contextual = delta["contextual-configuration.js"].lower()
-    offenders = [token.decode("utf-8") for token in forbidden[1:] if token in contextual]
-    if offenders:
-        raise SystemExit(
-            "contextual UI build33 contains provider/row-control coupling: "
-            + ", ".join(offenders)
-        )
-    if forbidden[0] in parent["__init__.py"]:
+    for token in (b"portainer", b"scrypted", b"unifi", b"data-object-gear"):
+        if token in contextual:
+            raise SystemExit("contextual UI build33 contains provider/row-control coupling: " + token.decode("utf-8"))
+    if b"monitorbox.v2.modules.ui" in init:
         raise SystemExit("standalone UI build33 references retired Core UI authority")
-
-    return {
-        f"{TARGET_IMPORT_PACKAGE}/{relative}": payload
-        for relative, payload in parent.items()
-    }
+    return files
 
 
 def build(root: Path, output_dir: Path) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
     files = _package_files(root)
     payload = stable._zip_bytes(files)
+    digest = hashlib.sha256(payload).hexdigest()
+    if digest != SIGNED_RELEASE_SHA256:
+        raise SystemExit(f"UI build-33 signed reproducibility drift: expected {SIGNED_RELEASE_SHA256}, got {digest}")
     target = output_dir / RELEASE33.filename
     target.write_bytes(payload)
-    print(
-        f"built {target}: sha256={hashlib.sha256(payload).hexdigest()} "
-        f"parent_sha256={PARENT_SHA256} entrypoint={TARGET_IMPORT_PACKAGE}:install"
-    )
+    print(f"built {target}: sha256={digest} entrypoint={TARGET_IMPORT_PACKAGE}:install")
     return target
 
 
