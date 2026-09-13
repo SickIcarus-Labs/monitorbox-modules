@@ -9,8 +9,7 @@ on:
       - tools/build_first_party_nut.py
       - tools/build_first_party_snmp.py
       - tools/build_first_party_snmp_105.py
-      - tools/build_first_party_scrypted.py
-      - tools/build_first_party_scrypted_212.py
+      - tools/build_first_party_scrypted*.py
       - tools/accept_nut_behavior.py
       - tools/accept_snmp_pruned_core.py
       - tools/accept_snmp_v3_isolation.py
@@ -26,8 +25,7 @@ on:
       - tools/build_first_party_nut.py
       - tools/build_first_party_snmp.py
       - tools/build_first_party_snmp_105.py
-      - tools/build_first_party_scrypted.py
-      - tools/build_first_party_scrypted_212.py
+      - tools/build_first_party_scrypted*.py
       - tools/accept_nut_behavior.py
       - tools/accept_snmp_pruned_core.py
       - tools/accept_snmp_v3_isolation.py
@@ -57,7 +55,9 @@ jobs:
           mkdir -p "$snmp_out"
           cp packages/com.sickicarus.monitorbox.snmp-1.0.4-build6.zip "$snmp_out/"
           python tools/build_first_party_snmp_105.py --output-dir "$snmp_out"
-          python tools/build_first_party_scrypted_212.py
+          # Scrypted build 3 is an accepted immutable package. Its regression below
+          # consumes the checked-in artifact directly; historical builders must not
+          # be rerun after newer immutable generations have been published.
       - name: Verify NUT owns execution after Core prune
         run: python tools/accept_nut_behavior.py
       - name: Verify historical SNMP pruned-Core boundary remains intact
