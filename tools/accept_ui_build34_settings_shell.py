@@ -179,12 +179,20 @@ def package_contract() -> None:
     assert b"settings_shell_presentation" in init
     assert b"global_debug_presentation" in init
     assert b"_canonical_global_debug_fragments" in init
+    assert b"_APP_SHELL_STYLE" in init and b"_APP_SHELL_SCRIPT" in init
     assert b"settings-shell.js" in init and b"settings-shell.css" in init
     assert "settings-shell.js" in assets and "settings-shell.css" in assets
 
     parent_files = parent._package_files(ROOT)
     parent_prefix = parent.TARGET_IMPORT_PACKAGE + "/assets/"
-    for name in ("global-debug.js", "global-debug.css", "dashboard.html"):
+    canonical_assets = (
+        "global-debug.js",
+        "global-debug.css",
+        "dashboard.html",
+        "app-shell.js",
+        "app-shell.css",
+    )
+    for name in canonical_assets:
         assert name in assets, name
         assert parent_prefix + name in parent_files, name
         expected = parent_files[parent_prefix + name].replace(
@@ -249,7 +257,10 @@ def assert_shell(page, *, narrow: bool, label: str, browser_errors: list[str]) -
     assert page.locator("#debug-console").count() == 1
     assert page.locator('script[src*="/static/global-debug.js"]').count() == 1
     assert page.locator('link[href*="/static/global-debug.css"]').count() == 1
+    assert page.locator('script[src*="/static/app-shell.js"]').count() == 1
+    assert page.locator('link[href*="/static/app-shell.css"]').count() == 1
     assert page.evaluate("typeof globalThis.monitorboxDebug === 'object'")
+    assert page.evaluate("typeof globalThis.MonitorBoxShell === 'object'")
 
     home = page.locator(".mb-shell-home")
     settings = page.locator("#mb-shell-settings")
