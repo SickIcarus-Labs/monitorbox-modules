@@ -3,7 +3,7 @@
   "signed": {
     "repository_id": "official-dev",
     "display_name": "MonitorBox Official Dev",
-    "generated_at": "2026-09-13T02:32:12.199340Z",
+    "generated_at": "2026-09-13T02:40:18.876998Z",
     "modules": [
       {
         "manifest": {
@@ -1304,13 +1304,13 @@
           "module_id": "com.sickicarus.monitorbox.ui",
           "display_name": "MonitorBox UI",
           "description": "MonitorBox web interface, shared application shell, and operator presentation.",
-          "version": "1.2.0",
-          "build": 32,
+          "version": "1.2.1",
+          "build": 33,
           "schema": 1,
           "state_schema": 1,
           "module_type": "ui",
           "entrypoints": {
-            "webui": "monitorbox_ui_b32:install"
+            "webui": "monitorbox_ui_b33:install"
           },
           "requires_core": ">=2.4.1 <3.0.0",
           "requires_runtime_api": ">=1 <2",
@@ -1320,11 +1320,11 @@
           "lifecycle_policy": "required"
         },
         "package": {
-          "url": "packages/com.sickicarus.monitorbox.ui-1.2.0-build32.zip",
-          "filename": "com.sickicarus.monitorbox.ui-1.2.0-build32.zip",
-          "sha256": "874de709ad071371140cefc0fd54696c87e69506e8aa54c60151e1dd516bf040",
+          "url": "packages/com.sickicarus.monitorbox.ui-1.2.1-build33.zip",
+          "filename": "com.sickicarus.monitorbox.ui-1.2.1-build33.zip",
+          "sha256": "f8ccf19a279ce6cc29d8bb9c3773e1ac4427b2b6ce45dacf9052b16071290412",
           "signature_identity": "official-ed25519-1",
-          "signature": "ghoRhF8fqfPPNDbG9A3jPd3dfdbViXG07wtj1i3UbdIK/Pnf951vakJnoKr379VdNTgvvzKImKRuVkvsfK47BA=="
+          "signature": "XVCTutLdwx/EzYD09T4G3ZxW9jaKGmbMH/XXaPAXZmYWZNyohlnGsKJGSCiwqCDnCLq9stXMwE59YZLWRs8DCA=="
         }
       },
       {
@@ -1521,6 +1521,6 @@
   "signature": {
     "algorithm": "ed25519",
     "identity": "official-ed25519-1",
-    "value": "wT1ql+DFK5YI3iC91v2AMLi5BNDFYt0t/rCpl7AOojR8P76vJadSqYWM9JzBwp1pw0R+ZR/rjeGMdK3iY85dBQ=="
+    "value": "hY4EM6lM8IhWFECM39xL4iQHBdJqBpXOQ/HVKRry/Bpwpf4KBSbejz7JvKaUodxIUqM7w85pNdnjNr747MyjCA=="
   }
 }
