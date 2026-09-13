@@ -3,7 +3,7 @@
   "signed": {
     "repository_id": "official-dev",
     "display_name": "MonitorBox Official Dev",
-    "generated_at": "2026-09-13T06:28:13.200950Z",
+    "generated_at": "2026-09-13T19:37:35.593665Z",
     "modules": [
       {
         "manifest": {
@@ -517,6 +517,34 @@
       },
       {
         "manifest": {
+          "module_id": "com.sickicarus.monitorbox.portainer",
+          "display_name": "Portainer Integration",
+          "description": "Monitors Docker environments and workload health through Portainer inventory.",
+          "version": "1.2.0",
+          "build": 8,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "integration",
+          "entrypoints": {
+            "integration": "monitorbox_portainer_b8:PLUGIN"
+          },
+          "requires_core": ">=2.3.0 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "optional"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.portainer-1.2.0-build8.zip",
+          "filename": "com.sickicarus.monitorbox.portainer-1.2.0-build8.zip",
+          "sha256": "a7f890a887c811d3bf9e8b0fe7824e18350eb41e4e69de0569d0842193196f51",
+          "signature_identity": "official-ed25519-1",
+          "signature": "w7GA4zSpsehWekD1GgtdSMjgdG5moZThts/I+3jrQVK1qmg+qHE7dsYx5o0CNqMfl9uTXrKUc/mlhLpsZB6PDA=="
+        }
+      },
+      {
+        "manifest": {
           "module_id": "com.sickicarus.monitorbox.scrypted",
           "display_name": "Scrypted Integration",
           "version": "1.0.0",
@@ -675,6 +703,90 @@
           "sha256": "4cafde75de790e98c4fe7589d1dcea65909655e699ee8bda8c190c2e101cec1d",
           "signature_identity": "official-ed25519-1",
           "signature": "Mfb1GKssvQ8uNlmqL99F6fcaCxbPJHG5qmxw0u+Fp9Nu8N2ZXTx0Jo72T4aRJ1aP587DmUJ53IYJjfMcRCpwCw=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.scrypted",
+          "display_name": "Scrypted Integration",
+          "description": "Monitors Scrypted service health and camera availability, snapshots, and streams.",
+          "version": "2.2.0",
+          "build": 5,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "integration",
+          "entrypoints": {
+            "integration": "monitorbox_scrypted_v220_b5:PLUGIN"
+          },
+          "requires_core": ">=2.4.0 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "optional",
+          "capability_detection": {
+            "schema": 2,
+            "discovery_hints": {
+              "schema": 1,
+              "tcp_ports": [
+                10443,
+                11080
+              ]
+            },
+            "matches": [
+              {
+                "id": "workload-image",
+                "confidence": "detected",
+                "all": [
+                  {
+                    "fact": "workload.image",
+                    "op": "contains",
+                    "value": "/scrypted"
+                  }
+                ]
+              },
+              {
+                "id": "compose-service",
+                "confidence": "detected",
+                "all": [
+                  {
+                    "fact": "workload.compose_service",
+                    "op": "equals",
+                    "value": "scrypted"
+                  }
+                ]
+              },
+              {
+                "id": "management-port",
+                "confidence": "possible",
+                "all": [
+                  {
+                    "fact": "network.port",
+                    "op": "equals",
+                    "value": "10443"
+                  }
+                ]
+              },
+              {
+                "id": "http-port",
+                "confidence": "possible",
+                "all": [
+                  {
+                    "fact": "network.port",
+                    "op": "equals",
+                    "value": "11080"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.scrypted-2.2.0-build5.zip",
+          "filename": "com.sickicarus.monitorbox.scrypted-2.2.0-build5.zip",
+          "sha256": "e46da1c524e8a90e77169faeb61aeb78f30384d35a6528914ed94867e6b1c7c7",
+          "signature_identity": "official-ed25519-1",
+          "signature": "tzosMm0EUkNWcndov9B8b1tw/QIkp1zhakGSF6oJ8+xDohMFBid7MvQF3ShkvbZ6/BXlg6XYMoSfKyzk7qFWBQ=="
         }
       },
       {
@@ -1549,6 +1661,6 @@
   "signature": {
     "algorithm": "ed25519",
     "identity": "official-ed25519-1",
-    "value": "JZs+cym2/N5iAJ4SchKnloDiuvIKMNCjYoC/0ZaYdhUqMXxEVjrR+qm9Zbc+EdzviPDY0rP74ehUniI1aLnuAA=="
+    "value": "XvSRApZ9Yt1n7T9h4tbbp+GZJe7QJVQdnCWUC4ndFR7VY8ePgxVsVAzafz3Gva24JXDkbSOMgScS5D9ec0jZAQ=="
   }
 }
