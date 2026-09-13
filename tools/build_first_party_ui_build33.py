@@ -19,6 +19,7 @@ import build_first_party_ui as stable
 UI_VERSION = "1.2.1"
 UI_BUILD = 33
 UI_GENERATION = f"{UI_VERSION}-{UI_BUILD}"
+PARENT_GENERATION = "1.1.18-31"
 TARGET_IMPORT_PACKAGE = "monitorbox_ui_b33"
 SIGNED_RELEASE_SHA256 = "f8ccf19a279ce6cc29d8bb9c3773e1ac4427b2b6ce45dacf9052b16071290412"
 RELEASE33 = stable.Release(build=UI_BUILD, certified_sha="p0-315-contextual-configuration-fix", version=UI_VERSION)
