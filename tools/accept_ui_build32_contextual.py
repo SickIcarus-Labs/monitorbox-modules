@@ -82,6 +82,8 @@ def package_assets(root: Path) -> tuple[dict[str, bytes], str]:
     assert "#drawer-body" in js
     assert "min-height:44px" in css
     assert "data-object" not in js
+    assert "Configure Connection: " in js
+    assert "Configure System: " in js
     for provider in ("portainer", "scrypted", "unifi", "nut"):
         assert provider not in js.casefold(), provider
     return assets, init
@@ -172,9 +174,9 @@ def assert_contextual_flow(browser, assets: dict[str, bytes], viewport: dict[str
     assert len(links) == 4, links
     assert links[0] == "Configure Service A", links
     assert set(links[1:]) == {
-        "Configure Connection · HTTP(S)",
-        "Configure Connection · TCP",
-        "Configure System · Host A",
+        "Configure Connection: HTTP(S)",
+        "Configure Connection: TCP",
+        "Configure System: Host A",
     }, links
     assert page.locator("#drawer-body > .detail-section").all_inner_texts()[-1] == "History"
     for box in section.locator("a").evaluate_all("els => els.map(el => el.getBoundingClientRect())"):
