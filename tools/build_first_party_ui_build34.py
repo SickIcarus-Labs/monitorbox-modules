@@ -84,7 +84,63 @@ def _application(parent: bytes) -> bytes:
         "asset registry",
     )
 
-    middleware = rf'''@web.middleware
+    middleware = rf'''_GLOBAL_DEBUG_STYLE = '<link rel="stylesheet" href="/static/global-debug.css?v={UI_GENERATION}">'
+_GLOBAL_DEBUG_SCRIPT = '<script src="/static/global-debug.js?v={UI_GENERATION}" defer></script>'
+
+
+def _has_element_id(markup: str, element_id: str) -> bool:
+    return ('id="' + element_id + '"') in markup or ("id='" + element_id + "'") in markup
+
+
+def _canonical_global_debug_fragments() -> tuple[str, str]:
+    """Reuse the signed Dashboard's canonical Debug markup on every HTML surface."""
+    dashboard_markup = _resource("dashboard.html").read_text(encoding="utf-8")
+
+    toggle_start = dashboard_markup.find('<button id="debug-toggle"')
+    toggle_end = dashboard_markup.find("</button>", toggle_start)
+    console_start = dashboard_markup.find('<aside id="debug-console"')
+    console_end = dashboard_markup.find("</aside>", console_start)
+    if min(toggle_start, toggle_end, console_start, console_end) < 0:
+        raise RuntimeError("canonical Dashboard Debug markup is incomplete")
+
+    toggle_end += len("</button>")
+    console_end += len("</aside>")
+    return (
+        dashboard_markup[toggle_start:toggle_end],
+        dashboard_markup[console_start:console_end],
+    )
+
+
+@web.middleware
+async def global_debug_presentation(request: web.Request, handler):
+    response = await handler(request)
+    if not (
+        isinstance(response, web.Response)
+        and response.content_type == "text/html"
+        and response.body
+    ):
+        return response
+
+    markup = response.text
+    if _GLOBAL_DEBUG_STYLE not in markup and "</head>" in markup:
+        markup = markup.replace("</head>", _GLOBAL_DEBUG_STYLE + "</head>", 1)
+
+    toggle, console = _canonical_global_debug_fragments()
+    additions = []
+    if not _has_element_id(markup, "debug-toggle"):
+        additions.append(toggle)
+    if not _has_element_id(markup, "debug-console"):
+        additions.append(console)
+    if _GLOBAL_DEBUG_SCRIPT not in markup:
+        additions.append(_GLOBAL_DEBUG_SCRIPT)
+    if additions and "</body>" in markup:
+        markup = markup.replace("</body>", "".join(additions) + "</body>", 1)
+
+    response.text = markup
+    return response
+
+
+@web.middleware
 async def settings_shell_presentation(request: web.Request, handler):
     response = await handler(request)
     if not (
@@ -111,7 +167,7 @@ async def settings_shell_presentation(request: web.Request, handler):
         payload,
         b"async def dashboard(_: web.Request) -> web.Response:\n",
         middleware + b"async def dashboard(_: web.Request) -> web.Response:\n",
-        "settings shell middleware",
+        "settings shell and global Debug middleware",
     )
     payload = _replace_once(
         payload,
@@ -119,6 +175,7 @@ async def settings_shell_presentation(request: web.Request, handler):
         b"    app.middlewares.append(contextual_configuration_presentation)\n",
         b"def install(app: web.Application) -> None:\n"
         b"    app.middlewares.append(settings_shell_presentation)\n"
+        b"    app.middlewares.append(global_debug_presentation)\n"
         b"    app.middlewares.append(contextual_configuration_presentation)\n",
         "middleware installation",
     )
@@ -133,6 +190,13 @@ def _package_files(root: Path) -> dict[str, bytes]:
         if not path.startswith(prefix):
             raise SystemExit(f"unexpected UI build-33 package member {path!r}")
         parent[path[len(prefix):]] = payload
+
+    # Debug is already owned by the signed standalone package. Build34 composes that
+    # canonical capability globally; it must never fork or replace its behavior.
+    for name in ("global-debug.js", "global-debug.css", "dashboard.html"):
+        key = f"assets/{name}"
+        if key not in parent:
+            raise SystemExit(f"signed UI build33 is missing canonical Debug authority {name}")
 
     delta = _delta_files(root)
     parent["__init__.py"] = _application(parent["__init__.py"])
@@ -158,7 +222,8 @@ def _package_files(root: Path) -> dict[str, bytes]:
     if any(PARENT_GENERATION.encode() in payload for payload in parent.values()):
         raise SystemExit("UI build34 package retained build33 generation identity")
 
-    # #315 remains byte-identical except for unavoidable package-generation references.
+    # #315 and the signed Debug implementation remain byte-identical except for
+    # unavoidable package-generation references applied uniformly above.
     if parent["assets/contextual-configuration.js"] != signed_parent[
         f"{PARENT_IMPORT_PACKAGE}/assets/contextual-configuration.js"
     ]:
@@ -167,6 +232,13 @@ def _package_files(root: Path) -> dict[str, bytes]:
         f"{PARENT_IMPORT_PACKAGE}/assets/contextual-configuration.css"
     ]:
         raise SystemExit("UI build34 changed #315 contextual CSS")
+    for name in ("global-debug.js", "global-debug.css", "dashboard.html"):
+        parent_payload = signed_parent[f"{PARENT_IMPORT_PACKAGE}/assets/{name}"]
+        candidate_payload = parent[f"assets/{name}"]
+        expected = parent_payload.replace(PARENT_GENERATION.encode(), UI_GENERATION.encode())
+        expected = expected.replace(PARENT_IMPORT_PACKAGE.encode(), TARGET_IMPORT_PACKAGE.encode())
+        if candidate_payload != expected:
+            raise SystemExit(f"UI build34 changed canonical Debug authority {name}")
 
     return {
         f"{TARGET_IMPORT_PACKAGE}/{relative}": payload
