@@ -32,7 +32,7 @@ RELEASE32 = stable.Release(
     version=UI_VERSION,
 )
 SOURCE_BLOBS = {
-    "contextual-configuration.js": "54d45d743a5c53ac3faaa9b345286be1f8cef91d",
+    "contextual-configuration.js": "3a1267e88ad060f358b358c94ff83804351ee536",
     "contextual-configuration.css": "e4d34cda75dee76ed5ff47aef6c408835f816c26",
 }
 
