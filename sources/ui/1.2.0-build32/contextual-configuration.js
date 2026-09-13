@@ -74,9 +74,9 @@
     if (resourceAction) actions.append(resourceAction);
     section.append(heading, copy, actions);
 
-    const connections = group('Connections', payload.connections, 'Configure Connection · ');
+    const connections = group('Connections', payload.connections, 'Configure Connection: ');
     if (connections) section.append(connections);
-    const systems = group('Hosting / dependency Systems', payload.systems, 'Configure System · ');
+    const systems = group('Hosting / dependency Systems', payload.systems, 'Configure System: ');
     if (systems) section.append(systems);
 
     const history = [...root.querySelectorAll(':scope > .detail-section')]
