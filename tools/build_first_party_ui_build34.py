@@ -75,6 +75,8 @@ def _application(parent: bytes) -> bytes:
         raise SystemExit("UI build-34 parent application has no build-33 generation marker")
     payload = payload.replace(PARENT_GENERATION.encode(), UI_GENERATION.encode())
     payload = payload.replace(PARENT_IMPORT_PACKAGE.encode(), TARGET_IMPORT_PACKAGE.encode())
+    if b"_APP_SHELL_STYLE" not in payload or b"_APP_SHELL_SCRIPT" not in payload:
+        raise SystemExit("UI build-34 parent application has no canonical app-shell composition authority")
     payload = _replace_once(
         payload,
         b"ASSETS = {\n",
@@ -122,8 +124,13 @@ async def global_debug_presentation(request: web.Request, handler):
         return response
 
     markup = response.text
-    if _GLOBAL_DEBUG_STYLE not in markup and "</head>" in markup:
-        markup = markup.replace("</head>", _GLOBAL_DEBUG_STYLE + "</head>", 1)
+    head_additions = []
+    if _APP_SHELL_STYLE not in markup:
+        head_additions.append(_APP_SHELL_STYLE)
+    if _GLOBAL_DEBUG_STYLE not in markup:
+        head_additions.append(_GLOBAL_DEBUG_STYLE)
+    if head_additions and "</head>" in markup:
+        markup = markup.replace("</head>", "".join(head_additions) + "</head>", 1)
 
     toggle, console = _canonical_global_debug_fragments()
     additions = []
@@ -131,8 +138,12 @@ async def global_debug_presentation(request: web.Request, handler):
         additions.append(toggle)
     if not _has_element_id(markup, "debug-console"):
         additions.append(console)
+    # Debug owns behavior. App-shell owns global shell composition and adopts the
+    # exact canonical Debug node. Settings-shell only changes shell navigation.
     if _GLOBAL_DEBUG_SCRIPT not in markup:
         additions.append(_GLOBAL_DEBUG_SCRIPT)
+    if _APP_SHELL_SCRIPT not in markup:
+        additions.append(_APP_SHELL_SCRIPT)
     if additions and "</body>" in markup:
         markup = markup.replace("</body>", "".join(additions) + "</body>", 1)
 
@@ -191,12 +202,18 @@ def _package_files(root: Path) -> dict[str, bytes]:
             raise SystemExit(f"unexpected UI build-33 package member {path!r}")
         parent[path[len(prefix):]] = payload
 
-    # Debug is already owned by the signed standalone package. Build34 composes that
-    # canonical capability globally; it must never fork or replace its behavior.
-    for name in ("global-debug.js", "global-debug.css", "dashboard.html"):
+    # Debug and app-shell are already owned by the signed standalone package.
+    # Build34 composes those canonical capabilities globally; it never forks them.
+    for name in (
+        "global-debug.js",
+        "global-debug.css",
+        "dashboard.html",
+        "app-shell.js",
+        "app-shell.css",
+    ):
         key = f"assets/{name}"
         if key not in parent:
-            raise SystemExit(f"signed UI build33 is missing canonical Debug authority {name}")
+            raise SystemExit(f"signed UI build33 is missing canonical shell authority {name}")
 
     delta = _delta_files(root)
     parent["__init__.py"] = _application(parent["__init__.py"])
@@ -222,8 +239,8 @@ def _package_files(root: Path) -> dict[str, bytes]:
     if any(PARENT_GENERATION.encode() in payload for payload in parent.values()):
         raise SystemExit("UI build34 package retained build33 generation identity")
 
-    # #315 and the signed Debug implementation remain byte-identical except for
-    # unavoidable package-generation references applied uniformly above.
+    # #315 plus the signed Debug/app-shell implementations remain byte-identical
+    # except for unavoidable package-generation references applied uniformly above.
     if parent["assets/contextual-configuration.js"] != signed_parent[
         f"{PARENT_IMPORT_PACKAGE}/assets/contextual-configuration.js"
     ]:
@@ -232,13 +249,19 @@ def _package_files(root: Path) -> dict[str, bytes]:
         f"{PARENT_IMPORT_PACKAGE}/assets/contextual-configuration.css"
     ]:
         raise SystemExit("UI build34 changed #315 contextual CSS")
-    for name in ("global-debug.js", "global-debug.css", "dashboard.html"):
+    for name in (
+        "global-debug.js",
+        "global-debug.css",
+        "dashboard.html",
+        "app-shell.js",
+        "app-shell.css",
+    ):
         parent_payload = signed_parent[f"{PARENT_IMPORT_PACKAGE}/assets/{name}"]
         candidate_payload = parent[f"assets/{name}"]
         expected = parent_payload.replace(PARENT_GENERATION.encode(), UI_GENERATION.encode())
         expected = expected.replace(PARENT_IMPORT_PACKAGE.encode(), TARGET_IMPORT_PACKAGE.encode())
         if candidate_payload != expected:
-            raise SystemExit(f"UI build34 changed canonical Debug authority {name}")
+            raise SystemExit(f"UI build34 changed canonical shell authority {name}")
 
     return {
         f"{TARGET_IMPORT_PACKAGE}/{relative}": payload
