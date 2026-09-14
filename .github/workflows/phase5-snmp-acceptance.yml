@@ -4,10 +4,10 @@ on:
   pull_request:
     paths:
       - 'sources/snmp/**'
-      - 'tools/build_first_party_snmp_106.py'
-      - 'tools/accept_snmp_phase5_b8.py'
-      - 'tools/stage_phase5_snmp.py'
-      - 'release-intents/snmp-1.0.6-build8.json'
+      - 'tools/build_first_party_snmp_*.py'
+      - 'tools/accept_snmp_*.py'
+      - 'tools/stage_*snmp*.py'
+      - 'release-intents/snmp-*.json'
       - '.github/workflows/phase5-snmp-acceptance.yml'
   push:
     branches:
@@ -74,7 +74,7 @@ jobs:
           print('Phase-5 release staging: PASS')
           PY
 
-      - name: Prove Phase-5 scope stays inside SNMP module release boundaries
+      - name: Prove immutable Phase-5 release remains untouched
         if: github.event_name == 'pull_request'
         shell: bash
         env:
@@ -84,10 +84,11 @@ jobs:
           git cat-file -e "$BASE_SHA^{commit}"
           git diff --name-only "$BASE_SHA"...HEAD | tee "$RUNNER_TEMP/phase5-paths.txt"
           if grep -Eq '^(channels/|catalog\.source\.json$|packages/)' "$RUNNER_TEMP/phase5-paths.txt"; then
-            echo '::error::Phase-5 candidate directly mutated signed/materialized repository authority'
+            echo '::error::SNMP candidate directly mutated signed/materialized repository authority'
             exit 1
           fi
-          if grep -Ev '^(\.github/workflows/phase5-snmp-acceptance\.yml|release-intents/snmp-1\.0\.6-build8\.json|sources/snmp/1\.0\.6-build8/[^/]+|tools/(accept_snmp_phase5_b8|build_first_party_snmp_106|stage_phase5_snmp)\.py)$' "$RUNNER_TEMP/phase5-paths.txt" | grep -q .; then
-            echo '::error::Phase-5 candidate widened outside the declared SNMP release surface'
+          if grep -Eq '^(sources/snmp/1\.0\.6-build8/|tools/(accept_snmp_phase5_b8|build_first_party_snmp_106|stage_phase5_snmp)\.py$)' "$RUNNER_TEMP/phase5-paths.txt"; then
+            echo '::error::immutable Phase-5 SNMP build-8 implementation was modified by a successor release'
             exit 1
           fi
+          echo 'immutable Phase-5 SNMP build-8 surface unchanged; successor releases are permitted'
