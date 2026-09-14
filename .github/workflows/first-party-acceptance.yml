@@ -108,6 +108,8 @@ jobs:
         run: python tools/accept_portainer_lifecycle.py
       - name: Verify generic Portainer to signed-module discovery contract
         run: python tools/accept_129_module_discovery.py
+      - name: Verify #59 signed bootstrap hints and provider-owned fallback discovery
+        run: python tools/accept_59_bootstrap_provider_hints.py
       - name: Verify standalone UI build-11 Core boundary
         run: python tools/accept_ui_build11_standalone.py
       - name: Verify UI semantic release identity scenarios

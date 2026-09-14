@@ -1,0 +1,1 @@
+{"schema":1,"module_id":"com.sickicarus.monitorbox.scrypted","discovery":{"provider_owned_possible":true,"tcp_ports":[10443,11080],"candidate_kind":"scrypted","value_key":"base_url"}}
