@@ -3,7 +3,7 @@
   "signed": {
     "repository_id": "official-dev",
     "display_name": "MonitorBox Official Dev",
-    "generated_at": "2026-09-14T13:40:27.733275Z",
+    "generated_at": "2026-09-14T18:01:56.275779Z",
     "modules": [
       {
         "manifest": {
@@ -297,6 +297,92 @@
           "sha256": "45336504770f0e15e6575207d5471b92664749a09826c476cf8485c5ad8b371a",
           "signature_identity": "official-ed25519-1",
           "signature": "nDyuyAp6dhVFVP0V+NXgmR6ucB0htO7BCdHherccbqCFeZ/ZMFiB0QQKt+1rMkcu0pJCvTTN99CAKWduss84Bw=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.http",
+          "display_name": "HTTP(S) Integration",
+          "description": "Monitors HTTP(S) endpoints and response health.",
+          "version": "1.1.0",
+          "build": 3,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "integration",
+          "entrypoints": {
+            "integration": "monitorbox_http_v110_b3:PLUGIN"
+          },
+          "requires_core": ">=2.4.0 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "optional",
+          "capability_detection": {
+            "schema": 2,
+            "discovery_hints": {
+              "schema": 1,
+              "tcp_ports": [
+                80,
+                443,
+                8443,
+                9090
+              ]
+            },
+            "matches": [
+              {
+                "id": "http-port-80",
+                "confidence": "possible",
+                "all": [
+                  {
+                    "fact": "network.port",
+                    "op": "equals",
+                    "value": "80"
+                  }
+                ]
+              },
+              {
+                "id": "http-port-443",
+                "confidence": "possible",
+                "all": [
+                  {
+                    "fact": "network.port",
+                    "op": "equals",
+                    "value": "443"
+                  }
+                ]
+              },
+              {
+                "id": "http-port-8443",
+                "confidence": "possible",
+                "all": [
+                  {
+                    "fact": "network.port",
+                    "op": "equals",
+                    "value": "8443"
+                  }
+                ]
+              },
+              {
+                "id": "http-port-9090",
+                "confidence": "possible",
+                "all": [
+                  {
+                    "fact": "network.port",
+                    "op": "equals",
+                    "value": "9090"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.http-1.1.0-build3.zip",
+          "filename": "com.sickicarus.monitorbox.http-1.1.0-build3.zip",
+          "sha256": "c1d8ed66edd6f77e63989d8d662b6ef03afddac9c0e4abe5094f018c92bdf00a",
+          "signature_identity": "official-ed25519-1",
+          "signature": "GpAObewEUYPejyHFIgt2jLUXoodVSayh0qG/eRBoJypY2LkdAkIBHpCeQtdDbsH1H4jJxtXFxvEDCW45p7e/DQ=="
         }
       },
       {
@@ -1203,6 +1289,64 @@
       },
       {
         "manifest": {
+          "module_id": "com.sickicarus.monitorbox.snmp",
+          "display_name": "SNMP Integration",
+          "description": "Monitors systems and appliances through SNMP.",
+          "version": "1.1.0",
+          "build": 9,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "integration",
+          "entrypoints": {
+            "integration": "monitorbox_snmp_v110_b9:PLUGIN"
+          },
+          "requires_core": ">=2.4.0 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "optional",
+          "capability_detection": {
+            "schema": 2,
+            "discovery_hints": {
+              "schema": 2,
+              "probes": [
+                {
+                  "kind": "snmp_v3",
+                  "port": 161
+                }
+              ]
+            },
+            "matches": [
+              {
+                "id": "snmp-v3-responsive",
+                "confidence": "detected",
+                "all": [
+                  {
+                    "fact": "probe.kind",
+                    "op": "equals",
+                    "value": "snmp_v3"
+                  },
+                  {
+                    "fact": "probe.result",
+                    "op": "equals",
+                    "value": "responsive"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.snmp-1.1.0-build9.zip",
+          "filename": "com.sickicarus.monitorbox.snmp-1.1.0-build9.zip",
+          "sha256": "e881dfc21dfac32180efe8fb3ab7e40b6bf7dc0c5eb1d290d8d8b6521795a001",
+          "signature_identity": "official-ed25519-1",
+          "signature": "VUSd5Yifps2X0y1xS35TE61SO/7eQkSJ6DOou2RavtfFhS74D9dS8uEVcbeYRfTj2rUIjpiorT2bZIwb2VGjDw=="
+        }
+      },
+      {
+        "manifest": {
           "module_id": "com.sickicarus.monitorbox.ui",
           "display_name": "MonitorBox UI",
           "version": "1.0.0",
@@ -1827,6 +1971,56 @@
       },
       {
         "manifest": {
+          "module_id": "com.sickicarus.monitorbox.unifi",
+          "display_name": "UniFi Network Integration",
+          "description": "Monitors UniFi Network controller, device, and WAN health.",
+          "version": "1.1.0",
+          "build": 11,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "integration",
+          "entrypoints": {
+            "integration": "monitorbox_unifi_v110_b11:PLUGIN"
+          },
+          "requires_core": ">=2.4.0 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "optional",
+          "capability_detection": {
+            "schema": 2,
+            "discovery_hints": {
+              "schema": 1,
+              "tcp_ports": [
+                443
+              ]
+            },
+            "matches": [
+              {
+                "id": "unifi-https-port",
+                "confidence": "possible",
+                "all": [
+                  {
+                    "fact": "network.port",
+                    "op": "equals",
+                    "value": "443"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.unifi-1.1.0-build11.zip",
+          "filename": "com.sickicarus.monitorbox.unifi-1.1.0-build11.zip",
+          "sha256": "6962cce247d40dbd0fee839a9f8278911d3eeec6eda5220cefeb018fcfb80136",
+          "signature_identity": "official-ed25519-1",
+          "signature": "z1S0mrQXl0j2CyI3qicPKFKmLJPaIhMw3AV6mesejP/qTnR3wmNfod5dPWPlkOV7PQcqvYggDdwI3ED1ChSnBg=="
+        }
+      },
+      {
+        "manifest": {
           "module_id": "com.sickicarus.monitorbox.wol",
           "display_name": "Wake-on-LAN Action",
           "version": "1.0.0",
@@ -1857,6 +2051,6 @@
   "signature": {
     "algorithm": "ed25519",
     "identity": "official-ed25519-1",
-    "value": "9GEkvi/UAdXzrWYE7Gvv06ueUcWDlUCm8Etq/uN71FR6EzvCYG766Ui8uHOf0RWu7gVXcjDo7SjeV83dGmISAQ=="
+    "value": "mhYOFbutoVTmfR3M97sthzXgkmwHB95QjgqDt+zLpqFP5kPBzJzh4VIOOh9ArqBOKFIHb7p3eaS9a4xOWrvPBg=="
   }
 }
