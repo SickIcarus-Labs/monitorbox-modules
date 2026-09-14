@@ -47,11 +47,11 @@ jobs:
       - name: Prepare immutable provider regression artifacts
         run: |
           set -euo pipefail
-          # NUT build 2 and Scrypted build 3 are accepted immutable packages.
+          # NUT build 2 and Scrypted build 2 are accepted immutable packages.
           # Their regressions consume the checked-in artifacts directly; historical
           # builders must not be rerun after newer immutable generations exist.
           test -f packages/com.sickicarus.monitorbox.nut-1.0.1-build2.zip
-          test -f packages/com.sickicarus.monitorbox.scrypted-2.1.1-build3.zip
+          test -f packages/com.sickicarus.monitorbox.scrypted-2.1.1-build2.zip
           # Historical SNMP 1.0.5 is still reconstructed in an isolated directory
           # because its isolation acceptance explicitly exercises that builder.
           snmp_out=/tmp/provider-runtime-snmp-105
