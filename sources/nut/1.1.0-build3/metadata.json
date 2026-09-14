@@ -1,0 +1,1 @@
+{"schema":1,"module_id":"com.sickicarus.monitorbox.nut","description":"Monitors UPS health and status through Network UPS Tools (NUT).","capability_detection":{"schema":2,"discovery_hints":{"schema":1,"tcp_ports":[3493]},"matches":[{"id":"nut-port","confidence":"possible","all":[{"fact":"network.port","op":"equals","value":"3493"}]}]}}
