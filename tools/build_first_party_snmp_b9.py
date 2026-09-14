@@ -39,6 +39,10 @@ def _metadata(root: Path) -> dict:
 
 
 def _configure(root: Path) -> None:
+    # Configure the entire immutable build-8 composition first. The base builder's
+    # release identity and managed entrypoint are late-bound through its globals,
+    # so setting the build-9 globals below causes the configured predecessor rewrite
+    # chain to emit build-9 identity while preserving every accepted build-8 delta.
     previous._configure()
     metadata = _metadata(root)
 
@@ -56,24 +60,6 @@ def _configure(root: Path) -> None:
         text = predecessor_rewrite(name, payload).decode("utf-8")
         if name != "__init__.py":
             return text.encode("utf-8")
-        text = _replace_once(
-            text,
-            f'MODULE_VERSION = "{previous.MODULE_VERSION}"',
-            f'MODULE_VERSION = "{MODULE_VERSION}"',
-            "SNMP version",
-        )
-        text = _replace_once(
-            text,
-            f"MODULE_BUILD = {previous.MODULE_BUILD}",
-            f"MODULE_BUILD = {MODULE_BUILD}",
-            "SNMP build",
-        )
-        text = _replace_once(
-            text,
-            f'entrypoints={{"integration": "{previous.IMPORT_PACKAGE}:PLUGIN"}}',
-            f'entrypoints={{"integration": "{IMPORT_PACKAGE}:PLUGIN"}}',
-            "SNMP managed entrypoint",
-        )
         text = _replace_once(
             text,
             'requires_core=">=2.3.1 <3.0.0"',
