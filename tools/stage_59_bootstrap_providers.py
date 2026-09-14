@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage #59 bootstrap-discovery successor releases for Portainer, NUT, and Scrypted."""
+"""Stage #59 bootstrap-discovery successor releases for all first-run providers."""
 from __future__ import annotations
 
 import json
@@ -9,6 +9,9 @@ from typing import Any
 PORTAINER = "com.sickicarus.monitorbox.portainer"
 NUT = "com.sickicarus.monitorbox.nut"
 SCRYPTED = "com.sickicarus.monitorbox.scrypted"
+SNMP = "com.sickicarus.monitorbox.snmp"
+UNIFI = "com.sickicarus.monitorbox.unifi"
+HTTP = "com.sickicarus.monitorbox.http"
 
 PORTAINER_DETECTION = {
     "schema": 2,
@@ -33,6 +36,35 @@ SCRYPTED_DETECTION = {
         {"id": "compose-service", "confidence": "detected", "all": [{"fact": "workload.compose_service", "op": "equals", "value": "scrypted"}]},
         {"id": "management-port", "confidence": "possible", "all": [{"fact": "network.port", "op": "equals", "value": "10443"}]},
         {"id": "http-port", "confidence": "possible", "all": [{"fact": "network.port", "op": "equals", "value": "11080"}]},
+    ],
+}
+SNMP_DETECTION = {
+    "schema": 2,
+    "discovery_hints": {"schema": 2, "probes": [{"kind": "snmp_v3", "port": 161}]},
+    "matches": [
+        {
+            "id": "snmp-v3-responsive",
+            "confidence": "detected",
+            "all": [
+                {"fact": "probe.kind", "op": "equals", "value": "snmp_v3"},
+                {"fact": "probe.result", "op": "equals", "value": "responsive"},
+            ],
+        },
+    ],
+}
+UNIFI_DETECTION = {
+    "schema": 2,
+    "discovery_hints": {"schema": 1, "tcp_ports": [443]},
+    "matches": [
+        {"id": "unifi-https-port", "confidence": "possible", "all": [{"fact": "network.port", "op": "equals", "value": "443"}]},
+    ],
+}
+HTTP_DETECTION = {
+    "schema": 2,
+    "discovery_hints": {"schema": 1, "tcp_ports": [80, 443, 8443, 9090]},
+    "matches": [
+        {"id": f"http-port-{port}", "confidence": "possible", "all": [{"fact": "network.port", "op": "equals", "value": str(port)}]}
+        for port in (80, 443, 8443, 9090)
     ],
 }
 
@@ -110,6 +142,81 @@ RELEASES = (
                 "capability_detection": SCRYPTED_DETECTION,
             },
             "package": "com.sickicarus.monitorbox.scrypted-2.3.0-build6.zip",
+        },
+    ),
+    (
+        (SNMP, "1.0.6", 8),
+        (SNMP, "1.1.0", 9),
+        {
+            "manifest": {
+                "module_id": SNMP,
+                "display_name": "SNMP Integration",
+                "description": "Monitors systems and appliances through SNMP.",
+                "version": "1.1.0",
+                "build": 9,
+                "schema": 1,
+                "state_schema": 1,
+                "module_type": "integration",
+                "entrypoints": {"integration": "monitorbox_snmp_v110_b9:PLUGIN"},
+                "requires_core": ">=2.4.0 <3.0.0",
+                "requires_runtime_api": ">=1 <2",
+                "dependencies": [],
+                "publisher_id": "com.sickicarus",
+                "permissions": [],
+                "lifecycle_policy": "optional",
+                "capability_detection": SNMP_DETECTION,
+            },
+            "package": "com.sickicarus.monitorbox.snmp-1.1.0-build9.zip",
+        },
+    ),
+    (
+        (UNIFI, "1.0.9", 10),
+        (UNIFI, "1.1.0", 11),
+        {
+            "manifest": {
+                "module_id": UNIFI,
+                "display_name": "UniFi Network Integration",
+                "description": "Monitors UniFi Network controller, device, and WAN health.",
+                "version": "1.1.0",
+                "build": 11,
+                "schema": 1,
+                "state_schema": 1,
+                "module_type": "integration",
+                "entrypoints": {"integration": "monitorbox_unifi_v110_b11:PLUGIN"},
+                "requires_core": ">=2.4.0 <3.0.0",
+                "requires_runtime_api": ">=1 <2",
+                "dependencies": [],
+                "publisher_id": "com.sickicarus",
+                "permissions": [],
+                "lifecycle_policy": "optional",
+                "capability_detection": UNIFI_DETECTION,
+            },
+            "package": "com.sickicarus.monitorbox.unifi-1.1.0-build11.zip",
+        },
+    ),
+    (
+        (HTTP, "1.0.1", 2),
+        (HTTP, "1.1.0", 3),
+        {
+            "manifest": {
+                "module_id": HTTP,
+                "display_name": "HTTP(S) Integration",
+                "description": "Monitors HTTP(S) endpoints and response health.",
+                "version": "1.1.0",
+                "build": 3,
+                "schema": 1,
+                "state_schema": 1,
+                "module_type": "integration",
+                "entrypoints": {"integration": "monitorbox_http_v110_b3:PLUGIN"},
+                "requires_core": ">=2.4.0 <3.0.0",
+                "requires_runtime_api": ">=1 <2",
+                "dependencies": [],
+                "publisher_id": "com.sickicarus",
+                "permissions": [],
+                "lifecycle_policy": "optional",
+                "capability_detection": HTTP_DETECTION,
+            },
+            "package": "com.sickicarus.monitorbox.http-1.1.0-build3.zip",
         },
     ),
 )

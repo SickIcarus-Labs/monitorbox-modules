@@ -1,0 +1,1 @@
+{"schema":1,"module_id":"com.sickicarus.monitorbox.unifi","description":"Monitors UniFi Network controller, device, and WAN health.","capability_detection":{"schema":2,"discovery_hints":{"schema":1,"tcp_ports":[443]},"matches":[{"id":"unifi-https-port","confidence":"possible","all":[{"fact":"network.port","op":"equals","value":"443"}]}]}}
