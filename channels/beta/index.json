@@ -3,7 +3,7 @@
   "signed": {
     "repository_id": "official-beta",
     "display_name": "MonitorBox Official Beta",
-    "generated_at": "2026-09-11T13:56:53.513224Z",
+    "generated_at": "2026-09-18T15:36:11.332254Z",
     "modules": [
       {
         "manifest": {
@@ -1301,6 +1301,34 @@
       },
       {
         "manifest": {
+          "module_id": "com.sickicarus.monitorbox.ui",
+          "display_name": "MonitorBox UI",
+          "description": "MonitorBox web interface, shared application shell, and operator presentation.",
+          "version": "1.1.18",
+          "build": 31,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "ui",
+          "entrypoints": {
+            "webui": "monitorbox_ui_b31:install"
+          },
+          "requires_core": ">=2.4.1 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "required"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.ui-1.1.18-build31.zip",
+          "filename": "com.sickicarus.monitorbox.ui-1.1.18-build31.zip",
+          "sha256": "029a1584e6748a1c93f9d2903a2e7f22943d6044375dd19ceb56d7127b4ecd56",
+          "signature_identity": "official-ed25519-1",
+          "signature": "fmI8JDkvj51aU5RXWd5E5iKSXhvynu3Z1SSx3v1tPv9jDmWDwr2dS1olbswUNdtF+X1NHOQXPXvBhbJCzz8qDw=="
+        }
+      },
+      {
+        "manifest": {
           "module_id": "com.sickicarus.monitorbox.unifi",
           "display_name": "UniFi Network Integration",
           "version": "1.0.0",
@@ -1463,6 +1491,33 @@
       },
       {
         "manifest": {
+          "module_id": "com.sickicarus.monitorbox.unifi",
+          "display_name": "UniFi Network Integration",
+          "version": "1.0.11",
+          "build": 12,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "integration",
+          "entrypoints": {
+            "integration": "monitorbox_unifi_b12:PLUGIN"
+          },
+          "requires_core": ">=2.3.0 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "optional"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.unifi-1.0.11-build12.zip",
+          "filename": "com.sickicarus.monitorbox.unifi-1.0.11-build12.zip",
+          "sha256": "cafc9788821512b34525494307c9e3813297d8d8a472729e50f7565f75a83c43",
+          "signature_identity": "official-ed25519-1",
+          "signature": "1jMg8D0oKt3UxUk8j1O4bS7wMrB/whFCLu/YUbA31Jcv8RnWa/xY9gd59cCOco8hgUfnc8o1ux6K97b1sTsvCA=="
+        }
+      },
+      {
+        "manifest": {
           "module_id": "com.sickicarus.monitorbox.wol",
           "display_name": "Wake-on-LAN Action",
           "version": "1.0.0",
@@ -1493,6 +1548,6 @@
   "signature": {
     "algorithm": "ed25519",
     "identity": "official-ed25519-1",
-    "value": "5+8vVBQ+RfOo7bGZPL0STHzQYDzD0+YeY+sWnA3TpNMT0Sfkr9TEffpEAPoKX3cGES2pTiNSUxJkhWQXjhvYCA=="
+    "value": "/HT7L7HxIYtLBrKV/e4TGd5y3ceETGk8MYfRVKvy1A+fV8YJV5YVFV0XqRpImpeXcNjNvVXmtjBC2SurTvucAg=="
   }
 }
