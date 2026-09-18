@@ -32,12 +32,16 @@ def main() -> None:
         "github.event.workflow_run.conclusion == 'success'",
         "/publish-dev",
         "/promote-beta",
+        "/promote-beta-snapshot",
         "/yank-dev",
         "/promote-stable",
         '"Module release policy" "First-party module acceptance"',
         "needs.resolve.outputs.candidate_sha",
         "candidate/catalog.source.json",
         "candidate/packages",
+        "verify_channel_snapshot.py",
+        "beta-snapshot",
+        "snapshot-stage",
         "MONITORBOX_MODULE_SIGNING_KEY",
         "python ../trusted/tools/release_policy.py validate",
         "python trusted/tools/build_repository.py",
@@ -56,6 +60,8 @@ def main() -> None:
 
     # Candidate-owned stagers/builders execute only in the unsigned build job. The
     # signing job can inspect candidate source/staged bytes but never executes them.
+    # Historical beta-snapshot recovery likewise verifies immutable signed bytes and
+    # never executes package code before the trusted signer re-signs the same snapshot.
     publish = channel.split("  publish:\n", 1)[1]
     forbid(publish, "run-intents")
     require(publish, "Revalidate staged candidate without executing candidate code")
