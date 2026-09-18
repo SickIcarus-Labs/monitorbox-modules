@@ -6,6 +6,7 @@ name: Module channel publication
 #   to the signed dev repository;
 # - /publish-dev is the manual recovery spelling for the same exact-head operation;
 # - /promote-beta republishes the exact accepted candidate under beta authority;
+# - /promote-beta-snapshot <commit> re-signs an already-signed immutable dev snapshot as beta;
 # - /yank-dev restores dev to the frozen stable module baseline;
 # - /promote-stable promotes the exact signed beta snapshot to stable `official`.
 #
@@ -40,6 +41,7 @@ jobs:
         (
           github.event.comment.body == '/publish-dev' ||
           github.event.comment.body == '/promote-beta' ||
+          startsWith(github.event.comment.body, '/promote-beta-snapshot ') ||
           github.event.comment.body == '/yank-dev' ||
           github.event.comment.body == '/promote-stable'
         )
@@ -85,12 +87,36 @@ jobs:
             case "$COMMAND" in
               /publish-dev) mode="dev" ;;
               /promote-beta) mode="beta" ;;
+              /promote-beta-snapshot\ *) mode="beta-snapshot" ;;
               /yank-dev) mode="yank-dev" ;;
               /promote-stable) mode="stable" ;;
               *) echo "::error::Unsupported module publication command"; exit 1 ;;
             esac
             pr_number="$(jq -r '.issue.number' "$GITHUB_EVENT_PATH")"
             expected_sha=""
+          fi
+
+          if [[ "$mode" == "beta-snapshot" ]]; then
+            snapshot_sha="${COMMAND#'/promote-beta-snapshot '}"
+            [[ "$snapshot_sha" =~ ^[0-9a-f]{40}$ ]] || {
+              echo "::error::Snapshot promotion requires a full 40-character commit SHA"
+              exit 1
+            }
+            git fetch --no-tags origin "$snapshot_sha"
+            git cat-file -e "$snapshot_sha^{commit}" || {
+              echo "::error::Snapshot commit does not exist in this repository"
+              exit 1
+            }
+            {
+              echo "publish=true"
+              echo "mode=beta-snapshot"
+              echo "pr_number=$pr_number"
+              echo "candidate_sha=$snapshot_sha"
+              echo "base_sha="
+            } >> "$GITHUB_OUTPUT"
+            echo "Module publication mode: beta-snapshot"
+            echo "Signed dev snapshot source: $snapshot_sha"
+            exit 0
           fi
 
           if [[ "$mode" == "stable" ]]; then
@@ -220,9 +246,54 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+
+  build_snapshot:
+    name: Verify and stage immutable signed dev snapshot
+    needs: [resolve]
+    if: >-
+      needs.resolve.outputs.publish == 'true' &&
+      needs.resolve.outputs.mode == 'beta-snapshot'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out trusted current main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          path: trusted
+      - name: Check out immutable snapshot authority
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.resolve.outputs.candidate_sha }}
+          path: snapshot
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Install trusted verification dependency
+        run: python -m pip install --disable-pip-version-check cryptography==50.0.1
+      - name: Verify historical signed-dev authority and stage exact bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python trusted/tools/verify_channel_snapshot.py \
+            --snapshot-root snapshot/channels/dev \
+            --trust-root trusted/trust/official-ed25519-1.pub \
+            --stage-root "$RUNNER_TEMP/snapshot-stage"
+      - name: Retain verified snapshot distribution
+        uses: actions/upload-artifact@v4
+        with:
+          name: module-channel-snapshot-${{ needs.resolve.outputs.candidate_sha }}
+          path: |
+            ${{ runner.temp }}/snapshot-stage/catalog.source.json
+            ${{ runner.temp }}/snapshot-stage/index.json
+            ${{ runner.temp }}/snapshot-stage/packages
+          if-no-files-found: error
+          retention-days: 1
+
   publish:
     name: Sign and publish module channel
-    needs: [resolve, build_candidate]
+    needs: [resolve, build_candidate, build_snapshot]
     if: >-
       always() &&
       needs.resolve.result == 'success' &&
@@ -230,7 +301,8 @@ jobs:
       (
         needs.resolve.outputs.mode == 'stable' ||
         needs.resolve.outputs.mode == 'yank-dev' ||
-        needs.build_candidate.result == 'success'
+        needs.build_candidate.result == 'success' ||
+        needs.build_snapshot.result == 'success'
       )
     runs-on: ubuntu-latest
     permissions:
@@ -255,6 +327,12 @@ jobs:
         with:
           name: module-channel-candidate-${{ needs.resolve.outputs.candidate_sha }}
           path: staged
+      - name: Download verified immutable snapshot
+        if: needs.resolve.outputs.mode == 'beta-snapshot'
+        uses: actions/download-artifact@v5
+        with:
+          name: module-channel-snapshot-${{ needs.resolve.outputs.candidate_sha }}
+          path: snapshot-stage
       - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
@@ -278,6 +356,15 @@ jobs:
             --candidate-catalog catalog.source.json \
             --base-ref "$BASE_SHA" \
             --require-packages
+
+      - name: Reverify immutable snapshot without executing snapshot code
+        if: needs.resolve.outputs.mode == 'beta-snapshot'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python trusted/tools/verify_channel_snapshot.py \
+            --snapshot-root snapshot-stage \
+            --trust-root trusted/trust/official-ed25519-1.pub
 
       - name: Freeze stable baseline snapshot if not yet recorded
         shell: bash
@@ -368,6 +455,10 @@ jobs:
               source_root="candidate-source"
               repository_id="official-beta"
               ;;
+            beta-snapshot)
+              source_root="snapshot-stage"
+              repository_id="official-beta"
+              ;;
             yank-dev)
               source_root="trusted/channels/stable"
               repository_id="official-dev"
@@ -417,6 +508,10 @@ jobs:
               channel="dev"
               source_root="trusted/channels/stable"
               message="channels: yank dev to stable baseline"
+            elif [[ "$MODE" == "beta-snapshot" ]]; then
+              channel="beta"
+              source_root="snapshot-stage"
+              message="channels: promote signed dev snapshot ${CANDIDATE_SHA:0:12} to beta"
             else
               channel="$MODE"
               source_root="candidate-source"
