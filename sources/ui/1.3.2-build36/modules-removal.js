@@ -4,13 +4,16 @@
     const resources = [...new Set(connections.flatMap(item =>
       Array.isArray(item?.exposed_object_ids) ? item.exposed_object_ids.map(String) : []
     ))];
+    const checks = [...new Set(connections.flatMap(item =>
+      Array.isArray(item?.check_ids) ? item.check_ids.map(String) : []
+    ))];
     const lines = [
       `${connections.length} Connection${connections.length === 1 ? "" : "s"}`,
-      `${Number(impact.provider_member_count || 0)} provider/check authorit${Number(impact.provider_member_count || 0) === 1 ? "y" : "ies"}`,
       `${resources.length} affected Resource${resources.length === 1 ? "" : "s"}`,
+      `${checks.length} affected Check${checks.length === 1 ? "" : "s"}`,
       `${Number(impact.credential_values_to_purge || 0)} now-unreferenced credential value${Number(impact.credential_values_to_purge || 0) === 1 ? "" : "s"} to purge`,
     ];
-    return {lines, connections, resources};
+    return {lines, connections, resources, checks};
   }
 
   function confirmReviewedModuleRemoval(module, review) {
@@ -49,6 +52,12 @@
         resources.className = "modules-removal-resources";
         resources.textContent = `Affected Resources: ${impact.resources.join(", ")}`;
         dialog.append(resources);
+      }
+      if (impact.checks.length) {
+        const checks = document.createElement("p");
+        checks.className = "modules-removal-resources";
+        checks.textContent = `Affected Checks: ${impact.checks.join(", ")}`;
+        dialog.append(checks);
       }
       const label = document.createElement("label");
       label.textContent = "Current administrator password";
