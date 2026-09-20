@@ -1,0 +1,216 @@
+#!/usr/bin/env python3
+"""Build #346 Configuration peer-navigation UI v1.3.1 build 35.
+
+Build 35 is a patch/polish successor to signed dev UI 1.3.0 build 34. It keeps
+Core route/configuration authority unchanged and moves the persistent
+Configuration peer-navigation presentation entirely into the managed UI module.
+"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+from pathlib import Path
+
+import build_first_party_ui as stable
+import build_first_party_ui_build34 as previous
+
+UI_VERSION = "1.3.1"
+UI_BUILD = 35
+UI_GENERATION = f"{UI_VERSION}-{UI_BUILD}"
+PARENT_GENERATION = previous.UI_GENERATION
+PARENT_IMPORT_PACKAGE = previous.TARGET_IMPORT_PACKAGE
+TARGET_IMPORT_PACKAGE = "monitorbox_ui_b35"
+RELEASE35 = stable.Release(
+    build=UI_BUILD,
+    certified_sha="p2-346-configuration-peer-navigation",
+    version=UI_VERSION,
+)
+SOURCE_BLOBS = {
+    "configuration-peer-navigation.js": "8d0b31d0c9fae674e508268cf72d9f829ebe3040",
+    "configuration-peer-navigation.css": "6255f8242775d022d2cf75ceca74b8b7fdd1dc0f",
+}
+
+
+def _git_blob_sha(payload: bytes) -> str:
+    return hashlib.sha1(f"blob {len(payload)}\0".encode("ascii") + payload).hexdigest()
+
+
+def _replace_once(payload: bytes, old: bytes, new: bytes, seam: str) -> bytes:
+    if payload.count(old) != 1:
+        raise SystemExit(f"UI build-35 {seam} seam changed: {old[:180]!r}")
+    return payload.replace(old, new, 1)
+
+
+def _delta_files(root: Path) -> dict[str, bytes]:
+    source_root = root / "sources" / "ui" / "1.3.1-build35"
+    actual = {path.name for path in source_root.iterdir() if path.is_file()}
+    expected = set(SOURCE_BLOBS)
+    if actual != expected:
+        raise SystemExit(
+            "UI build-35 delta shape changed: "
+            f"missing={sorted(expected-actual)}, extra={sorted(actual-expected)}"
+        )
+    result: dict[str, bytes] = {}
+    for name, expected_blob in SOURCE_BLOBS.items():
+        payload = (source_root / name).read_bytes()
+        actual_blob = _git_blob_sha(payload)
+        if actual_blob != expected_blob:
+            raise SystemExit(
+                f"UI build-35 source drift for {name}: "
+                f"expected Git blob {expected_blob}, got {actual_blob}"
+            )
+        result[name] = payload
+    return result
+
+
+def _application(parent: bytes) -> bytes:
+    payload = _replace_once(
+        parent,
+        b"Standalone managed MonitorBox UI 1.3.0 build 34.",
+        b"Standalone managed MonitorBox UI 1.3.1 build 35.",
+        "standalone identity",
+    )
+    if PARENT_GENERATION.encode() not in payload:
+        raise SystemExit("UI build-35 parent application has no build-34 generation marker")
+    payload = payload.replace(PARENT_GENERATION.encode(), UI_GENERATION.encode())
+    payload = payload.replace(PARENT_IMPORT_PACKAGE.encode(), TARGET_IMPORT_PACKAGE.encode())
+
+    payload = _replace_once(
+        payload,
+        b"ASSETS = {\n",
+        b"ASSETS = {\n"
+        b'    "configuration-peer-navigation.js": "text/javascript",\n'
+        b'    "configuration-peer-navigation.css": "text/css",\n',
+        "asset registry",
+    )
+
+    middleware = rf'''_CONFIGURATION_PEER_STYLE = '<link rel="stylesheet" href="/static/configuration-peer-navigation.css?v={UI_GENERATION}">'
+_CONFIGURATION_PEER_SCRIPT = '<script src="/static/configuration-peer-navigation.js?v={UI_GENERATION}" defer></script>'
+
+
+@web.middleware
+async def configuration_peer_navigation_presentation(request: web.Request, handler):
+    response = await handler(request)
+    if not (
+        request.path.startswith("/settings")
+        and isinstance(response, web.Response)
+        and response.content_type == "text/html"
+        and response.body
+    ):
+        return response
+
+    markup = response.text
+    additions = []
+    if _CONFIGURATION_PEER_STYLE not in markup:
+        additions.append(_CONFIGURATION_PEER_STYLE)
+    if _CONFIGURATION_PEER_SCRIPT not in markup:
+        additions.append(_CONFIGURATION_PEER_SCRIPT)
+    if additions and "</body>" in markup:
+        response.text = markup.replace("</body>", "".join(additions) + "</body>", 1)
+    return response
+
+
+'''.encode("utf-8")
+    payload = _replace_once(
+        payload,
+        b"async def dashboard(_: web.Request) -> web.Response:\n",
+        middleware + b"async def dashboard(_: web.Request) -> web.Response:\n",
+        "Configuration peer-navigation middleware",
+    )
+    payload = _replace_once(
+        payload,
+        b"def install(app: web.Application) -> None:\n"
+        b"    app.middlewares.append(settings_shell_presentation)\n",
+        b"def install(app: web.Application) -> None:\n"
+        b"    app.middlewares.append(configuration_peer_navigation_presentation)\n"
+        b"    app.middlewares.append(settings_shell_presentation)\n",
+        "middleware installation",
+    )
+    return payload
+
+
+def _package_files(root: Path) -> dict[str, bytes]:
+    signed_parent = previous._package_files(root)
+    prefix = PARENT_IMPORT_PACKAGE + "/"
+    parent: dict[str, bytes] = {}
+    for path, payload in signed_parent.items():
+        if not path.startswith(prefix):
+            raise SystemExit(f"unexpected UI build-34 package member {path!r}")
+        parent[path[len(prefix):]] = payload
+
+    delta = _delta_files(root)
+    parent["__init__.py"] = _application(parent["__init__.py"])
+    for path, payload in list(parent.items()):
+        if PARENT_GENERATION.encode() in payload:
+            payload = payload.replace(PARENT_GENERATION.encode(), UI_GENERATION.encode())
+        if PARENT_IMPORT_PACKAGE.encode() in payload:
+            payload = payload.replace(PARENT_IMPORT_PACKAGE.encode(), TARGET_IMPORT_PACKAGE.encode())
+        parent[path] = payload
+
+    parent["assets/configuration-peer-navigation.js"] = delta[
+        "configuration-peer-navigation.js"
+    ]
+    parent["assets/configuration-peer-navigation.css"] = delta[
+        "configuration-peer-navigation.css"
+    ]
+
+    script = delta["configuration-peer-navigation.js"].lower()
+    for token in (b"portainer", b"scrypted", b"unifi", b"nut", b"data-object-gear"):
+        if token in script:
+            raise SystemExit(
+                "Configuration peer-navigation contains provider coupling: "
+                + token.decode("utf-8")
+            )
+    if b"monitorbox.v2.configuration_retirement_navigation" in parent["__init__.py"]:
+        raise SystemExit("UI build35 depends on Core presentation ownership for #346")
+    if any(PARENT_GENERATION.encode() in payload for payload in parent.values()):
+        raise SystemExit("UI build35 package retained build34 generation identity")
+
+    # Existing global shell/contextual behavior must remain unchanged except for
+    # generation/import-package identity carried by every standalone UI package.
+    for name in (
+        "settings-shell.js",
+        "settings-shell.css",
+        "contextual-configuration.js",
+        "contextual-configuration.css",
+        "app-shell.js",
+        "app-shell.css",
+        "global-debug.js",
+        "global-debug.css",
+    ):
+        parent_payload = signed_parent[f"{PARENT_IMPORT_PACKAGE}/assets/{name}"]
+        expected = parent_payload.replace(
+            PARENT_GENERATION.encode(), UI_GENERATION.encode()
+        ).replace(PARENT_IMPORT_PACKAGE.encode(), TARGET_IMPORT_PACKAGE.encode())
+        if parent[f"assets/{name}"] != expected:
+            raise SystemExit(f"UI build35 changed existing shell authority {name}")
+
+    return {
+        f"{TARGET_IMPORT_PACKAGE}/{relative}": payload
+        for relative, payload in parent.items()
+    }
+
+
+def build(root: Path, output_dir: Path) -> Path:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    files = _package_files(root)
+    payload = stable._zip_bytes(files)
+    target = output_dir / RELEASE35.filename
+    target.write_bytes(payload)
+    print(
+        f"built {target}: sha256={hashlib.sha256(payload).hexdigest()} "
+        f"entrypoint={TARGET_IMPORT_PACKAGE}:install"
+    )
+    return target
+
+
+def main() -> None:
+    root = Path(__file__).resolve().parent.parent
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--output-dir", type=Path, default=root / "packages")
+    args = parser.parse_args()
+    build(root, args.output_dir)
+
+
+if __name__ == "__main__":
+    main()
