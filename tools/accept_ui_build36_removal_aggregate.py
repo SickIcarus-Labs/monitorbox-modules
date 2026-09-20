@@ -31,13 +31,17 @@ def main() -> None:
     assert 'input.type = "password"' in modules
     assert "Current administrator password" in modules
     assert "Affected Resources:" in modules
-    assert "provider/check authorit" in modules
+    assert "Affected Checks:" in modules
+    assert "check_ids" in modules
 
     assert "directEvidence" in aggregate
     assert "evidenceSummary" in aggregate
     assert "pruneEmptyDirectories" in aggregate
     assert "MonitorBoxAggregateEvidence" in aggregate
     assert "aggregate-evidence.js" in dashboard
+    network_compat = assets["v1-beta-polish.js"].decode("utf-8")
+    assert "unifi-component" not in network_compat
+    assert "object?.kind==='network_device'" in network_compat
     lower = aggregate.lower()
     for forbidden in ("unifi", "scrypted", "portainer", "nut", "object.id==='network'", "object.id==='cameras'", "object.id==='power'"):
         assert forbidden not in lower, forbidden
