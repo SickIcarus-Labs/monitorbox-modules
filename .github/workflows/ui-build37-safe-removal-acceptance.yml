@@ -1,0 +1,30 @@
+name: UI build37 safe removal acceptance
+
+on:
+  pull_request:
+    paths:
+      - "sources/ui/1.3.2-build37/**"
+      - "tools/build_first_party_ui_build37.py"
+      - "tools/stage_p1_353_ui_build37.py"
+      - "tools/accept_ui_build37_safe_removal.py"
+      - "release-intents/ui-1.3.2-build37.json"
+      - ".github/workflows/ui-build37-safe-removal-acceptance.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  accept:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Safe removal package acceptance
+        run: python tools/accept_ui_build37_safe_removal.py
+      - name: JavaScript syntax
+        run: node --check sources/ui/1.3.2-build37/modules-removal.js
