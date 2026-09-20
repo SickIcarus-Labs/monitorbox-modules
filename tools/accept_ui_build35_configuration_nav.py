@@ -246,7 +246,9 @@ def browser_contract() -> None:
                             header = page.locator("header.top")
                             for legacy in LEGACY_APPLIANCE:
                                 assert header.locator(f'a[href="{legacy}"]').count() == 0
-                            assert header.locator('a[href="/"]').count() == 1
+                            # Home semantics are owned by the existing global UI shell;
+                            # #346 must not replace or duplicate that authority.
+                            assert page.locator('.mb-shell-home[href="/"]').count() == 1
 
                     page.goto(f"http://127.0.0.1:{server.port}/settings/configuration/editor", wait_until="networkidle")
                     assert page.locator('#mb-configuration-peer-nav a[aria-current="page"]').inner_text() == "Configuration"
