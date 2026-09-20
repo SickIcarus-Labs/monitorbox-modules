@@ -108,7 +108,6 @@ def package_contract() -> None:
     assert "aria-current" in js
     assert "min-height:44px" in css
     assert "overflow-x:auto" in css
-    assert "touch" not in js.casefold() or True
 
 
 class TestServer:
@@ -140,7 +139,7 @@ class TestServer:
                 return web.json_response({"pending_count": 0, "visibility_impaired": False})
 
             def markup(path: str) -> str:
-                title = dict(PEERS).get(next((label for label, href in PEERS if href == path), ""), "Configuration")
+                title = next((label for label, href in PEERS if href == path), "Configuration")
                 if path == "/settings/appliance":
                     header = (
                         '<header class="top">'
