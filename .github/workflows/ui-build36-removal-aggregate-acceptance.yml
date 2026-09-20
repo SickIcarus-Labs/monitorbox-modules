@@ -7,6 +7,7 @@ on:
       - "tools/build_first_party_ui_build36.py"
       - "tools/stage_p1_353_ui_build36.py"
       - "tools/accept_ui_build36_removal_aggregate.py"
+      - "tools/accept_ui_build36_aggregate.mjs"
       - "release-intents/ui-1.3.2-build36.json"
       - ".github/workflows/ui-build36-removal-aggregate-acceptance.yml"
   workflow_dispatch:
@@ -30,3 +31,6 @@ jobs:
         run: |
           node --check sources/ui/1.3.2-build36/modules-removal.js
           node --check sources/ui/1.3.2-build36/aggregate-evidence.js
+          node --check sources/ui/1.3.2-build36/network-children.js
+      - name: Provider-blind aggregate fixtures
+        run: node tools/accept_ui_build36_aggregate.mjs
