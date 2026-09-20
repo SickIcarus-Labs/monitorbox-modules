@@ -42,7 +42,7 @@ def _replace_once(payload: bytes, old: bytes, new: bytes, seam: str) -> bytes:
 
 
 def _delta_files(root: Path) -> dict[str, bytes]:
-    source_root = root / "sources" / "ui" / "1.4.0-build35"
+    source_root = root / "sources" / "ui" / "1.3.1-build35"
     actual = {path.name for path in source_root.iterdir() if path.is_file()}
     expected = set(SOURCE_BLOBS)
     if actual != expected:
