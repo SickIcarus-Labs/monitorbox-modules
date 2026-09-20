@@ -21,9 +21,10 @@ RELEASE36 = stable.Release(
     version=UI_VERSION,
 )
 SOURCE_BLOBS = {
-    "modules-removal.js": "9764f3ba8f8d6f4e5e9554c586f27b9432d2a50b",
+    "modules-removal.js": "276a82c32590cda0ddc5a8fd3c3f6b7fb9a7b040",
     "modules-removal.css": "0e2a6830e033448c9d5ff896b5716a5d4022d382",
     "aggregate-evidence.js": "505a5739f05636946bc514e42366dc2d084dda0d",
+    "network-children.js": "926dd2caa1d24e0276464826963b13bb9d1da1cb",
 }
 
 
@@ -116,6 +117,17 @@ def _package_files(root: Path) -> dict[str, bytes]:
         + delta["modules-removal.css"]
         + b"\n"
     )
+
+    # #220 removes the old provider-specific Network-child eligibility selector
+    # from the inherited v1 compatibility asset. The semantic child kind remains
+    # stable, but no adapter metadata decides whether a child may be presented.
+    parent["assets/v1-beta-polish.js"] = _replace_region(
+        parent["assets/v1-beta-polish.js"],
+        b"parityNetworkChildren=function(site){\n",
+        b"parityNetworkAggregate=function(site,object){\n",
+        delta["network-children.js"],
+        "provider-blind Network children",
+    )
     parent["assets/aggregate-evidence.js"] = delta["aggregate-evidence.js"]
     aggregate_script = (
         f'<script src="/static/aggregate-evidence.js?v={UI_GENERATION}" defer></script>'
@@ -127,7 +139,13 @@ def _package_files(root: Path) -> dict[str, bytes]:
         "aggregate evidence script",
     )
 
-    combined_js = (delta["modules-removal.js"] + b"\n" + delta["aggregate-evidence.js"]).lower()
+    combined_js = (
+        delta["modules-removal.js"]
+        + b"\n"
+        + delta["aggregate-evidence.js"]
+        + b"\n"
+        + delta["network-children.js"]
+    ).lower()
     for token in (b"unifi", b"scrypted", b"portainer", b"nut"):
         if token in combined_js:
             raise SystemExit(
