@@ -22,6 +22,7 @@ IMPORT_PACKAGE = "monitorbox_unifi_v111_b12"
 FILENAME = f"{MODULE_ID}-{MODULE_VERSION}-build{MODULE_BUILD}.zip"
 SOURCE_DELTA = "1.1.1-build12"
 CONTRACT_BLOB = "75b3d650ab97e220259603bd23c665681535de50"
+ADOPTION_BLOB = "3b4aa281b7f241bc041abf78b05f1179e8df4857"
 
 
 def _replace_once(text: str, old: str, new: str, label: str) -> str:
@@ -52,6 +53,13 @@ def _contract(root: Path) -> dict:
 
 def _package_files(root: Path) -> dict[str, bytes]:
     _contract(root)
+    adoption_path = root / "sources" / "unifi" / SOURCE_DELTA / "adoption.py"
+    adoption_payload = adoption_path.read_bytes()
+    actual_adoption = base._git_blob_sha(adoption_payload)
+    if actual_adoption != ADOPTION_BLOB:
+        raise SystemExit(
+            f"UniFi build12 adoption drift: expected {ADOPTION_BLOB}, got {actual_adoption}"
+        )
     prior = previous._package_files(root)
     old_prefix = previous.IMPORT_PACKAGE + "/"
     result: dict[str, bytes] = {}
@@ -60,7 +68,12 @@ def _package_files(root: Path) -> dict[str, bytes]:
         if not path.startswith(old_prefix):
             raise SystemExit(f"unexpected UniFi build11 package member: {path}")
         name = path[len(old_prefix):]
-        text = payload.decode("utf-8")
+        if name == "adoption.py":
+            text = adoption_payload.decode("utf-8")
+            for old, new in base._CORE_IMPORT_REWRITES:
+                text = text.replace(old, new)
+        else:
+            text = payload.decode("utf-8")
 
         if name in {"__init__.py", "runtime.py"}:
             text = _replace_once(
@@ -68,6 +81,12 @@ def _package_files(root: Path) -> dict[str, bytes]:
                 f'entrypoints={{"integration": "{previous.IMPORT_PACKAGE}:PLUGIN"}}',
                 f'entrypoints={{"integration": "{IMPORT_PACKAGE}:PLUGIN"}}',
                 f"UniFi build12 {name} entrypoint",
+            )
+            text = _replace_once(
+                text,
+                'requires_core=">=2.4.0 <3.0.0"',
+                'requires_core=">=2.6.0 <3.0.0"',
+                f"UniFi build12 {name} Core adoption contract",
             )
 
         if name == "runtime.py":
