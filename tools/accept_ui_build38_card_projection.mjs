@@ -23,7 +23,7 @@ const site = {
 
 const context = {
   console,
-  app: {state: {sites: [site]}},
+  app: {state: {sites: [site]}, dashboardConfiguration:{loaded:false,configured:false,sites:{}}},
   parityObjects: value => value?.objects || [],
   findObject: (siteId, objectId) => {
     const foundSite = siteId === site.id ? site : undefined;
@@ -31,6 +31,10 @@ const context = {
   },
   renderActions: (_site, object) => `actions:${object.id}`,
   parityCoreObjects: value => value?.objects || [],
+  renderLiveOverview: () => {},
+  parityCoreMarkup: () => "",
+  bindCards: () => {},
+  document: {querySelector: () => null},
 };
 context.globalThis = context;
 
@@ -43,14 +47,32 @@ vm.runInNewContext(source, context, {filename:"card-projection.js"});
 const api = context.MonitorBoxCardProjection;
 assert.ok(api, "card projection API exported");
 
-const core = Array.from(api.projectedCoreObjects(site), item => item.id);
+const defaults = Array.from(api.projectedCoreObjects(site), item => item.id);
 assert.deepEqual(
-  core,
+  defaults,
   ["arrrrr2", "goliath", "internet", "network", "cameras", "power"],
 );
-assert.ok(!core.includes("switch-a"), "network devices do not become default host cards");
-assert.ok(!core.includes("portainer"), "integration objects do not become infrastructure cards");
-assert.ok(!core.includes("services"), "Services retains its dedicated summary surface");
+assert.ok(!defaults.includes("switch-a"), "network devices do not become default host cards");
+assert.ok(!defaults.includes("portainer"), "integration objects do not become infrastructure cards");
+assert.ok(!defaults.includes("services"), "Services retains its dedicated summary surface");
+
+context.app.dashboardConfiguration = {
+  loaded:true,
+  configured:true,
+  sites:{
+    broadleaf:{
+      card_layout:{
+        host_ids:["goliath"],
+        hidden_card_families:["cameras"],
+        order:["card:network","host:goliath","card:internet","card:power"],
+      },
+    },
+  },
+};
+const configured = Array.from(api.projectedCoreObjects(site), item => item.id);
+assert.deepEqual(configured, ["network","goliath","internet","power"]);
+assert.ok(!configured.includes("arrrrr2"), "explicit host selection controls promotion");
+assert.ok(!configured.includes("cameras"), "hidden card family stays hidden");
 
 const projected = context.findObject("broadleaf", "network");
 assert.equal(projected.object?.kind, "dashboard_card");
@@ -67,4 +89,4 @@ for (const forbidden of ["unifi", "scrypted", "portainer", "nut", "docker"]) {
   assert.ok(!sourceLower.includes(forbidden), `provider/product coupling: ${forbidden}`);
 }
 
-console.log("UI build38 projected-card acceptance: PASS");
+console.log("UI build38 projected-card/layout acceptance: PASS");
