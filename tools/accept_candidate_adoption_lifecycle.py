@@ -34,7 +34,7 @@ def _inspect(filename: str, package_prefix: str) -> None:
         raise SystemExit(f"{filename}: legacy direct-mutation adoption contract remains")
     for needle in (
         'lifecycle_owner="connection"',
-        '"depends_on": [connection_object_id]',
+        'obj["depends_on"] = [connection_object_id]',
         "allowed_existing_object_ids=(connection_object_id,)",
         "expected_revision=context.current_revision",
         "expected_config_hash=context.current_hash",
