@@ -22,6 +22,8 @@ on:
       - tools/accept_repository_backup_restore.py
       - tools/accept_backup_restore_behavior.py
       - tools/accept_backup_restore_build3_behavior.py
+      - tools/build_first_party_backup_restore_b5.py
+      - tools/accept_backup_restore_build5_revision_restore.py
       - .github/workflows/backup-restore-acceptance.yml
 
 permissions:
