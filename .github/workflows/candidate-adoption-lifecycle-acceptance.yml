@@ -1,0 +1,33 @@
+name: Candidate adoption lifecycle acceptance
+
+on:
+  pull_request:
+    paths:
+      - "sources/scrypted/2.4.0-build7/**"
+      - "sources/portainer/1.4.0-build10/**"
+      - "sources/unifi/1.1.1-build12/**"
+      - "tools/build_first_party_scrypted_240.py"
+      - "tools/build_first_party_portainer_b10.py"
+      - "tools/build_first_party_unifi_b12.py"
+      - "tools/accept_candidate_adoption_lifecycle.py"
+      - ".github/workflows/candidate-adoption-lifecycle-acceptance.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  accept:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - name: Install module build dependencies
+        run: python -m pip install --disable-pip-version-check aiohttp==3.11.16 cryptography==50.0.1
+      - name: Verify provider child-adoption lifecycle authority
+        run: python tools/accept_candidate_adoption_lifecycle.py

@@ -1,0 +1,1 @@
+{"schema":1,"module_id":"com.sickicarus.monitorbox.unifi","version":"1.1.1","build":12,"discovery":{"open_tcp_443_without_product_identity":"possible","detected_status_endpoints":["/status","/api/status"],"candidate_kind":"unifi","default_selected_when_possible":false},"presentation":{"card_family":"network"}}
