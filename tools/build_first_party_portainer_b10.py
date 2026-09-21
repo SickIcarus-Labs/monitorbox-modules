@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build Portainer 1.4.0 build 10 with Core-transactional workload adoption."""
+"""Build Portainer 1.4.0 build 10 with Core-owned Connection/workload lifecycle authority."""
 from __future__ import annotations
 
 import argparse
@@ -40,6 +40,13 @@ def _source_files(root: Path) -> dict[str, bytes]:
 
 def _rewrite_source(name: str, payload: bytes) -> bytes:
     text = previous._rewrite_source(name, payload).decode("utf-8")
+    if name == "onboarding.py":
+        text = _replace_once(
+            text,
+            "operations=(AddObjectIntent(site_id=context.site_id, object_data=obj),),",
+            'operations=(AddObjectIntent(site_id=context.site_id, object_data=obj, lifecycle_owner="connection"),),',
+            "Portainer Connection lifecycle ownership",
+        )
     if name == "__init__.py":
         text = _replace_once(
             text,
