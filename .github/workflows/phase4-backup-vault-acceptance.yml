@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - sources/backup-restore/**
+      - sources/backup-restore/1.0.3-build4/**
       - release-intents/backup-restore-1.0.3-build4.json
       - tools/build_first_party_backup_restore_b4.py
       - tools/accept_backup_restore_phase4_b4.py
@@ -78,6 +78,11 @@ jobs:
           git cat-file -e "$base^{commit}"
           git diff --name-only "$base" HEAD > /tmp/phase4-backup-paths.txt
 
+          if ! grep -Eq '^(sources/backup-restore/1\.0\.3-build4/|release-intents/backup-restore-1\.0\.3-build4\.json$|tools/(build_first_party_backup_restore_b4|accept_backup_restore_phase4_b4|stage_phase4_backup_vault)\.py$)' /tmp/phase4-backup-paths.txt; then
+            echo '#249 build-4 authority unchanged; legacy Phase-4 ownership guard is not applicable.'
+            exit 0
+          fi
+
           if grep -Eq '^(channels/|catalog\.source\.json$|index\.json$)' /tmp/phase4-backup-paths.txt; then
             echo '::error::#249 candidate directly changed signed/channel/catalog authority'
             cat /tmp/phase4-backup-paths.txt
@@ -93,7 +98,7 @@ jobs:
             cat /tmp/phase4-backup-paths.txt
             exit 1
           fi
-          if grep -Ev '^((sources/backup-restore/|release-intents/|tools/(build_first_party_backup_restore_b4|accept_backup_restore_phase4_b4|stage_phase4_backup_vault)\.py$|\.github/workflows/phase4-backup-vault-acceptance\.yml$))' /tmp/phase4-backup-paths.txt | grep -q .; then
+          if grep -Ev '^((sources/backup-restore/1\.0\.3-build4/|release-intents/backup-restore-1\.0\.3-build4\.json$|tools/(build_first_party_backup_restore_b4|accept_backup_restore_phase4_b4|stage_phase4_backup_vault)\.py$|\.github/workflows/phase4-backup-vault-acceptance\.yml$))' /tmp/phase4-backup-paths.txt | grep -q .; then
             echo '::error::#249 candidate escaped Backup Restore Phase-4 scope'
             cat /tmp/phase4-backup-paths.txt
             exit 1
