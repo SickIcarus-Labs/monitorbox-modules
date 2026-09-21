@@ -25,7 +25,7 @@ RELEASE38 = stable.Release(
     version=UI_VERSION,
 )
 SOURCE_BLOBS = {
-    "card-projection.js": "459036dc5febba19677d29336bc3054acd39d133",
+    "card-projection.js": "3b49e1b2225d294f26503b011588b82844d3aa30",
 }
 
 
