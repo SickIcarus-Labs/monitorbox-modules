@@ -9,6 +9,8 @@ on:
       - tools/accept_repository_backup_restore.py
       - tools/accept_backup_restore_behavior.py
       - tools/accept_backup_restore_build3_behavior.py
+      - tools/build_first_party_backup_restore_b5.py
+      - tools/accept_backup_restore_build5_revision_restore.py
       - .github/workflows/backup-restore-acceptance.yml
   push:
     branches:
@@ -47,3 +49,12 @@ jobs:
         run: python tools/accept_backup_restore_behavior.py
       - name: Execute build 3 restore workflow without bundled factory implementation
         run: python tools/accept_backup_restore_build3_behavior.py
+      - name: Build Backup Restore build 5 reproducibly
+        run: |
+          python tools/build_first_party_backup_restore_b5.py --output-dir /tmp/backup-b5-first
+          python tools/build_first_party_backup_restore_b5.py --output-dir /tmp/backup-b5-second
+          sha256sum /tmp/backup-b5-first/*.zip | sed 's#/tmp/backup-b5-first/##' > /tmp/backup-b5-first.sha
+          sha256sum /tmp/backup-b5-second/*.zip | sed 's#/tmp/backup-b5-second/##' > /tmp/backup-b5-second.sha
+          diff -u /tmp/backup-b5-first.sha /tmp/backup-b5-second.sha
+      - name: Execute build 5 retained-revision restore acceptance
+        run: python tools/accept_backup_restore_build5_revision_restore.py
