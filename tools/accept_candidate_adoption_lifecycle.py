@@ -34,13 +34,20 @@ def _inspect(filename: str, package_prefix: str) -> None:
         raise SystemExit(f"{filename}: legacy direct-mutation adoption contract remains")
     for needle in (
         'lifecycle_owner="connection"',
-        'obj["depends_on"] = [connection_object_id]',
         "allowed_existing_object_ids=(connection_object_id,)",
         "expected_revision=context.current_revision",
         "expected_config_hash=context.current_hash",
     ):
         if needle not in adoption:
             raise SystemExit(f"{filename}: missing lifecycle transaction contract {needle!r}")
+    dependency_forms = (
+        'obj["depends_on"] = [connection_object_id]',
+        '"depends_on": [connection_object_id]',
+    )
+    if not any(needle in adoption for needle in dependency_forms):
+        raise SystemExit(
+            f"{filename}: adopted child is not scoped beneath the Connection Resource"
+        )
     if 'requires_core=">=2.6.0 <3.0.0"' not in init:
         raise SystemExit(f"{filename}: Core 2.6 adoption boundary is not declared")
 
