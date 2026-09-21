@@ -1,0 +1,33 @@
+name: UI build38 projected-card acceptance
+
+on:
+  pull_request:
+    paths:
+      - "sources/ui/1.4.0-build38/**"
+      - "tools/build_first_party_ui_build38.py"
+      - "tools/stage_p0_359_ui_build38.py"
+      - "tools/accept_ui_build38_card_projection.py"
+      - "tools/accept_ui_build38_card_projection.mjs"
+      - "release-intents/ui-1.4.0-build38.json"
+      - ".github/workflows/ui-build38-card-projection-acceptance.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  accept:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Projected-card package acceptance
+        run: python tools/accept_ui_build38_card_projection.py
+      - name: JavaScript syntax
+        run: node --check sources/ui/1.4.0-build38/card-projection.js
+      - name: Projected-card behavior
+        run: node tools/accept_ui_build38_card_projection.mjs
