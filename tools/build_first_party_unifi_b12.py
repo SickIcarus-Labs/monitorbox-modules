@@ -141,6 +141,12 @@ def _package_files(root: Path) -> dict[str, bytes]:
                 new,
                 "UniFi build12 bounded possible discovery",
             )
+            text = _replace_once(
+                text,
+                "operations=(AddObjectIntent(site_id=context.site_id, object_data=obj),),",
+                'operations=(AddObjectIntent(site_id=context.site_id, object_data=obj, lifecycle_owner="connection"),),',
+                "UniFi Connection lifecycle ownership",
+            )
 
         if previous.IMPORT_PACKAGE in text:
             raise SystemExit(f"UniFi build12 retained build11 package identity in {name}")
