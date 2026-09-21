@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build Scrypted 2.4.0 build 7 with Core-transactional child adoption."""
+"""Build Scrypted 2.4.0 build 7 with Core-owned Connection/child lifecycle authority."""
 from __future__ import annotations
 
 import argparse
@@ -51,6 +51,13 @@ def _configure() -> None:
 
     def rewrite_build7(name: str, payload: bytes) -> bytes:
         text = original_rewrite(name, payload).decode("utf-8")
+        if name == "onboarding.py":
+            text = _replace_once(
+                text,
+                "operations=(AddObjectIntent(site_id=context.site_id, object_data=obj),),",
+                'operations=(AddObjectIntent(site_id=context.site_id, object_data=obj, lifecycle_owner="connection"),),',
+                "Scrypted Connection lifecycle ownership",
+            )
         if name == "__init__.py":
             text = _replace_once(
                 text,
