@@ -15,7 +15,7 @@ IMPORT_PACKAGE = "monitorbox_portainer_b10"
 FILENAME = f"{MODULE_ID}-{MODULE_VERSION}-build{MODULE_BUILD}.zip"
 SOURCE_DELTA = "1.4.0-build10"
 ADOPTION_BLOB = "74e1806c55d1c38454f5abefcc16b31fd93cf854"
-base = previous.previous.previous
+base = previous.previous.previous.previous
 
 
 def _replace_once(text: str, old: str, new: str, label: str) -> str:
@@ -94,6 +94,7 @@ def build(root: Path, output_dir: Path) -> Path:
     )
     historical = set(base.HISTORICAL_FILENAMES) | {
         base.FILENAME,
+        previous.previous.previous.FILENAME,
         previous.previous.FILENAME,
         previous.FILENAME,
     }
