@@ -26,8 +26,10 @@ def _inspect(filename: str, package_prefix: str) -> None:
         raise SystemExit(f"candidate package is missing: {path}")
     with zipfile.ZipFile(path) as archive:
         adoption = archive.read(f"{package_prefix}/adoption.py").decode("utf-8")
+        onboarding = archive.read(f"{package_prefix}/onboarding.py").decode("utf-8")
         init = archive.read(f"{package_prefix}/__init__.py").decode("utf-8")
     compile(adoption, f"{filename}:adoption.py", "exec")
+    compile(onboarding, f"{filename}:onboarding.py", "exec")
     if "def plan_candidate(" not in adoption:
         raise SystemExit(f"{filename}: candidate adoption does not emit a plan")
     if "def adopt_candidate(" in adoption:
@@ -47,6 +49,14 @@ def _inspect(filename: str, package_prefix: str) -> None:
     if not any(needle in adoption for needle in dependency_forms):
         raise SystemExit(
             f"{filename}: adopted child is not scoped beneath the Connection Resource"
+        )
+    connection_owner = (
+        'AddObjectIntent(site_id=context.site_id, object_data=obj, '
+        'lifecycle_owner="connection")'
+    )
+    if connection_owner not in onboarding:
+        raise SystemExit(
+            f"{filename}: provider-created Connection Resource is not connection-owned"
         )
     if 'requires_core=">=2.6.0 <3.0.0"' not in init:
         raise SystemExit(f"{filename}: Core 2.6 adoption boundary is not declared")
