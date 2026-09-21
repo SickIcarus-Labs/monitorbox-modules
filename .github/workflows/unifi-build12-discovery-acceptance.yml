@@ -1,0 +1,24 @@
+name: UniFi build12 discovery acceptance
+
+on:
+  pull_request:
+    paths:
+      - "sources/unifi/1.1.1-build12/**"
+      - "tools/build_first_party_unifi_b12.py"
+      - "tools/accept_unifi_b12_discovery.py"
+      - ".github/workflows/unifi-build12-discovery-acceptance.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  accept:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: UniFi build12 acceptance
+        run: python tools/accept_unifi_b12_discovery.py
