@@ -77,9 +77,10 @@ jobs:
           fi
           git cat-file -e "$base^{commit}"
           git diff --name-only "$base" HEAD > /tmp/phase4-backup-paths.txt
+          git diff --name-status "$base" HEAD > /tmp/phase4-backup-status.txt
 
-          if ! grep -Eq '^(sources/backup-restore/1\.0\.3-build4/|release-intents/backup-restore-1\.0\.3-build4\.json$|tools/(build_first_party_backup_restore_b4|accept_backup_restore_phase4_b4|stage_phase4_backup_vault)\.py$)' /tmp/phase4-backup-paths.txt; then
-            echo '#249 build-4 authority unchanged; legacy Phase-4 ownership guard is not applicable.'
+          if ! grep -Eq '^[AMR][0-9]*[[:space:]]+(sources/backup-restore/1\.0\.3-build4/|release-intents/backup-restore-1\.0\.3-build4\.json$|tools/(build_first_party_backup_restore_b4|accept_backup_restore_phase4_b4|stage_phase4_backup_vault)\.py$)' /tmp/phase4-backup-status.txt; then
+            echo '#249 build-4 runtime/release candidate authority unchanged; legacy Phase-4 ownership guard is not applicable.'
             exit 0
           fi
 
