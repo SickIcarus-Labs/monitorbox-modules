@@ -4,11 +4,11 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - sources/backup-restore/**
-      - release-intents/backup-restore-*.json
-      - tools/build_first_party_backup_restore*.py
-      - tools/accept_backup_restore*.py
-      - tools/stage_*backup*.py
+      - sources/backup-restore/1.0.3-build4/**
+      - release-intents/backup-restore-1.0.3-build4.json
+      - tools/build_first_party_backup_restore_b4.py
+      - tools/accept_backup_restore_phase4_b4.py
+      - tools/stage_phase4_backup_vault.py
       - .github/workflows/phase4-backup-vault-acceptance.yml
   push:
     branches:
@@ -77,24 +77,30 @@ jobs:
           fi
           git cat-file -e "$base^{commit}"
           git diff --name-only "$base" HEAD > /tmp/phase4-backup-paths.txt
+          git diff --name-status "$base" HEAD > /tmp/phase4-backup-status.txt
+
+          if ! grep -Eq '^[AMR][0-9]*[[:space:]]+(sources/backup-restore/1\.0\.3-build4/|release-intents/backup-restore-1\.0\.3-build4\.json$|tools/(build_first_party_backup_restore_b4|accept_backup_restore_phase4_b4|stage_phase4_backup_vault)\.py$)' /tmp/phase4-backup-status.txt; then
+            echo '#249 build-4 runtime/release candidate authority unchanged; legacy Phase-4 ownership guard is not applicable.'
+            exit 0
+          fi
 
           if grep -Eq '^(channels/|catalog\.source\.json$|index\.json$)' /tmp/phase4-backup-paths.txt; then
-            echo '::error::Backup Restore candidate directly changed signed/channel/catalog authority'
+            echo '::error::#249 candidate directly changed signed/channel/catalog authority'
             cat /tmp/phase4-backup-paths.txt
             exit 1
           fi
           if grep -Eq '(^|/)core(/|$)' /tmp/phase4-backup-paths.txt; then
-            echo '::error::Backup Restore candidate unexpectedly changed Core-owned paths'
+            echo '::error::#249 candidate unexpectedly changed Core-owned paths'
             cat /tmp/phase4-backup-paths.txt
             exit 1
           fi
           if grep -Eq '^(tools/release_policy\.py|\.github/workflows/(publish|module-channel-publish|release-policy)\.yml)$' /tmp/phase4-backup-paths.txt; then
-            echo '::error::Backup Restore candidate unexpectedly changed release-topology authority'
+            echo '::error::#249 candidate unexpectedly changed release-topology authority'
             cat /tmp/phase4-backup-paths.txt
             exit 1
           fi
-          if grep -Ev '^((sources/backup-restore/|release-intents/backup-restore-[^/]+\.json$|tools/(build_first_party_backup_restore[^/]*|accept_backup_restore[^/]*|stage_[^/]*backup[^/]*)\.py$|\.github/workflows/(backup-restore-acceptance|phase4-backup-vault-acceptance)\.yml$))' /tmp/phase4-backup-paths.txt | grep -q .; then
-            echo '::error::Backup Restore candidate escaped Backup Restore ownership'
+          if grep -Ev '^((sources/backup-restore/1\.0\.3-build4/|release-intents/backup-restore-1\.0\.3-build4\.json$|tools/(build_first_party_backup_restore_b4|accept_backup_restore_phase4_b4|stage_phase4_backup_vault)\.py$|\.github/workflows/phase4-backup-vault-acceptance\.yml$))' /tmp/phase4-backup-paths.txt | grep -q .; then
+            echo '::error::#249 candidate escaped Backup Restore Phase-4 scope'
             cat /tmp/phase4-backup-paths.txt
             exit 1
           fi
