@@ -3,7 +3,7 @@
   "signed": {
     "repository_id": "official-dev",
     "display_name": "MonitorBox Official Dev",
-    "generated_at": "2026-09-22T02:34:36.526870Z",
+    "generated_at": "2026-09-23T23:48:37.825077Z",
     "modules": [
       {
         "manifest": {
@@ -1870,6 +1870,34 @@
       },
       {
         "manifest": {
+          "module_id": "com.sickicarus.monitorbox.ui",
+          "display_name": "MonitorBox UI",
+          "description": "MonitorBox web interface, shared shell and operator presentation.",
+          "version": "1.4.0",
+          "build": 39,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "ui",
+          "entrypoints": {
+            "webui": "monitorbox_ui_b39:install"
+          },
+          "requires_core": ">=2.6.0 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [],
+          "lifecycle_policy": "required"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.ui-1.4.0-build39.zip",
+          "filename": "com.sickicarus.monitorbox.ui-1.4.0-build39.zip",
+          "sha256": "e47fbf58165c73a2d212f28c26cba2a33fa15c3b3740e569f9e60d930a1cd61e",
+          "signature_identity": "official-ed25519-1",
+          "signature": "EcKEbxZny3Rq0kIi0QC0/JOKzZ8mXvNUvduJkj+46TeJWgy3QMdT9eYNA2B7BZjvkDH0yPNeAImmru2hKhlTBQ=="
+        }
+      },
+      {
+        "manifest": {
           "module_id": "com.sickicarus.monitorbox.unifi",
           "display_name": "UniFi Network Integration",
           "version": "1.0.0",
@@ -2112,6 +2140,6 @@
   "signature": {
     "algorithm": "ed25519",
     "identity": "official-ed25519-1",
-    "value": "2I5qyd+QordFIaqpNAmIkSe++5yyhMM857r+nH6fjvwpOKkVVrJyWx2TFfZlSWFhvi9Wq9rDUIZcZ747+NdWBg=="
+    "value": "lQkY7fIhro0yP9BRnD9r/96pLZVe+Bz3z4tDqAgT1oyEPDko4blwrqCfDenxqOHYAD1ZbsPFVgRHlNyQT8sjBg=="
   }
 }
