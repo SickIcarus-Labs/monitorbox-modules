@@ -1,0 +1,33 @@
+name: UI build39 projected-card acceptance
+
+on:
+  pull_request:
+    paths:
+      - "sources/ui/1.4.0-build39/**"
+      - "tools/build_first_party_ui_build39.py"
+      - "tools/accept_ui_build39_card_projection.py"
+      - "tools/accept_ui_build39_card_projection.mjs"
+      - ".github/workflows/ui-build39-card-projection-acceptance.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  accept:
+    name: Qualify isolated UI build39
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Package and accepted-build35 isolation
+        run: python tools/accept_ui_build39_card_projection.py
+      - name: JavaScript syntax
+        run: node --check sources/ui/1.4.0-build39/card-projection.js
+      - name: Projected-card behavior
+        run: node tools/accept_ui_build39_card_projection.mjs
