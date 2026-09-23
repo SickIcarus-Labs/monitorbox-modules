@@ -3,7 +3,7 @@
   "signed": {
     "repository_id": "official",
     "display_name": "MonitorBox Official",
-    "generated_at": "2026-09-23T14:00:57.363180Z",
+    "generated_at": "2026-09-23T22:41:53.850358Z",
     "modules": [
       {
         "manifest": {
@@ -135,6 +135,39 @@
           "sha256": "082aebf0a138f47ec318d39bf5f787eb1ecde150ce63b413fc36b4b22ec3fac7",
           "signature_identity": "official-ed25519-1",
           "signature": "7Li2Q1kkZw0hY3D7jhJhesXOMsfSSRtykfGAP5bJZfaYfWBx5z2Xgowxx1nugbnsYFSVmfYssrTp+5RtzBdUDQ=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.backup-restore",
+          "display_name": "Backup / Restore",
+          "version": "1.0.4",
+          "build": 5,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "recovery",
+          "entrypoints": {
+            "recovery": "monitorbox_backup_restore_b5:install"
+          },
+          "requires_core": ">=2.3.1 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [
+            "recovery.snapshot",
+            "recovery.inspect",
+            "recovery.schedule",
+            "recovery.destination",
+            "saved-backup-vault"
+          ],
+          "lifecycle_policy": "optional"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.backup-restore-1.0.4-build5.zip",
+          "filename": "com.sickicarus.monitorbox.backup-restore-1.0.4-build5.zip",
+          "sha256": "579fa730faf5579a5e9d67554a616f013b818e6f872e648de62553619cce476f",
+          "signature_identity": "official-ed25519-1",
+          "signature": "WxTld1wgZEp8U1Sqh7LfBQdgBNbOTG4I6v+zthGtX6WMrUICPd0McrpDcny/rb8qctYR0XAoAz7BOuHyRitjDw=="
         }
       },
       {
@@ -2079,6 +2112,6 @@
   "signature": {
     "algorithm": "ed25519",
     "identity": "official-ed25519-1",
-    "value": "JqwRiMD4b68XeCQgpnIe8mdXu0SOMIQh9IT2h2WGPRGo6WdZ+4ET6SLMhY/bCV0DD6xF/igSTHTK7YygoQc5Dw=="
+    "value": "A6gyDV4FjWArkRi37JYXQP0+wa2V57U22e7Um1Q4mM/JXHZTJ6s+tw5ijegO6/g8iZX9htLSCFbiSX9Jecl4DQ=="
   }
 }
