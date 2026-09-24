@@ -115,7 +115,8 @@ assert.equal(context.parityCoreObjects(home).length,0,
   'must not show a fabricated homepage before reading the saved layout');
 await ui.load();
 assert.deepEqual(Array.from(ui.project(home),row=>row.id),[
-  'arrrrr2','goliath','wan-router','internet','network','cameras','power',
+  'arrrrr2','goliath','wan-router','legacy-derived-hidden',
+  'internet','network','cameras','power',
   'solar','zigbee',
 ]);
 assert.ok(grid.innerHTML.includes('arrrrr2'));
