@@ -80,18 +80,18 @@
     return entry;
   }
 
-  function siteRows(entry,site,objects){
+  function siteRows(entry,site,objects,pinned=false){
     validate(entry);
     const saved=entry?.data?.sites?.[site.id];
-    return saved?.mode==='custom'
+    return saved?.mode==='custom'||(pinned && saved?.mode==='auto')
       ?saved.cards.map(row=>({id:row.id,visible:row.visible}))
       :defaults(site,objects);
   }
 
-  function visible(site,objects,entry){
+  function visible(site,objects,entry,pinned=false){
     const available=availableEntries(site,objects);
     const byId=new Map(available.map(row=>[row.id,row]));
-    return siteRows(entry,site,objects).filter(row=>row.visible && byId.has(row.id))
+    return siteRows(entry,site,objects,pinned).filter(row=>row.visible && byId.has(row.id))
       .map(row=>byId.get(row.id));
   }
   globalThis.MonitorBoxCardPolicy=Object.freeze({
