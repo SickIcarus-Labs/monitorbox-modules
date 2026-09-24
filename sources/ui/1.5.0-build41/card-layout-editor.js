@@ -10,7 +10,7 @@
   const copy=value=>JSON.parse(JSON.stringify(value));
   const empty=()=>({schema_version:policy.SCHEMA,data:{sites:{}}});
   let csrf=null,revision=null,contentHash=null,original=null,working=null;
-  let publicSites=[],siteId=null,previewEntry=null,pending=false;
+  let publicSites=[],siteId=null,previewEntry=null,pending=false,restored=false;
 
   function notice(message,error=false){
     const el=$('layoutStatus');
@@ -46,7 +46,7 @@
   }
   function rows(){
     const saved=working?.data?.sites?.[siteId];
-    return saved?.mode==='custom'
+    return saved?.mode==='custom'||(restored && saved?.mode==='auto')
       ?saved.cards
       :policy.defaults(liveSite(),liveSite().objects||[]);
   }
@@ -182,6 +182,8 @@
         throw Error('Core site.cards projection is unavailable; no layout changes were made');
       publicSites=sites.map(site=>live.get(site.id));
       revision=current.revision;contentHash=current.content_hash;
+      restored=Array.isArray(current.config.metadata?.restored_preference_ids)&&
+        current.config.metadata.restored_preference_ids.includes(policy.MODULE_ID);
       original=copy(entry||empty());working=copy(original);
       const previous=siteId;
       siteId=sites.some(site=>site.id===previous)?previous:sites[0].id;
@@ -222,7 +224,7 @@
     $('available').scrollIntoView({behavior:'smooth',block:'start'});
   };
   $('reset').onclick=()=>{
-    working.data.sites[siteId]={mode:'auto',cards:[]};
+    working.data.sites[siteId]={mode:'auto',cards:policy.defaults(liveSite(),liveSite().objects||[])};
     notice('Product defaults staged; Validate changes to preview and apply.');
     render();
   };
@@ -234,8 +236,9 @@
     try{
       policy.validate(working);
       if(!unsaved())return toast('No changes to apply.');
-      const before=policy.siteRows(original,liveSite(),liveSite().objects||[]);
-      const after=policy.siteRows(working,liveSite(),liveSite().objects||[]);
+      const before=policy.siteRows(original,liveSite(),liveSite().objects||[],restored);
+      const after=policy.siteRows(working,liveSite(),liveSite().objects||[],
+        restored && JSON.stringify(working)===JSON.stringify(original));
       const oldIds=new Set(before.map(row=>row.id)),newIds=new Set(after.map(row=>row.id));
       const added=after.filter(row=>!oldIds.has(row.id)).length;
       const removed=before.filter(row=>!newIds.has(row.id)).length;
@@ -264,7 +267,7 @@
         })},
       );
       revision=saved.revision;contentHash=saved.content_hash;
-      original=copy(previewEntry);working=copy(previewEntry);
+      original=copy(previewEntry);working=copy(previewEntry);restored=false;
       previewEntry=null;$('preview').close();
       notice('Applied as configuration revision '+revision+
         '. Its paired layout is available in Configuration snapshots.');
