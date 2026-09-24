@@ -43,7 +43,7 @@ def stage(path:Path)->bool:
     prior=[i for i,item in enumerate(entries) if identity(item)==PREDECESSOR]
     if len(prior)!=1:raise SystemExit(f"expected one b40 source, found {len(prior)}")
     entries.insert(prior[0]+1,ENTRY)
-    path.write_text(json.dumps(document,separators=(",",":"))+"\\n",encoding="utf-8")
+    path.write_text(json.dumps(document,separators=(",",":"))+"\n",encoding="utf-8")
     print("staged isolated UI 1.5.0 build41")
     return True
 
