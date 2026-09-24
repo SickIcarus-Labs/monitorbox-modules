@@ -31,7 +31,7 @@ SOURCE_BLOBS = {
 
 
 def _git_blob_sha(payload: bytes) -> str:
-    return hashlib.sha1(f"blob {len(payload)}\\0".encode("ascii") + payload).hexdigest()
+    return hashlib.sha1(f"blob {len(payload)}\0".encode("ascii") + payload).hexdigest()
 
 
 def _replace_once(payload: bytes, old: bytes, new: bytes, label: str) -> bytes:
@@ -71,12 +71,12 @@ def _application(parent: bytes) -> bytes:
     payload = payload.replace(PARENT_GENERATION.encode(), UI_GENERATION.encode())
     payload = payload.replace(PARENT_IMPORT_PACKAGE.encode(), TARGET_IMPORT_PACKAGE.encode())
     payload = _replace_once(
-        payload, b"ASSETS = {\\n",
-        b"ASSETS = {\\n"
-        b'    "card-layout-policy.js": "text/javascript",\\n'
-        b'    "card-layout.js": "text/javascript",\\n'
-        b'    "card-layout-editor.js": "text/javascript",\\n'
-        b'    "card-layout.css": "text/css",\\n',
+        payload, b"ASSETS = {\n",
+        b"ASSETS = {\n"
+        b'    "card-layout-policy.js": "text/javascript",\n'
+        b'    "card-layout.js": "text/javascript",\n'
+        b'    "card-layout-editor.js": "text/javascript",\n'
+        b'    "card-layout.css": "text/css",\n',
         "managed static assets",
     )
     page = b'''async def dashboard_cards_page(_: web.Request) -> web.Response:
@@ -91,8 +91,8 @@ def _application(parent: bytes) -> bytes:
 '''
     payload = _replace_once(
         payload,
-        b"async def dashboard(_: web.Request) -> web.Response:\\n",
-        page + b"async def dashboard(_: web.Request) -> web.Response:\\n",
+        b"async def dashboard(_: web.Request) -> web.Response:\n",
+        page + b"async def dashboard(_: web.Request) -> web.Response:\n",
         "card editor route handler",
     )
     guard = b'''def _require_opaque_preference_contract() -> None:
@@ -111,13 +111,13 @@ def _application(parent: bytes) -> bytes:
 '''
     payload = _replace_once(
         payload,
-        b"def install(app: web.Application) -> None:\\n"
-        b"    _require_card_projection_contract()\\n",
+        b"def install(app: web.Application) -> None:\n"
+        b"    _require_card_projection_contract()\n",
         guard +
-        b"def install(app: web.Application) -> None:\\n"
-        b"    _require_card_projection_contract()\\n"
-        b"    _require_opaque_preference_contract()\\n"
-        b'    app.router.add_get("/settings/cards", dashboard_cards_page)\\n',
+        b"def install(app: web.Application) -> None:\n"
+        b"    _require_card_projection_contract()\n"
+        b"    _require_opaque_preference_contract()\n"
+        b'    app.router.add_get("/settings/cards", dashboard_cards_page)\n',
         "pre-route Core preference contract guard",
     )
     return payload
