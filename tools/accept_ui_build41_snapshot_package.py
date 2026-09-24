@@ -77,6 +77,7 @@ def accept() -> None:
         assert len(digest)==64
         catalog=root/"catalog.source.json"
         catalog.write_bytes((ROOT/"catalog.source.json").read_bytes())
+        assert stage40.stage(catalog) is True
         assert stage41.stage(catalog) is True
         snapshot=catalog.read_bytes()
         assert stage41.stage(catalog) is False
