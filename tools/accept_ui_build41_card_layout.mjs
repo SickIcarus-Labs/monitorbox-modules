@@ -132,11 +132,21 @@ assert.deepEqual(Array.from(ui.project(home),row=>row.id),[
 ]);
 assert.ok(grid.innerHTML.includes('arrrrr2'));
 assert.ok(bound>0);
-assert.ok(bound>0);
 context.renderLiveOverview();
 assert.equal(overview,1);
 assert.ok(grid.innerHTML.includes('network'));
 
+// Newly discovered families join a live automatic homepage, but not a
+// restored historical automatic layout with explicit saved default cards.
+preferences=frozenAutomatic;
+await ui.load();
+assert.ok(ui.project(newlyAvailable).some(row=>row.id==='battery'));
+restoredIds=[policy.MODULE_ID];
+await ui.load();
+assert.ok(!ui.project(newlyAvailable).some(row=>row.id==='battery'));
+assert.deepEqual(Array.from(ui.project(newlyAvailable),row=>row.id),
+  Array.from(defaults,row=>row.id.replace(/^host:|^family:/,'')));
+restoredIds=[];
 preferences=exact;
 await ui.load();
 assert.deepEqual(Array.from(ui.project(home),row=>row.id),['network','edge-01','solar']);
