@@ -22,10 +22,10 @@ PARENT_IMPORT_PACKAGE = previous.TARGET_IMPORT_PACKAGE
 TARGET_IMPORT_PACKAGE = "monitorbox_ui_b41"
 RELEASE41 = stable.Release(build=UI_BUILD, certified_sha="p3-219-opaque-card-layout", version=UI_VERSION)
 SOURCE_BLOBS = {
-    "card-layout-policy.js": "528139a08066be6e22defa6d9489786d380754bd",
-    "card-layout.js": "24aa0d23d3981716f6741ad71b516a0d6d45d00d",
+    "card-layout-policy.js": "9d1ad07557e5aaadd40add200371c3d6cfcd633d",
+    "card-layout.js": "925e207386e1fdef43f1055ea36f87668eb55fbe",
     "card-layout-editor.html": "152236ee3f44232a58f1562ddff249662c834d24",
-    "card-layout-editor.js": "1c555ea5ff6eca165264184c277798743de6c924",
+    "card-layout-editor.js": "d36455b1c5b6c7270acbaa228ddab0ea93f779dd",
     "card-layout.css": "302a2764a12bb4de97ea2c20e45693a0d57febd1",
 }
 
@@ -95,23 +95,112 @@ def _application(parent: bytes) -> bytes:
         page + b"async def dashboard(_: web.Request) -> web.Response:\n",
         "card editor route handler",
     )
-    guard = b'''def _require_opaque_preference_contract() -> None:
+    guard = b'''def _automatic_layout_snapshot(app, document, current):
+    """UI-owned capture of provider-neutral card defaults into opaque JSON.
+
+    A live automatic homepage tracks new families; its last recorded default
+    composition is committed to every configuration revision and is replayed
+    unchanged after an exact snapshot restore. Core never parses these cards.
+    """
+    module_id = "com.sickicarus.monitorbox.ui"
+    if current is not None:
+        if current.get("schema_version") != 1:
+            return current  # Unsupported future schema: never overwrite it.
+        old_sites = current.get("data", {}).get("sites")
+        if not isinstance(old_sites, dict):
+            raise RuntimeError("Cannot reconcile an invalid saved UI layout")
+        if module_id in document.get("metadata", {}).get("restored_preference_ids", []):
+            return current  # Explicit snapshot restore pins recorded defaults.
+    else:
+        old_sites = {}
+
+    source = app.get("monitorbox.public_state_snapshot")
+    if not callable(source):
+        # Existing customized layouts are still safe without a live state
+        # source; a missing source may never fabricate a fresh auto snapshot.
+        if current is not None and old_sites and all(
+            row.get("mode") == "custom" for row in old_sites.values()
+        ):
+            return current
+        raise RuntimeError("UI41 automatic snapshot needs Core public state provider")
+    live = source()
+    sites = live.get("sites") if isinstance(live, dict) else None
+    if not isinstance(sites, list):
+        raise RuntimeError("Core public site projection is unavailable")
+    by_id = {row["id"]: row for row in sites
+             if isinstance(row, dict) and isinstance(row.get("id"), str)}
+    expected = [row["id"] for row in document.get("sites", [])
+                if isinstance(row, dict) and isinstance(row.get("id"), str)]
+    if any(site_id not in by_id for site_id in expected):
+        raise RuntimeError("Cannot capture an automatic layout without every declared site")
+
+    builtins = ("internet", "network", "cameras", "power")
+    reserved = {"monitor", "monitorbox"}
+    def slug(value, allowed):
+        return (isinstance(value, str) and bool(value) and len(value) <= allowed
+                and value[0] in "abcdefghijklmnopqrstuvwxyz"
+                and all(char in "abcdefghijklmnopqrstuvwxyz0123456789_-"
+                        for char in value))
+    output = dict(old_sites)
+    for site_id in expected:
+        previous = old_sites.get(site_id)
+        if previous is not None and previous.get("mode") == "custom":
+            continue
+        site = by_id[site_id]
+        if not isinstance(site.get("cards"), list) or not isinstance(site.get("objects"), list):
+            raise RuntimeError("Incomplete public card/host projection for "+site_id)
+        host_ids, family_ids = [], set()
+        for item in site["objects"]:
+            if not isinstance(item, dict):
+                continue
+            object_id = item.get("id")
+            if not slug(object_id, 63) or object_id in reserved or item.get("retired") is True:
+                continue
+            if item.get("explicit_front_page") is False:
+                continue
+            kind = item.get("kind")
+            designated = (item.get("system_role") == "site_gateway" and
+                          kind in ("host", "network_device"))
+            explicit = kind == "host" and item.get("homepage_origin") == "operator"
+            if designated or explicit:
+                identifier = "host:"+object_id
+                if identifier not in host_ids:
+                    host_ids.append(identifier)
+        for card in site["cards"]:
+            if not isinstance(card, dict) or card.get("kind") != "dashboard_card":
+                continue
+            family = card.get("family") or card.get("id")
+            if slug(family, 63) and family != "services":
+                family_ids.add(family)
+        ordered = [*host_ids,
+                   *("family:"+family for family in builtins if family in family_ids),
+                   *("family:"+family for family in sorted(family_ids.difference(builtins)))]
+        if len(ordered) > 128:
+            raise RuntimeError("Automatic dashboard exceeds 128 cards for "+site_id)
+        output[site_id] = {
+            "mode": "auto",
+            "cards": [{"id": item, "visible": True} for item in ordered],
+        }
+    return {"schema_version": 1, "data": {"sites": output}}
+
+
+def _require_opaque_preference_contract():
     try:
         from monitorbox.v2.module_preferences import (
             MODULE_PREFERENCES_CONTRACT_VERSION,
             MODULE_PREFERENCES_INITIALIZATION_CONTRACT_VERSION,
-            register_preference_default,
+            register_preference_provider,
         )
     except ImportError as exc:
         raise RuntimeError(
-            "UI build41 requires Core opaque preference initialization v1; update Core via Recovery"
+            "UI build41 requires Core opaque preference initialization v2; update Core via Recovery"
         ) from exc
     if (MODULE_PREFERENCES_CONTRACT_VERSION != 1 or
-            MODULE_PREFERENCES_INITIALIZATION_CONTRACT_VERSION != 1):
+            MODULE_PREFERENCES_INITIALIZATION_CONTRACT_VERSION != 2):
         raise RuntimeError(
-            "UI build41 requires Core opaque preference initialization v1; update Core via Recovery"
+            "UI build41 requires Core opaque preference initialization v2; update Core via Recovery"
         )
-    return register_preference_default
+    return register_preference_provider
 
 
 '''
@@ -122,10 +211,8 @@ def _application(parent: bytes) -> bytes:
         guard +
         b"def install(app: web.Application) -> None:\n"
         b"    _require_card_projection_contract()\n"
-        b"    register_default = _require_opaque_preference_contract()\n"
-        b'    register_default(app, "com.sickicarus.monitorbox.ui", {\n'
-        b'        "schema_version": 1, "data": {"sites": {}},\n'
-        b'    })\n'
+        b"    register_provider = _require_opaque_preference_contract()\n"
+        b'    register_provider(app, "com.sickicarus.monitorbox.ui", _automatic_layout_snapshot)\n'
         b'    app.router.add_get("/settings/cards", dashboard_cards_page)\n',
         "pre-route Core preference contract guard",
     )
