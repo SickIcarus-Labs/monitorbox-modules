@@ -48,6 +48,16 @@ def accept() -> None:
         "_require_card_projection_contract","_require_opaque_preference_contract"
     ],first_two
     assert b"MODULE_PREFERENCES_CONTRACT_VERSION" in new_init
+    assert b"MODULE_PREFERENCES_INITIALIZATION_CONTRACT_VERSION" in new_init
+    assert b"register_preference_default" in new_init
+    assert isinstance(installer.body[2],ast.Expr)
+    registration=installer.body[2].value
+    assert isinstance(registration,ast.Call)
+    assert isinstance(registration.func,ast.Name)
+    assert registration.func.id=="register_default"
+    assert registration.args[1].value=="com.sickicarus.monitorbox.ui"
+    automatic=ast.literal_eval(registration.args[2])
+    assert automatic=={"schema_version":1,"data":{"sites":{}}}
     assert b"/settings/cards" in new_init
     assert b'"/settings/cards", dashboard_cards_page' in new_init
     assert b"ui_preferences" not in old_init
