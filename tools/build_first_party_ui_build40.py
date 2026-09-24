@@ -85,7 +85,20 @@ def _application(parent: bytes) -> bytes:
     # Old dev Core reported 2.6.0 but did not expose site.cards. Semantic
     # version alone must never admit a blank/false-green dashboard.
     seam = b"def install(app: web.Application) -> None:\n"
-    guard = (\n        b"def _require_card_projection_contract() -> None:\n"\n        b"    import monitorbox.v2.presentation as core_presentation\n"\n        b"    actual = getattr(core_presentation, 'CARD_PROJECTION_CONTRACT_VERSION', None)\n"\n        b"    if actual != 1:\n"\n        b"        raise RuntimeError('UI build40 requires Core dashboard-card projection contract v1; update Core using the Recovery page before enabling this UI')\n"\n        b"\n\n"\n        b"def install(app: web.Application) -> None:\n"\n        b"    _require_card_projection_contract()\n"\n    )\n    payload = _replace_once(payload, seam, guard, "required Core card-contract admission")\n    return payload\n\n\ndef _package_files(root: Path) -> dict[str, bytes]:
+    guard = (
+        b"def _require_card_projection_contract() -> None:\n"
+        b"    import monitorbox.v2.presentation as core_presentation\n"
+        b"    actual = getattr(core_presentation, 'CARD_PROJECTION_CONTRACT_VERSION', None)\n"
+        b"    if actual != 1:\n"
+        b"        raise RuntimeError('UI build40 requires Core dashboard-card projection contract v1; update Core using the Recovery page before enabling this UI')\n"
+        b"\n"
+        b"def install(app: web.Application) -> None:\n"
+        b"    _require_card_projection_contract()\n"
+    )
+    payload = _replace_once(payload, seam, guard, "required Core card-contract admission")
+    return payload
+
+def _package_files(root: Path) -> dict[str, bytes]:
     signed_parent = previous._package_files(root)
     prefix = PARENT_IMPORT_PACKAGE + "/"
     parent: dict[str, bytes] = {}
