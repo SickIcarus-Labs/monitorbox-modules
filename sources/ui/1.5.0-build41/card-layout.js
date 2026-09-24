@@ -6,13 +6,13 @@
 (()=>{
   const policy=globalThis.MonitorBoxCardPolicy;
   if(!policy)throw Error('MonitorBox card layout policy is missing');
-  const state={loaded:false,blocked:false,entry:null,error:null};
+  const state={loaded:false,blocked:false,entry:null,error:null,pinned:false};
   function objects(site){return parityObjects(site);}
   function availableEntries(site){return policy.availableEntries(site,objects(site));}
   function defaults(site){return policy.defaults(site,objects(site));}
   function effectiveCards(site){
     if(!state.loaded||state.blocked)return [];
-    return policy.visible(site,objects(site),state.entry);
+    return policy.visible(site,objects(site),state.entry,state.pinned);
   }
   function project(site){return effectiveCards(site).map(row=>row.value);}
   parityCoreObjects=project; // UI40's render & drill-down remain in place.
@@ -63,6 +63,8 @@
       catch(error){error.layoutSchema=true;throw error;}
       if(mine!==sequence)return;
       state.entry=entry;
+      state.pinned=Array.isArray(config.restored_preference_ids)&&
+        config.restored_preference_ids.includes(policy.MODULE_ID);
       state.blocked=false;
       state.error=null;
     }catch(error){
