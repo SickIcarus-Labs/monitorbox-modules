@@ -23,7 +23,7 @@ TARGET_IMPORT_PACKAGE = "monitorbox_ui_b41"
 RELEASE41 = stable.Release(build=UI_BUILD, certified_sha="p3-219-opaque-card-layout", version=UI_VERSION)
 SOURCE_BLOBS = {
     "card-layout-policy.js": "605ecb6b6e033f2ce9821d77394044157c75ee52",
-    "card-layout.js": "0cfec8ee8edcab9fbd9f06df7ae918a55032a862",
+    "card-layout.js": "24aa0d23d3981716f6741ad71b516a0d6d45d00d",
     "card-layout-editor.html": "152236ee3f44232a58f1562ddff249662c834d24",
     "card-layout-editor.js": "2b129e6508557f863797d510dfc0fa63796123b6",
     "card-layout.css": "302a2764a12bb4de97ea2c20e45693a0d57febd1",
