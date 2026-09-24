@@ -17,7 +17,7 @@ from aiohttp import web
 
 from monitorbox.v2.appliance_backup import ApplianceBackupError, ApplianceBackupManager
 from monitorbox.v2.appliance_restore_handoff import ApplianceRestoreHandoff
-from monitorbox_backup_restore_b5_vault import BackupVault, BackupVaultError
+from monitorbox_backup_restore_b6_vault import BackupVault, BackupVaultError
 
 LOG = logging.getLogger(__name__)
 MAX_RESTORE_BYTES = 8 * 1024 * 1024 * 1024
