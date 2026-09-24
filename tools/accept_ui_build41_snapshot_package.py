@@ -49,15 +49,18 @@ def accept() -> None:
     ],first_two
     assert b"MODULE_PREFERENCES_CONTRACT_VERSION" in new_init
     assert b"MODULE_PREFERENCES_INITIALIZATION_CONTRACT_VERSION" in new_init
-    assert b"register_preference_default" in new_init
+    assert b"register_preference_provider" in new_init
+    assert b"MODULE_PREFERENCES_INITIALIZATION_CONTRACT_VERSION != 2" in new_init
     assert isinstance(installer.body[2],ast.Expr)
     registration=installer.body[2].value
     assert isinstance(registration,ast.Call)
     assert isinstance(registration.func,ast.Name)
-    assert registration.func.id=="register_default"
+    assert registration.func.id=="register_provider"
     assert registration.args[1].value=="com.sickicarus.monitorbox.ui"
-    automatic=ast.literal_eval(registration.args[2])
-    assert automatic=={"schema_version":1,"data":{"sites":{}}}
+    assert isinstance(registration.args[2],ast.Name)
+    assert registration.args[2].id=="_automatic_layout_snapshot"
+    assert b"monitorbox.public_state_snapshot" in new_init
+    assert b"restored_preference_ids" in new_init
     assert b"/settings/cards" in new_init
     assert b'"/settings/cards", dashboard_cards_page' in new_init
     assert b"ui_preferences" not in old_init
