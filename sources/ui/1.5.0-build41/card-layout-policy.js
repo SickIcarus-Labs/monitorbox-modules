@@ -12,7 +12,11 @@
 
   function eligibleHost(object){
     if(!object || object.retired===true || RESERVED.has(String(object.id)))return false;
-    if(object.explicit_front_page===false || object.front_page===false)return false;
+    // explicit_front_page is the canonical operator choice. The public
+    // front_page field is legacy *derived* presentation state: a historical
+    // Network aggregate can set it false for a designated gateway. Never
+    // misinterpret that aggregate suppression as an operator hide decision.
+    if(object.explicit_front_page===false)return false;
     // A deliberately designated site gateway is a system role, not a vendor.
     if(object.system_role==='site_gateway' &&
         (object.kind==='host'||object.kind==='network_device'))return true;
