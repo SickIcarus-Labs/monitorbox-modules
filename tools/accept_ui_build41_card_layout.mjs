@@ -24,8 +24,10 @@ const home={
     {id:'arrrrr2',label:'Arrrrr2',kind:'host',homepage_origin:'operator'},
     {id:'goliath',label:'Goliath',kind:'host',homepage_origin:'operator',front_page:true},
     {id:'wan-router',label:'WAN router',kind:'network_device',
-      homepage_origin:'discovered',system_role:'site_gateway'},
-    {id:'no-tile',kind:'host',homepage_origin:'operator',front_page:false},
+      homepage_origin:'discovered',system_role:'site_gateway',
+      front_page:false}, // derived suppression by a historical Network aggregate
+    {id:'no-tile',kind:'host',homepage_origin:'operator',explicit_front_page:false},
+    {id:'legacy-derived-hidden',kind:'host',homepage_origin:'operator',front_page:false},
     {id:'not-explicit',kind:'host',homepage_origin:'module',front_page:true},
     ...devices,
   ],
@@ -67,9 +69,9 @@ const policy=context.MonitorBoxCardPolicy;
 assert.ok(policy);
 const available=policy.availableEntries(home,home.objects);
 const defaults=policy.defaults(home,home.objects);
-assert.equal(available.filter(item=>item.kind==='host').length,35);
+assert.equal(available.filter(item=>item.kind==='host').length,36);
 assert.deepEqual(Array.from(defaults,row=>row.id),[
-  'host:arrrrr2','host:goliath','host:wan-router',
+  'host:arrrrr2','host:goliath','host:wan-router','host:legacy-derived-hidden',
   'family:internet','family:network','family:cameras','family:power',
   'family:solar','family:zigbee',
 ]);
