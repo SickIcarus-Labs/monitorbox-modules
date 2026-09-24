@@ -1,0 +1,33 @@
+name: B/R build6 snapshot restore notice acceptance
+
+# Draft, unsigned, test-only. No release intent, catalog staging or channel upload.
+on:
+  push:
+    branches: [fix/88-br-b6-snapshot-preference-notices]
+  pull_request:
+    paths:
+      - "sources/backup-restore/1.0.5-build6/**"
+      - "tools/build_first_party_backup_restore_b6.py"
+      - "tools/accept_backup_restore_b6_snapshot_notices.py"
+      - ".github/workflows/br-build6-snapshot-notice-acceptance.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  immutable-browser:
+    name: Immutable b5 parent and b6 retained/config restore browser
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Install isolated iPad-sized Chromium
+        run: |
+          python -m pip install --disable-pip-version-check playwright
+          python -m playwright install --with-deps chromium
+      - name: Verify unsigned package and actual B/R frontend warning behavior
+        run: python tools/accept_backup_restore_b6_snapshot_notices.py
