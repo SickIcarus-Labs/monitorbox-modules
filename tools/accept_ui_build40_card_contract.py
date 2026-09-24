@@ -86,7 +86,7 @@ def main() -> None:
     manifest = staging.ENTRY["manifest"]
     assert (manifest["version"], manifest["build"]) == ("1.4.1", 40)
     assert manifest["requires_core"] == ">=2.6.0 <3.0.0"
-    intent = json.loads((ROOT / "release-intents/ui-1.4.1-build40.json").read_text())
+    intent = json.loads((ROOT / "release-intents/history/ui-1.4.1-build40.json").read_text())
     assert intent["supersedes_dev"] == {
         "version": "1.4.0",
         "build": 39,
