@@ -66,7 +66,7 @@ class Fixture:
         return web.json_response({
             "revision":self.revision,"content_hash":self.hash,
             "config":{"sites":[{"id":"home","label":"Home"}],
-                      "module_preferences":({candidate.RELEASE41 and "com.sickicarus.monitorbox.ui":self.entry}
+                      "module_preferences":({"com.sickicarus.monitorbox.ui":self.entry}
                        if self.entry else {})},
         })
     def state(self,_):
@@ -137,6 +137,13 @@ async def accept():
             browser=await pw.chromium.launch(headless=True)
             try:
                 for width,height in ((1366,900),(820,1100)):
+                    fixture.session=False
+                    fixture.revision=10
+                    fixture.hash="fixture-hash-10"
+                    fixture.entry=None
+                    fixture.saved.clear()
+                    fixture.body_log.clear()
+                    fixture.site=fixture_site()
                     context=await browser.new_context(viewport={"width":width,"height":height})
                     page=await context.new_page()
                     errors=[]
