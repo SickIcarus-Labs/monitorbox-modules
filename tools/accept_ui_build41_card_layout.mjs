@@ -38,7 +38,7 @@ const home={
 const status={textContent:'',hidden:true};
 const grid={innerHTML:'',parentElement:{insertBefore(){}}};
 const selectors={'#core-grid':grid,'#card-layout-status':status,'#card-layout-edit':{}};
-let preferences=null,serverError=null,fetchCount=0,bound=0,overview=0;
+let preferences=null,serverError=null,fetchCount=0,bound=0,overview=0,restoredIds=[];
 const context={
   console,
   app:{state:{sites:[home]}},
@@ -60,7 +60,7 @@ const context={
     fetchCount++;
     return serverError
       ?{ok:false,status:503}
-      :{ok:true,json:async()=>({configured:true,ui_preferences:preferences})};
+      :{ok:true,json:async()=>({configured:true,ui_preferences:preferences,restored_preference_ids:restoredIds})};
   },
 };
 context.globalThis=context;
@@ -100,6 +100,17 @@ assert.ok(policy.availableEntries(newlyAvailable,newlyAvailable.objects)
   .some(row=>row.id==='family:battery'));
 assert.ok(policy.defaults(newlyAvailable,newlyAvailable.objects)
   .some(row=>row.id==='family:battery'));
+// A genuine saved automatic layout follows new families while it is live,
+// but an exact snapshot restore must replay the materialized old card list.
+const frozenAutomatic={
+  schema_version:1,data:{sites:{broadleaf:{
+    mode:'auto',cards:defaults.map(row=>({...row})),
+  }}},
+};
+assert.ok(policy.visible(newlyAvailable,newlyAvailable.objects,frozenAutomatic)
+  .some(row=>row.id==='family:battery'));
+assert.ok(!policy.visible(newlyAvailable,newlyAvailable.objects,frozenAutomatic,true)
+  .some(row=>row.id==='family:battery'));
 assert.throws(()=>policy.validate({schema_version:2,data:{sites:{}}}),/Unsupported/);
 assert.throws(()=>policy.validate({schema_version:1,data:{
   sites:{broadleaf:{mode:'custom',cards:[
@@ -120,6 +131,7 @@ assert.deepEqual(Array.from(ui.project(home),row=>row.id),[
   'solar','zigbee',
 ]);
 assert.ok(grid.innerHTML.includes('arrrrr2'));
+assert.ok(bound>0);
 assert.ok(bound>0);
 context.renderLiveOverview();
 assert.equal(overview,1);
