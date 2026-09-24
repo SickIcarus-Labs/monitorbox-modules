@@ -58,7 +58,9 @@
       if(!response.ok)throw Error('Layout unavailable (HTTP '+response.status+')');
       const config=await response.json();
       if(config.configured===false)throw Error('Configuration not yet available');
-      const entry=policy.validate(config.ui_preferences);
+      let entry;
+      try{entry=policy.validate(config.ui_preferences);}
+      catch(error){error.layoutSchema=true;throw error;}
       if(mine!==sequence)return;
       state.entry=entry;
       state.blocked=false;
@@ -67,7 +69,7 @@
       if(mine!==sequence)return;
       // First-load failure must not fabricate a default over unknown saved
       // choices. A later transport failure retains the last known good layout.
-      if(!state.loaded)state.blocked=true;
+      if(!state.loaded||error.layoutSchema)state.blocked=true;
       state.error=String(error?.message||error);
     }
     state.loaded=true;
