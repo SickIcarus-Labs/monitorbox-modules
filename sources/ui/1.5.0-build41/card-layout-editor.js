@@ -200,7 +200,7 @@
       notice('Reload failed: '+error.message,true);
       if(!working){$('editor').hidden=true;$('login').hidden=false;
         $('loginStatus').textContent=error.message;}
-    }finally{pending=false;updateButtons();}
+    }finally{pending=false;if(working&&!$('editor').hidden)render();else updateButtons();}
   }
   $('loginButton').onclick=async()=>{
     try{
@@ -275,7 +275,7 @@
       notice(error.status===409
         ?'Another configuration change or snapshot restore occurred. Your edits remain staged. Reload and review before saving.'
         :'Apply failed: '+error.message,true);
-    }finally{pending=false;updateButtons();}
+    }finally{pending=false;if(working&&!$('editor').hidden)render();else updateButtons();}
   };
   authenticate().catch(error=>{
     $('login').hidden=false;$('loginStatus').textContent=error.message;
