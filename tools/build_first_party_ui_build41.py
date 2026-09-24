@@ -147,9 +147,16 @@ def _package_files(root: Path) -> dict[str, bytes]:
         f'<script src="/static/card-layout-policy.js?v={UI_GENERATION}" defer></script>'
         f'<script src="/static/card-layout.js?v={UI_GENERATION}" defer></script>'
     ).encode()
+    # The editor owns its full stylesheet. The homepage gets only its two
+    # scoped controls; importing editor-wide body/top/button CSS would mutate
+    # immutable UI40 dashboard styling as an accidental side effect.
     style = (
-        f'<link rel="stylesheet" href="/static/card-layout.css?v={UI_GENERATION}">'
-    ).encode()
+        b"<style>.card-layout-edit{display:inline-flex;align-items:center;"
+        b"min-height:44px;margin:0 0 12px;padding:8px 12px;"
+        b"border-radius:9px;border:1px solid currentColor;text-decoration:none}"
+        b".card-layout-status{margin:0 0 12px;font-size:12px;color:#efbd66}"
+        b".card-layout-status[hidden]{display:none}</style>"
+    )
     parent["assets/dashboard.html"] = _replace_once(
         parent["assets/dashboard.html"], b"</head>", style + b"</head>",
         "dashboard style",
