@@ -1,73 +1,86 @@
 'use strict';
 
-// UI-owned placement over the versioned Core site.cards stream. The pure
-// policy is shared with the editor; no duplicate vendor/device heuristics.
+// UI41 overlays UI40's checked site.cards projector, retaining its projected
+// card drill-down resolver and action policy. Layout authority is only the
+// versioned, opaque UI preference in Core's generic snapshot transaction.
 (()=>{
   const policy=globalThis.MonitorBoxCardPolicy;
-  if(!policy)throw Error('Dashboard card policy failed to load');
-  const state={loaded:false,error:null,entry:null};
-
-  function availableEntries(site){
-    return policy.availableEntries(site,parityObjects(site));
-  }
-  function defaults(site){return policy.defaults(site,parityObjects(site));}
+  if(!policy)throw Error('MonitorBox card layout policy is missing');
+  const state={loaded:false,blocked:false,entry:null,error:null};
+  function objects(site){return parityObjects(site);}
+  function availableEntries(site){return policy.availableEntries(site,objects(site));}
+  function defaults(site){return policy.defaults(site,objects(site));}
   function effectiveCards(site){
-    if(state.error && state.entry)return []; // never silently reset a newer saved layout
-    return policy.visible(site,parityObjects(site),state.entry);
+    if(!state.loaded||state.blocked)return [];
+    return policy.visible(site,objects(site),state.entry);
   }
-  function projectedHosts(site){
-    return availableEntries(site)
-      .filter(row=>row.kind==='host'&&row.defaultVisible)
-      .map(row=>row.value);
+  function project(site){return effectiveCards(site).map(row=>row.value);}
+  parityCoreObjects=project; // UI40's render & drill-down remain in place.
+
+  function controls(){
+    const grid=document.querySelector('#core-grid');
+    if(!grid)return;
+    if(!document.querySelector('#card-layout-edit')){
+      const link=document.createElement('a');
+      link.id='card-layout-edit';
+      link.className='button card-layout-edit';
+      link.href='/settings/cards';
+      link.textContent='Edit cards';
+      link.setAttribute('aria-label','Edit dashboard cards');
+      grid.parentElement?.insertBefore(link,grid);
+    }
+    if(!document.querySelector('#card-layout-status')){
+      const node=document.createElement('p');
+      node.id='card-layout-status';
+      node.className='card-layout-status';
+      node.setAttribute('role','status');
+      grid.parentElement?.insertBefore(node,grid);
+    }
+    const warning=document.querySelector('#card-layout-status');
+    if(warning){
+      warning.textContent=state.error||'';
+      warning.hidden=!state.error;
+    }
   }
-  function project(site){return effectiveCards(site).map(item=>item.value);}
   function refreshGrid(){
     if(!app.state)return;
     const grid=document.querySelector('#core-grid');
     if(!grid)return;
     grid.innerHTML=parityCoreMarkup();
     bindCards();
+    controls();
   }
-
-  const baseRenderLiveOverview=renderLiveOverview;
-  parityCoreObjects=project;
-  renderLiveOverview=function layoutAwareRefresh(){
-    baseRenderLiveOverview();
-    refreshGrid();
-  };
-
-  function showError(error){
-    const status=document.querySelector('#card-layout-status');
-    if(status){
-      status.textContent=error||'';
-      status.hidden=!error;
-    }
-  }
-
+  let sequence=0;
   async function load(){
+    const mine=++sequence;
     try{
       const response=await fetch('/api/v2/dashboard/config',{cache:'no-store'});
-      if(!response.ok)throw Error('Dashboard layout unavailable (HTTP '+response.status+')');
+      if(!response.ok)throw Error('Layout unavailable (HTTP '+response.status+')');
       const config=await response.json();
-      policy.validate(config.ui_preferences);
-      state.entry=config.ui_preferences||null;
+      if(config.configured===false)throw Error('Configuration not yet available');
+      const entry=policy.validate(config.ui_preferences);
+      if(mine!==sequence)return;
+      state.entry=entry;
+      state.blocked=false;
       state.error=null;
     }catch(error){
-      // Preserve the last known good selection after transient transport errors.
-      // If a saved schema is unsupported, show an explicit error, not a fake
-      // default or a silently overwritten layout.
+      if(mine!==sequence)return;
+      // First-load failure must not fabricate a default over unknown saved
+      // choices. A later transport failure retains the last known good layout.
+      if(!state.loaded)state.blocked=true;
       state.error=String(error?.message||error);
     }
     state.loaded=true;
     refreshGrid();
-    showError(state.error);
+    controls();
   }
-
-  document.addEventListener('DOMContentLoaded',load);
+  document.addEventListener('DOMContentLoaded',()=>{controls();load();});
+  // Picking a retained snapshot in another tab, then returning here,
+  // should display its paired UI preference without an appliance restart.
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)load();});
   globalThis.MonitorBoxCardLayout=Object.freeze({
     MODULE_ID:policy.MODULE_ID,PREFERENCE_SCHEMA:policy.SCHEMA,
     eligibleHost:policy.eligibleHost,availableEntries,defaults,
-    effectiveCards,project,load,refreshGrid,
-    state:()=>({...state}),
+    effectiveCards,project,load,refreshGrid,state:()=>({...state}),
   });
 })();
