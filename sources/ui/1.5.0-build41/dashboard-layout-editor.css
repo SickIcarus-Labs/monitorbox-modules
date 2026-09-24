@@ -1,0 +1,34 @@
+/* #219: in-place iPad-first editor; same interaction vocabulary as graph editor. */
+.mb-card-editor,.mb-card-preview{width:min(940px,calc(100vw - 24px));max-height:92dvh;overflow:auto;box-sizing:border-box;border:1px solid #293b55;border-radius:16px;padding:18px;background:#101b2b;color:#eef5ff;box-shadow:0 24px 85px #000c;font:14px/1.45 system-ui,-apple-system,sans-serif}
+.mb-card-editor::backdrop,.mb-card-preview::backdrop{background:#000a;backdrop-filter:blur(3px)}
+.mb-card-editor *,.mb-card-preview *{box-sizing:border-box}
+.mb-card-head{position:sticky;top:-18px;z-index:2;display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#101b2b;border-bottom:1px solid #293b55;padding:0 0 12px}
+.mb-card-head h2{font-size:19px;margin:0}
+.mb-card-spacer{flex:1}
+.mb-card-button{min-width:44px;min-height:44px;padding:9px 12px;border:1px solid #3b506d;border-radius:10px;background:#142238;color:#eef5ff;font:inherit;font-weight:650;cursor:pointer}
+.mb-card-button.primary{background:#7da6ff;color:#07111f;border-color:transparent}
+.mb-card-button:disabled{opacity:.42;cursor:not-allowed}
+.mb-card-button:focus-visible,.mb-card-editor input:focus-visible,.mb-card-editor select:focus-visible{outline:3px solid #7da6ff;outline-offset:2px}
+.mb-card-toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:18px 0}
+.mb-card-toolbar label{display:flex;align-items:center;gap:10px}
+.mb-card-toolbar select,.mb-card-login input,.mb-card-search input{min-height:44px;max-width:100%;border:1px solid #3b506d;border-radius:10px;background:#081321;color:#eef5ff;padding:10px 12px;font:inherit}
+.mb-card-note{color:#98a9c0;line-height:1.5;margin:8px 0 16px}
+.mb-card-section{margin:16px 0;padding:14px;border:1px solid #293b55;border-radius:14px;background:#0b1726}
+.mb-card-section h3{font-size:16px;margin:0 0 10px}
+.mb-card-row{display:flex;gap:8px;align-items:center;border-top:1px solid #293b55;padding:10px 0;min-width:0}
+.mb-card-row:first-child{border-top:0}
+.mb-card-toggle{display:flex;align-items:center;gap:7px;min-width:67px;cursor:pointer}
+.mb-card-toggle input{min-width:20px;min-height:20px;accent-color:#7da6ff}
+.mb-card-name{display:flex;flex:1;flex-direction:column;min-width:110px;overflow-wrap:anywhere}
+.mb-card-name strong{font-size:14px}
+.mb-card-kind{font-size:12px;color:#98a9c0}
+.mb-card-search{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0;color:#98a9c0}
+.mb-card-search input{flex:1;min-width:190px}
+.mb-card-status{padding:12px;border:1px solid #304869;border-radius:10px;color:#acf1c0;margin:12px 0;white-space:pre-wrap}
+.mb-card-status.bad{border-color:#803f4a;color:#ffd0d4}
+.mb-card-login{margin:20px 0;padding:16px;border:1px solid #293b55;border-radius:12px}
+.mb-card-login input{width:100%;margin:8px 0}
+.mb-card-actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end;margin-top:12px}
+.mb-card-preview pre{max-height:45dvh;overflow:auto;white-space:pre-wrap;word-break:break-word;background:#081321;border:1px solid #293b55;padding:12px;border-radius:10px}
+.mb-card-editor [hidden],.mb-card-preview [hidden]{display:none!important}
+@media(max-width:760px){.mb-card-editor,.mb-card-preview{padding:12px;max-height:94dvh;width:calc(100vw - 12px)}.mb-card-head{top:-12px}.mb-card-row{display:grid;grid-template-columns:74px minmax(0,1fr) repeat(3,minmax(44px,auto));gap:7px}.mb-card-name{grid-column:2/-1;grid-row:1}.mb-card-toggle{grid-column:1;grid-row:1}.mb-card-row .mb-card-button{grid-row:2}.mb-card-row .mb-card-button:nth-of-type(1){grid-column:2}.mb-card-row .mb-card-button:nth-of-type(2){grid-column:3}.mb-card-row .mb-card-button:nth-of-type(3){grid-column:4/6}.mb-card-toolbar{justify-content:space-between}}
