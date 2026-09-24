@@ -1,0 +1,58 @@
+name: UI41 snapshot-aware card composer
+
+on:
+  push:
+    branches:
+      - feature/219-ui41-card-layout
+  pull_request:
+    paths:
+      - "sources/ui/1.5.0-build41/**"
+      - "tools/*ui_build41*"
+      - "tools/stage_p3_219_ui_build41.py"
+      - "release-intents/ui-1.5.0-build41.json"
+      - ".github/workflows/ui-build41-card-layout-acceptance.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-and-package:
+    name: UI41 immutable UI40 parent, JS and reproducible archive
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Verify all UI41 scripts are syntactically valid
+        run: |
+          node --check sources/ui/1.5.0-build41/card-layout-policy.js
+          node --check sources/ui/1.5.0-build41/card-layout.js
+          node --check sources/ui/1.5.0-build41/card-layout-editor.js
+          node --check tools/accept_ui_build41_card_layout.mjs
+      - name: Verify the 30-node discovery storm and protected layouts
+        run: node tools/accept_ui_build41_card_layout.mjs
+      - name: Verify exact-parent, capability guards and deterministic ZIP
+        run: python tools/accept_ui_build41_snapshot_package.py
+
+  browser:
+    name: UI41 desktop and iPad Chromium interaction
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Install isolated browser test dependencies
+        run: |
+          python -m pip install --disable-pip-version-check aiohttp playwright
+          python -m playwright install --with-deps chromium
+      - name: Run synthetic browser editor and conflict/restore acceptance
+        run: python tools/accept_ui_build41_editor_browser.py
