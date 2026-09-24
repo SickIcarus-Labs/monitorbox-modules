@@ -97,15 +97,21 @@ def _application(parent: bytes) -> bytes:
     )
     guard = b'''def _require_opaque_preference_contract() -> None:
     try:
-        from monitorbox.v2.module_preferences import MODULE_PREFERENCES_CONTRACT_VERSION
+        from monitorbox.v2.module_preferences import (
+            MODULE_PREFERENCES_CONTRACT_VERSION,
+            MODULE_PREFERENCES_INITIALIZATION_CONTRACT_VERSION,
+            register_preference_default,
+        )
     except ImportError as exc:
         raise RuntimeError(
-            "UI build41 requires Core opaque preference snapshots v1; update Core via Recovery"
+            "UI build41 requires Core opaque preference initialization v1; update Core via Recovery"
         ) from exc
-    if MODULE_PREFERENCES_CONTRACT_VERSION != 1:
+    if (MODULE_PREFERENCES_CONTRACT_VERSION != 1 or
+            MODULE_PREFERENCES_INITIALIZATION_CONTRACT_VERSION != 1):
         raise RuntimeError(
-            "UI build41 requires Core opaque preference snapshots v1; update Core via Recovery"
+            "UI build41 requires Core opaque preference initialization v1; update Core via Recovery"
         )
+    return register_preference_default
 
 
 '''
@@ -116,7 +122,10 @@ def _application(parent: bytes) -> bytes:
         guard +
         b"def install(app: web.Application) -> None:\n"
         b"    _require_card_projection_contract()\n"
-        b"    _require_opaque_preference_contract()\n"
+        b"    register_default = _require_opaque_preference_contract()\n"
+        b'    register_default(app, "com.sickicarus.monitorbox.ui", {\n'
+        b'        "schema_version": 1, "data": {"sites": {}},\n'
+        b'    })\n'
         b'    app.router.add_get("/settings/cards", dashboard_cards_page)\n',
         "pre-route Core preference contract guard",
     )
