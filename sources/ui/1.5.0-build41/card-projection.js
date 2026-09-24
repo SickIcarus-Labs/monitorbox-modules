@@ -71,7 +71,8 @@
 
   function selectedKeys(site, snapshot){
     const saved = snapshot?.data?.sites?.[site?.id];
-    if(snapshot?.schema_version !== 1 || !saved || saved.mode !== 'custom'){
+    if(snapshot && snapshot.schema_version !== 1) return [];
+    if(!saved || saved.mode !== 'custom'){
       return defaultKeys(site);
     }
     if(!Array.isArray(saved.order) || !Array.isArray(saved.hidden)) return [];
@@ -121,6 +122,10 @@
     if(!app.state) return;
     const grid=document.querySelector('#core-grid');
     if(!grid) return;
+    if(preferences && preferences.schema_version !== 1){
+      grid.textContent='Saved dashboard layout requires a newer UI. Open Recovery to update the UI; monitoring remains active.';
+      return;
+    }
     grid.innerHTML=parityCoreMarkup();
     bindCards();
   }
@@ -131,13 +136,19 @@
   };
 
   function installCardEditorLink(){
-    if(document.querySelector('a[href="/settings/dashboard/cards"]')) return;
+    if(document.querySelector('#edit-dashboard-cards')) return;
     const graphs=document.querySelector('a[href="/settings/dashboard"]');
     if(!graphs) return;
-    const link=document.createElement('a');
-    link.href='/settings/dashboard/cards';
-    link.textContent='Dashboard / Cards';
+    const link=document.createElement('button');
+    link.type='button';
+    link.id='edit-dashboard-cards';
+    link.textContent='Edit Dashboard';
     link.className=graphs.className;
+    link.addEventListener('click',()=>{
+      if(typeof globalThis.MonitorBoxDashboardEditor?.open === 'function'){
+        globalThis.MonitorBoxDashboardEditor.open();
+      }
+    });
     graphs.after(link);
   }
 
@@ -150,12 +161,11 @@
         loaded=false;
         return;
       }
-      if(response.ui_preferences !== null &&
-         response.ui_preferences !== undefined &&
-         response.ui_preferences.schema_version !== 1){
-        throw new Error('Saved dashboard layout uses an unsupported schema; use Recovery to update the UI');
-      }
       preferences=response.ui_preferences || null;
+      if(preferences && preferences.schema_version !== 1){
+        renderComposition();
+        throw new Error('Saved dashboard layout uses an unsupported schema; update the UI using Recovery');
+      }
       loaded=true;
       renderComposition();
     }catch(error){
