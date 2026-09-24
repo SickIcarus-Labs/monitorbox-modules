@@ -7,6 +7,7 @@ from pathlib import Path
 
 PREDECESSOR=("com.sickicarus.monitorbox.ui","1.4.1",40)
 RELEASE=("com.sickicarus.monitorbox.ui","1.5.0",41)
+ACCEPTED_FALLBACK=("com.sickicarus.monitorbox.ui","1.3.1",35)
 ENTRY={
     "manifest":{
         "module_id":"com.sickicarus.monitorbox.ui",
@@ -41,7 +42,13 @@ def stage(path:Path)->bool:
         if len(matches)!=1 or matches[0]!=ENTRY:raise SystemExit("UI41 catalog conflict")
         return False
     prior=[i for i,item in enumerate(entries) if identity(item)==PREDECESSOR]
-    if len(prior)!=1:raise SystemExit(f"expected one b40 source, found {len(prior)}")
+    if not prior:
+        # UI40 is already signed on dev, but its draft source predecessor may
+        # not yet have entered the branch catalog.source.json. Add *only* the
+        # UI41 candidate in this isolated publication; never stage two new UI
+        # releases in one intent or rewrite signed build40.
+        prior=[i for i,item in enumerate(entries) if identity(item)==ACCEPTED_FALLBACK]
+    if len(prior)!=1:raise SystemExit("expected one UI40 or accepted UI35 predecessor")
     entries.insert(prior[0]+1,ENTRY)
     path.write_text(json.dumps(document,separators=(",",":"))+"\n",encoding="utf-8")
     print("staged isolated UI 1.5.0 build41")
