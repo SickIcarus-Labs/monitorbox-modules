@@ -37,6 +37,8 @@ jobs:
           python-version: "3.13"
       - name: Immutable inheritance, script syntax and deterministic UI44 package
         run: python tools/accept_ui_build44_package.py
+      - name: Additive UI44 dev staging with exact accepted UI42 source history
+        run: python tools/accept_ui_build44_staging.py
 
   browser:
     name: UI44 iPad and desktop real-time card presentation
