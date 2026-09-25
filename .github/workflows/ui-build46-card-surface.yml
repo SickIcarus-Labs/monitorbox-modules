@@ -44,6 +44,7 @@ jobs:
         with:
           python-version: "3.13"
       - run: python tools/accept_ui_build46_package.py
+      - run: python tools/accept_ui_build46_staging.py
 
   browser:
     name: UI46 iPad/desktop canonical card and 24-item regression
