@@ -38,6 +38,26 @@
       .replace(/[_-]/g,' ').replace(/\./g,' · ').trim()||'Unnamed metric';
   }
   function numeric(value){return typeof value==='number'&&Number.isFinite(value);}
+  function measured(component,key){
+    const name=String(key).replace(/[\\s._-]/g,'').toLowerCase();
+    for(const [raw,value] of Object.entries(component?.metrics||{}))
+      if(String(raw).replace(/[\\s._-]/g,'').toLowerCase()===name&&numeric(value))
+        return value;
+    return null;
+  }
+  function derived(component,key){
+    if(key==='@derived.cpu_used_percent'){
+      const idle=measured(component,'cpu_idle_percent');
+      return idle===null||idle<0||idle>100?null:100-idle;
+    }
+    if(key==='@derived.memory_used_percent'){
+      const total=measured(component,'memory_total_kib');
+      const available=measured(component,'memory_available_kib');
+      return total===null||available===null||total<=0||available<0||
+        available>total?null:(total-available)/total*100;
+    }
+    return null;
+  }
   function sourceGroup(object){
     return KINDS[String(object.kind||'')]||'other';
   }
@@ -87,6 +107,12 @@
           append('metric',component.id,metric,title(metric),
             typeof units[metric]==='string'?units[metric]:inferred);
         }
+        if(derived(component,'@derived.cpu_used_percent')!==null)
+          append('metric',component.id,'@derived.cpu_used_percent',
+            'CPU utilization','%');
+        if(derived(component,'@derived.memory_used_percent')!==null)
+          append('metric',component.id,'@derived.memory_used_percent',
+            'Memory utilization','%');
       }
       // The live stream has its own checked, site-scoped source identity.
       // It exposes actual rates/measurements; a network health check is NOT
@@ -233,7 +259,8 @@
       }
       return {...found,available:true,state:component.state||'unknown',value:null};
     }
-    const value=component.metrics?.[metricKey];
+    const value=metricKey.startsWith('@derived.')?derived(component,metricKey):
+      component.metrics?.[metricKey];
     return {...found,available:numeric(value),state:component.state||'unknown',
       value:numeric(value)?value:null};
   }
