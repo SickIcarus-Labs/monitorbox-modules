@@ -91,10 +91,9 @@ async def editor_accept(browser,base,fixture,width,height):
     await page.locator("#password").fill("test-secret")
     await page.locator("#loginButton").click()
     await page.locator("#selected .layout-row").first.wait_for()
-    await page.locator("#liveCatalogStatus").get_by_text(
-        "3 live series available",exact=False).wait_for()
     host=page.locator("#selected .layout-row").filter(has_text="Arrrrr2")
     await host.get_by_role("button",name="Edit contents").click()
+    await page.locator("#liveCatalogStatus:has-text('3 live series available')").wait_for()
     await page.locator("#addContentItem").click()
     for term,label in [
         ("CPU usage","CPU usage · live"),
