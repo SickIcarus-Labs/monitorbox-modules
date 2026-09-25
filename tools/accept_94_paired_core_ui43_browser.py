@@ -403,6 +403,9 @@ def browser_contract(server:PairedServer):
             context=browser.new_context(viewport={"width":820,"height":1100})
             page=context.new_page()
             page.goto(base+"/settings/cards",wait_until="domcontentloaded")
+            # Each new browser context has its own unauthenticated cookie jar.
+            page.locator("#password").fill(PASSWORD)
+            page.locator("#loginButton").click()
             page.locator("#selected .layout-row").first.wait_for(timeout=10000)
             host=page.locator("#selected .layout-row").filter(has_text="Arrrrr2")
             host.get_by_role("button",name="Edit contents").click()
