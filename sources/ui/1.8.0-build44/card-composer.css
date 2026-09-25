@@ -1,20 +1,101 @@
-/* UI43: composed values are separate buttons, not nested in existing card buttons. */
-.mb-card-shell{display:flex;flex-direction:column;min-width:0;border:1px solid rgba(125,166,255,.22);border-radius:14px;overflow:hidden}
-.mb-card-shell>.parity-card{width:100%;border-radius:0;min-height:0}
-.mb-card-items{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,136px),1fr));gap:7px;padding:9px;background:rgba(6,16,29,.55)}
-.mb-card-item{font:inherit;display:flex;flex-direction:column;align-items:flex-start;text-align:left;
-  min-width:0;gap:4px;padding:10px;border-radius:9px;border:1px solid rgba(125,166,255,.21);
-  color:inherit;background:rgba(125,166,255,.07);overflow-wrap:anywhere}
+/* UI44: a single visual card with independent, focusable source readings. */
+.mb-card-shell{
+  min-width:0;display:flex;flex-direction:column;overflow:hidden;
+  border:1px solid var(--line);border-radius:19px;
+  background:linear-gradient(145deg,rgba(72,214,161,.045),var(--panel) 48%);
+  box-shadow:0 14px 35px rgba(0,0,0,.15);
+}
+.mb-card-shell>.parity-card{
+  min-height:0;width:100%;border:0;border-radius:0;background:transparent;
+  box-shadow:none;backdrop-filter:none;transform:none;
+}
+.mb-card-shell>.parity-card:hover{
+  background:rgba(125,166,255,.04);transform:none;
+}
+.mb-card-items{min-width:0}
+.mb-card-native{
+  display:flex;flex-direction:column;gap:0;
+  padding:0 16px 11px;background:transparent;
+}
+.mb-card-item{
+  font:inherit;text-align:left;color:inherit;
+  min-width:0;overflow-wrap:anywhere;
+}
 button.mb-card-item{cursor:pointer;touch-action:manipulation}
-button.mb-card-item:focus-visible{outline:2px solid #7da6ff;outline-offset:2px}
-.mb-card-item-source{font-size:11px;opacity:.7}
-.mb-card-item-label{font-size:12px;opacity:.9}
-.mb-card-item-value{font-size:16px;font-variant-numeric:tabular-nums}
-.mb-card-item.unavailable{border-color:#8c6b32;color:#f2cd8e}
+button.mb-card-item:focus-visible{outline:2px solid #7da6ff;outline-offset:-2px}
+.mb-card-native>.mb-card-item,
+.mb-custom-readings>.mb-card-item{
+  display:grid;grid-template-columns:minmax(0,1fr) auto;
+  grid-template-areas:"source source" "label value" "detail detail" "meta meta";
+  align-items:baseline;gap:2px 9px;border:0;
+  border-top:1px solid var(--line);border-radius:0;
+  padding:8px 0;background:transparent;width:100%;
+}
+.mb-card-native>.mb-card-item:first-child{
+  border-top-color:rgba(125,166,255,.19);
+}
+.mb-card-native>.mb-item-mode-native-tile{
+  background:rgba(125,166,255,.035);
+  margin:1px -6px;padding:8px 6px;width:calc(100% + 12px);
+  border-radius:5px;
+}
+.mb-card-native>.mb-card-item:hover,
+.mb-custom-readings>button.mb-card-item:hover{
+  background:rgba(125,166,255,.065);
+}
+.mb-card-item-source{grid-area:source;font-size:10px;opacity:.62}
+.mb-card-item-label{grid-area:label;min-width:0;font-size:12px;line-height:1.35}
+.mb-card-item-value{
+  grid-area:value;text-align:right;white-space:normal;
+  font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;
+}
+.mb-card-item-detail{
+  grid-area:detail;text-align:right;font-size:10px;
+  font-weight:400;color:var(--muted);line-height:1.5;
+}
+.mb-card-item-detail[hidden]{display:none}
+.mb-card-item-meta{
+  grid-area:meta;justify-self:end;font-size:9px;
+  font-weight:600;letter-spacing:.025em;color:var(--muted);opacity:.65;
+}
+.mb-card-item.healthy .mb-card-item-meta:is(.live){color:var(--healthy)}
+.mb-card-item.unavailable .mb-card-item-value,
+.mb-card-item.unavailable .mb-card-item-meta{color:#f2cd8e}
 .mb-card-item.failed .mb-card-item-value{color:#ff979d}
 .mb-card-item.degraded .mb-card-item-value{color:#efbd66}
-.mb-custom-card{display:flex;flex-direction:column;gap:8px;text-align:left;cursor:default}
-.mb-custom-card .parity-card-head{display:flex;justify-content:space-between;gap:7px;align-items:center}
-.mb-card-display-label{font-size:11px;font-weight:500;opacity:.64}
+.mb-custom-card{
+  display:flex;flex-direction:column;gap:8px;
+  text-align:left;cursor:default;
+}
+.mb-custom-card .parity-card-head{
+  display:flex;justify-content:space-between;gap:7px;align-items:center;
+}
+.mb-card-display-label{font-size:10px;font-weight:500;opacity:.64}
 .mb-card-item-empty{opacity:.7;padding:10px}
-.mb-custom-card .mb-card-items{width:100%;background:transparent;padding:2px}
+.mb-custom-readings{
+  display:flex;flex-direction:column;gap:0;
+  padding:2px 0;background:transparent;
+}
+.mb-card-source-heading{
+  color:var(--muted);font-size:11px;font-weight:650;
+  padding:10px 0 4px;border-top:1px solid var(--line);
+}
+.mb-custom-readings>.mb-card-item{
+  padding-left:5px;padding-right:5px;
+}
+.mb-custom-readings>.mb-item-mode-tile{
+  background:rgba(125,166,255,.065);
+  border:1px solid rgba(125,166,255,.16);
+  border-radius:10px;padding:10px;margin:4px 0;
+  grid-template-areas:"source source" "label label" "value value"
+    "detail detail" "meta meta";
+}
+.mb-custom-readings>.mb-item-mode-tile .mb-card-item-value{text-align:left}
+.mb-custom-readings>.mb-item-mode-tile .mb-card-item-detail{text-align:left}
+.mb-custom-readings>.mb-item-mode-value .mb-card-item-value{font-size:20px}
+@media(max-width:600px){
+ .mb-card-native{padding:0 12px 10px}
+ .mb-card-item-label{font-size:12px}
+ .mb-card-item-value{font-size:14px}
+ .mb-card-item-detail{font-size:9px}
+}
