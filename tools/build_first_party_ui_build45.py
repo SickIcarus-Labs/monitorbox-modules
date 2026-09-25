@@ -8,6 +8,7 @@ from pathlib import Path
 
 import build_first_party_ui as stable
 import build_first_party_ui_build44 as previous
+from build_first_party_ui_build43 import _replace_once
 
 UI_VERSION = "1.9.0"
 UI_BUILD = 45
@@ -62,7 +63,7 @@ def _package_files(root: Path) -> dict[str, bytes]:
         parent[path[len(prefix):]] = content
     # Preserve all accepted Core-facing routes and the schema-v3 snapshot owner;
     # only immutable package identity and static presentation assets advance.
-    parent["__init__.py"] = previous._replace_once(
+    parent["__init__.py"] = _replace_once(
         parent["__init__.py"],
         b"Standalone managed MonitorBox UI 1.8.0 build 44.",
         b"Standalone managed MonitorBox UI 1.9.0 build 45.",
