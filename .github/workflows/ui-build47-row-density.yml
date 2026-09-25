@@ -39,6 +39,7 @@ jobs:
         with:
           python-version: "3.13"
       - run: python tools/accept_ui_build47_package.py
+      - run: python tools/accept_ui_build47_staging.py
 
   browser:
     runs-on: ubuntu-latest
