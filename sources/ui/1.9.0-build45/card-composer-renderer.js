@@ -43,6 +43,8 @@
       label=label.slice(source.length).replace(/^[\s·:–-]+/,'');
     label=label.replace(/\s*·\s*(live|status)$/i,'').trim();
     const key=String(item.metricKey||'').toLowerCase();
+    if(key==='@derived.cpu_used_percent')return 'CPU utilization';
+    if(key==='@derived.memory_used_percent')return 'Memory utilization';
     if(/(?:^|[._ ])cpu[._ ]system[._ ]percent$/.test(key))return 'CPU (system)';
     if(/(?:^|[._ ])cpu[._ ](usage|used|total)[._ ]percent$/.test(key))
       return 'CPU';
@@ -58,8 +60,10 @@
   }
   function reading(item){
     if(!item.available){
-      return {value:item.unavailableReason||'Unavailable',detail:'',
-        meta:item.type==='live'?'LIVE · unavailable':'Unavailable'};
+      const age=item.sampleAgeSeconds;
+      return {value:item.unavailableReason||'Unavailable',
+        detail:Number.isFinite(age)?'Last live sample '+Math.round(age)+' s ago':'',
+        meta:item.type==='live'?'LIVE · delayed':'Unavailable'};
     }
     if(item.liveKind==='counter_pair'){
       const traffic='↓ '+quantity(item.rx,'bit/s')+' · ↑ '+quantity(item.tx,'bit/s');
@@ -72,12 +76,13 @@
     }
     if(item.type==='metric'||item.liveKind==='gauge')
       return {value:quantity(item.value,item.unit),
-        detail:'',meta:item.liveKind?'LIVE':'15 s state'};
+        detail:item.fallback?'Live source delayed · using monitored state':'',
+        meta:item.fallback?'STATE FALLBACK':item.liveKind?'LIVE':''};
     if(item.type==='check'&&/eth|network|interface|traffic/i.test(item.label))
       return {value:knownState(item.state).replace(/^./,s=>s.toUpperCase()),
         detail:'No matching live throughput series',meta:'Health only'};
     return {value:knownState(item.state).replace(/^./,s=>s.toUpperCase()),
-      detail:'',meta:'Health'};
+      detail:'',meta:''};
   }
   function row(site,selection,index,object,custom=false){
     const item=registry.display(site,selection.key,index);
@@ -109,8 +114,15 @@
     const selections=Array.isArray(pref?.items)?pref.items:[];
     if(!selections.length)return '';
     const index=registry.catalog(site).items;
-    if(!custom)return '<div class="mb-card-items mb-card-native" aria-label="Selected monitored readings">'+
-      selections.map(item=>row(site,item,index,object,false)).join('')+'</div>';
+    if(!custom){
+      const showLive=selections.some(s=>registry.parseKey(s.key)?.[2]==='live');
+      const showState=selections.some(s=>registry.parseKey(s.key)?.[2]==='metric');
+      const timing=[showLive?'LIVE: 1 s when producer responds':'',
+        showState?'State: ~15 s':''].filter(Boolean).join(' · ');
+      return '<div class="mb-card-items mb-card-native" aria-label="Selected monitored readings">'+
+        selections.map(item=>row(site,item,index,object,false)).join('')+
+        (timing?'<p class="mb-card-timing">'+text(timing)+'</p>':'')+'</div>';
+    }
     // Preserve user-selected order: only adjacent identical source references
     // share a heading; never reorder the persisted snapshot.
     let previousSource='',html='';
