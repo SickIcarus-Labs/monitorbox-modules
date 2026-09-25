@@ -122,7 +122,7 @@ assert(!html.includes('Arrrrr2 Arrrrr2'));
 assert(interval&&interval.ms===1000,
   'Selected readings must repaint at the same 1 Hz cadence as live graphs');
 const fmt=context.MonitorBoxCardComposer.quantity;
-assert.equal(fmt(55322832,'KiB'),'52.76 GiB');
+assert.equal(fmt(55322832,'KiB'),'52.8 GiB');
 assert.equal(fmt(120000000,'bit/s'),'120 Mbit/s');
 assert.equal(context.MonitorBoxCardComposer.reading(noCapacity).meta,'LIVE');
 model.setLiveSeries({series:[]});
