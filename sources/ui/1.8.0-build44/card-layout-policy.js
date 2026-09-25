@@ -98,7 +98,7 @@
             Object.keys(item).some(k=>!['key','mode'].includes(k))||
             !registry.parseKey(item.key)||seen.has(item.key)||
             !['tile','list','value'].includes(item.mode)||
-            (item.mode==='value'&&registry.parseKey(item.key)[2]!=='metric'))
+            (item.mode==='value'&&!['metric','live'].includes(registry.parseKey(item.key)[2])))
           throw Error('Invalid or duplicate card display item');
         seen.add(item.key);
       }
