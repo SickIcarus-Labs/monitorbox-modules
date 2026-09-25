@@ -171,6 +171,9 @@ assert.match(found.detail,/reported link speed/);
 // Twenty-four independently selected readings must not force empty
 // neighboring host/Internet cards to the height of Arrrrr2.
 const longSite=structuredClone(site);
+// The original fixture includes a standalone UPS, absent from the screenshot's
+// first-row host/host/Internet layout. Test precisely that ordering.
+longSite.objects=longSite.objects.filter(o=>o.id==='a2');
 const extended=longSite.objects.find(o=>o.id==='a2');
 for(let n=1;n<=24;n++)extended.components[0].metrics['diagnostic '+n]=n;
 longSite.objects.push(
