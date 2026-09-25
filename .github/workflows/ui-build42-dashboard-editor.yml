@@ -1,0 +1,49 @@
+name: UI42 dashboard editor corrections
+
+on:
+  push:
+    branches:
+      - feature/91-ui42-dashboard-editor
+    paths:
+      - "sources/ui/1.6.0-build42/**"
+      - "tools/*ui_build42*"
+      - "tools/*ui_build42*"
+      - ".github/workflows/ui-build42-dashboard-editor.yml"
+  pull_request:
+    paths:
+      - "sources/ui/1.6.0-build42/**"
+      - "tools/*ui_build42*"
+      - ".github/workflows/ui-build42-dashboard-editor.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: UI42 inherited-b41 immutable package and JS contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Static scripts, immutable ancestry and reproducible ZIP
+        run: python tools/accept_ui_build42_package.py
+
+  browser:
+    name: UI42 desktop and iPad Cards/Graphs Chromium
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Browser fixture and Chromium dependencies
+        run: |
+          python -m pip install --disable-pip-version-check aiohttp playwright
+          python -m playwright install --with-deps chromium
+      - name: Card-content editor, 30-device advanced chooser, optimistic writes, restoration
+        run: python tools/accept_ui_build42_editor_browser.py
