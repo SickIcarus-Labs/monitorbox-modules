@@ -32,3 +32,8 @@ jobs:
           for asset in sources/ui/1.8.0-build44/*.js; do node --check "$asset"; done
       - name: Exact live-stat source/throughput/inline renderer contract
         run: node tools/accept_ui_build44_live.mjs
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Immutable inheritance, script syntax and deterministic UI44 package
+        run: python tools/accept_ui_build44_package.py
