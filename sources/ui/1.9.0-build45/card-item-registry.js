@@ -189,16 +189,43 @@
     return Number.isFinite(configured)&&configured>0
       ?{bps:configured,basis:'configured'}:null;
   }
+  // Controller state remains authoritative for health and its ~15 s metrics.
+  // If a genuine live producer stops, show a clearly identified state
+  // fallback only when the *same producing check* has a derivable value.
+  // Never convert a cached state number into a fabricated 1 Hz sample.
+  function gaugeFallback(item,series,site){
+    if(series.kind!=='gauge'||series.unit!=='%')return null;
+    const obj=(site?.objects||[]).find(o=>o.id===series.object_id);
+    const component=(obj?.components||[]).find(c=>c.id===series.check_id);
+    if(!component)return null;
+    const id=(String(series.id||'')+' '+String(series.label||'')).toLowerCase();
+    let value=null;
+    if(/\bcpu\b/.test(id)){
+      if(/\bsystem\b/.test(id))value=measured(component,'cpu_system_percent');
+      else if(/\buser\b/.test(id))value=measured(component,'cpu_user_percent');
+      else if(/\bidle\b/.test(id))value=measured(component,'cpu_idle_percent');
+      else value=derived(component,'@derived.cpu_used_percent');
+    }else if(/\bmemor(?:y|y used)\b/.test(id)||/\bram\b/.test(id)){
+      value=derived(component,'@derived.memory_used_percent');
+    }
+    return value===null?null:{...item,available:true,value,unit:'%',
+      state:component.state||obj?.state||'unknown',
+      liveKind:'gauge',fallback:true,freshness:'state',sampledAt:null};
+  }
   function liveReading(item,series,site){
     const points=Array.isArray(series.points)?series.points:[];
     const last=points[points.length-1];
     const age=last?Date.now()-Date.parse(last.timestamp):Infinity;
     // Active graph viewers ordinarily sample each second. If the producer
     // stops, mark the reading unavailable rather than retaining stale green.
-    if(!last||!last.valid||!Number.isFinite(age)||age< -2000||age>6000)
+    if(!last||!last.valid||!Number.isFinite(age)||age< -2000||age>6000){
+      const fallback=gaugeFallback(item,series,site);
+      if(fallback)return fallback;
       return {...item,available:false,state:'unknown',value:null,
-        unavailableReason:age>6000?'Live sample stale':'Waiting for live sample',
-        liveKind:series.kind,maximum:series.maximum};
+        unavailableReason:age>6000?'Live source delayed':'Waiting for live sample',
+        liveKind:series.kind,maximum:series.maximum,
+        sampleAgeSeconds:Number.isFinite(age)?Math.max(0,age/1000):null};
+    }
     const obj=(site?.objects||[]).find(row=>row.id===series.object_id);
     const component=(obj?.components||[]).find(row=>row.id===series.check_id);
     const observedState=component?.state||obj?.state||'unknown';
