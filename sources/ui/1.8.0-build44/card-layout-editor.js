@@ -13,6 +13,30 @@
   let csrf=null,revision=null,contentHash=null,original=null,working=null;
   let publicSites=[],siteId=null,previewEntry=null,pending=false,restored=false;
   let editingContents=null,selectedItems=[],pickerChosen=new Set();
+  const liveViewer='monitorbox-card-editor-'+Math.random().toString(36).slice(2);
+  let liveRequestRunning=false,liveSourceCount=0;
+  async function refreshLiveCatalog(){
+    if(liveRequestRunning||document.hidden||!siteId)return;
+    liveRequestRunning=true;
+    try{
+      const before=registry.catalog(liveSite()).items.size;
+      const payload=await api('/api/v2/live?window=30',{
+        headers:{'X-MonitorBox-Viewer':liveViewer},
+      });
+      registry.setLiveSeries(payload);
+      const after=registry.catalog(liveSite()).items.size;
+      liveSourceCount=(payload.series||[]).filter(row=>row.site_id===siteId).length;
+      if($('liveCatalogStatus'))
+        $('liveCatalogStatus').textContent=liveSourceCount
+          ?liveSourceCount+' live series available · updated every second while viewing'
+          :'Waiting for configured live telemetry. Standard metrics use 15-second status updates.';
+      if($('itemPicker')?.open&&after!==before)showPicker();
+    }catch(error){
+      if($('liveCatalogStatus'))$('liveCatalogStatus').textContent=
+        'Live telemetry unavailable; existing health and 15-second metrics remain selectable.';
+    }finally{liveRequestRunning=false;}
+  }
+  setInterval(()=>{if(!$('editor').hidden)void refreshLiveCatalog();},1000);
 
   function notice(message,error=false){
     const el=$('layoutStatus');
@@ -205,6 +229,7 @@
       $('site').value=siteId;
       $('login').hidden=true;
       notice('');
+      await refreshLiveCatalog();
       render();
     }catch(error){
       // Keep an already loaded editor intact on transient read failure.
@@ -247,15 +272,18 @@
       const name=document.createElement('strong');name.textContent=descriptor.label;
       const info=document.createElement('span');info.className='sub';
       info.textContent=descriptor.sourceLabel+
-        (descriptor.available?'':' · currently unavailable (saved reference retained)');
+        (descriptor.available?'':descriptor.type==='live'
+          ?' · waiting for fresh live sample (reference retained)'
+          :' · currently unavailable (saved reference retained)');
       identity.append(name,info);row.append(identity);
-      const modes=registry.parseKey(item.key)?.[2]==='metric'
-        ?['value','tile','list']:['tile','list'];
+      const type=registry.parseKey(item.key)?.[2];
+      const modes=['metric','live'].includes(type)
+        ?['value','list','tile']:['list','tile'];
       const presentation=document.createElement('select');
       presentation.setAttribute('aria-label','Presentation for '+descriptor.label);
       for(const mode of modes){const option=document.createElement('option');
-        option.value=mode;option.textContent=mode==='value'?'Metric value':
-          mode==='tile'?'Status tile':'Compact list';presentation.append(option);}
+        option.value=mode;option.textContent=mode==='value'?'Live/metric value':
+          mode==='tile'?'Tile':'Compact row';presentation.append(option);}
       presentation.value=item.mode;
       presentation.onchange=()=>{selectedItems[i].mode=presentation.value;};
       row.append(presentation,
@@ -296,7 +324,10 @@
           input.onchange=()=>{if(input.checked)pickerChosen.add(item.key);
             else pickerChosen.delete(item.key);};
           const label=document.createElement('span');
-          label.textContent=item.label+(item.unit?' ('+item.unit+')':'');
+          label.textContent=item.label+(item.type==='live'
+            ?' · LIVE (1 s samples when configured)'
+            :item.type==='metric'?' · state (~15 s)':item.type==='check'?' · health':'')+
+            (item.unit?' ('+item.unit+')':'');
           line.append(input,label);detail.append(line);
         }
         outer.append(detail);
@@ -305,8 +336,9 @@
     }
     $('pickerEmpty').hidden=shown!==0;
   }
-  $('addContentItem').onclick=()=>{
+  $('addContentItem').onclick=async()=>{
     if(editingContents===null||pending)return;
+    await refreshLiveCatalog();
     pickerChosen=new Set(selectedItems.map(item=>item.key));
     $('pickerSearch').value='';showPicker();$('itemPicker').showModal();
   };
@@ -323,7 +355,7 @@
         $('contentError').textContent='Maximum 64 items per card.';
         $('contentError').hidden=false;showSelectedItems();return;}
       const kind=registry.parseKey(key)?.[2];
-      selectedItems.push({key,mode:kind==='metric'?'value':'tile'});
+      selectedItems.push({key,mode:['metric','live'].includes(kind)?'value':'list'});
     }
     $('itemPicker').close();showSelectedItems();
   };
