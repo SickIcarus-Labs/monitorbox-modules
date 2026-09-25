@@ -19,7 +19,8 @@ def main() -> None:
     baseline = json.loads((ROOT / "catalog.source.json").read_text())
     before = copy.deepcopy(baseline["modules"])
     assert len(before) == 69, "UI43 must preserve the 69-entry accepted beta source baseline"
-    assert before[-1] == UI42, "UI42 predecessor must match accepted manifest"
+    predecessor = [i for i, row in enumerate(before) if row == UI42]
+    assert len(predecessor) == 1, "UI42 predecessor must match accepted manifest"
     parent = ROOT / "packages" / UI42["package"]
     assert hashlib.sha256(parent.read_bytes()).hexdigest() == EXPECTED_UI42_SHA256
     with tempfile.TemporaryDirectory() as temporary:
@@ -27,8 +28,9 @@ def main() -> None:
         catalog.write_text(json.dumps(baseline))
         assert candidate.stage(catalog) is True
         result = json.loads(catalog.read_text())
-        assert result["modules"][:-1] == before, "Staging changed a historic release"
-        assert result["modules"][-1] == candidate.ENTRY
+        staged = result["modules"]
+        assert staged[predecessor[0]+1] == candidate.ENTRY
+        assert staged[:predecessor[0]+1] + staged[predecessor[0]+2:] == before, "Staging changed historic releases"
         assert len(result["modules"]) == 70
         assert candidate.stage(catalog) is False, "Staging must be idempotent"
         assert json.loads(catalog.read_text()) == result
