@@ -24,6 +24,7 @@ from monitorbox.v2.config import AgentDefinition, CheckConfig, ObjectConfig, Sit
 from monitorbox.v2.config_platform import ConfigPlatform
 from monitorbox.v2.dashboard_config_api import DashboardConfigApi
 from monitorbox.v2.module_management_runtime import ModuleManagementRuntime
+from monitorbox.v2.module_preferences import replace_preference
 from monitorbox.v2.onboarding_commit import FirstBootAuthorityCommitter
 from monitorbox.v2.onboarding_generator import GeneratedAuthority
 from monitorbox.v2.plugin_api.module_management import ManagedArtifact, VerificationRecord
@@ -388,6 +389,51 @@ def browser_contract(server:PairedServer):
                 "() => window.MonitorBoxCardLayout?.state().loaded===true",timeout=20000
             )
             assert "Battery" in page.locator("#core-grid").inner_text()
+
+            # Real-world upgrade/rollback: UI41's accepted physical snapshots
+            # contain exact v1 card layouts. A UI42 editor can read one
+            # unchanged, migrate only on a deliberate edit, and restore the
+            # original v1 JSON through Core's ordinary retained revisions.
+            legacy={
+                "schema_version":1,
+                "data":{"sites":{"lab":{
+                    "mode":"custom",
+                    "cards":[
+                        {"id":"host:arrrrr2","visible":True},
+                        {"id":"family:network","visible":True},
+                    ],
+                }}},
+            }
+            store=CanonicalConfigStore(server.root)
+            v1=store.commit(replace_preference(store.load().data,UI_ID,legacy)).document
+            page.goto(base+"/settings/cards",wait_until="domcontentloaded")
+            page.locator("#selected .layout-row").first.wait_for(timeout=10000)
+            assert page.locator("#selected .layout-row").count()==2
+            network=page.locator("#selected .layout-row").filter(has_text="Network").first
+            network.get_by_role("button",name="Edit contents").click()
+            page.locator("#contentTitle").fill("Legacy LAN")
+            page.locator("#saveContents").click()
+            page.locator("#validate").click()
+            page.locator("#preview").wait_for(state="visible")
+            page.locator("#apply").click()
+            page.locator("#preview").wait_for(state="hidden")
+            migrated=store.load()
+            migrated_entry=migrated.data["module_preferences"][UI_ID]
+            assert migrated_entry["schema_version"]==2
+            assert migrated_entry["data"]["sites"]["lab"]["cards"][1]["presentation"]=={
+                "schema_version":1,"title":"Legacy LAN",
+            }
+            legacy_name=f"{v1.revision:08d}-{v1.content_hash[:16]}.yaml"
+            legacy_restore=RecoveryManager(server.root).restore_revision(legacy_name)
+            assert legacy_restore.preferences_restored is True
+            assert store.load().data["module_preferences"][UI_ID]==legacy
+            page.goto(base+"/",wait_until="domcontentloaded")
+            page.wait_for_function(
+                "() => window.MonitorBoxCardLayout?.state().loaded===true",timeout=20000
+            )
+            legacy_text=page.locator("#core-grid").inner_text()
+            assert "Arrrrr2" in legacy_text and "Network" in legacy_text,legacy_text
+            assert "Legacy LAN" not in legacy_text and "Battery" not in legacy_text,legacy_text
             assert not errors,errors
             context.close()
             print("UI42 paired real Core/managed loader/iPad Chromium/content+layout snapshots: PASS")
