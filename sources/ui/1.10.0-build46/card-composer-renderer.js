@@ -96,8 +96,10 @@
     const sameSource=object&&!custom&&item.sourceLabel===object.label;
     const drill=item.drilldownObjectId&&
       (site.objects||[]).some(obj=>obj.id===item.drilldownObjectId);
-    const tag=drill?'button':'div';
-    const action=drill?' type="button" data-mb-source-site="'+text(site.id)+
+    // Only custom mixed-source cards retain per-source buttons. Every
+    // ordinary host/family card is one accessible target for its usual drawer.
+    const tag=custom&&drill?'button':'div';
+    const action=custom&&drill?' type="button" data-mb-source-site="'+text(site.id)+
       '" data-mb-source-object="'+text(item.drilldownObjectId)+'"':'';
     return '<'+tag+' class="mb-card-item mb-item-mode-'+mode+' '+kind+
       (available?'':' unavailable')+'" data-mb-composer-site="'+text(site.id)+
@@ -179,8 +181,15 @@
         (body||'<p class="mb-card-item-empty">Add an item in Dashboard → Cards.</p>')+
         '</article>';
     }
-    // One visual card; separate sibling buttons retain exact source drilldowns.
-    return '<div class="mb-card-shell">'+previous(site,object)+body+'</div>';
+    // Reuse the accepted canonical card's content and state, but make its
+    // entire composed surface ONE native button. Its data-object is on the
+    // outer button only, so existing bindCards opens exactly one drawer.
+    const canonical=previous(site,object)
+      .replace(/^<button\\b/,'<div').replace(/<\\/button>$/,'</div>')
+      .replace(/\\sdata-site="[^"]*"/,'').replace(/\\sdata-object="[^"]*"/,'');
+    return '<button type="button" class="mb-card-shell" data-site="'+
+      text(site.id)+'" data-object="'+text(object.id)+'">'+
+      canonical+body+'</button>';
   };
 
   // Row-major admission retains the original first-row intent. Later cards
