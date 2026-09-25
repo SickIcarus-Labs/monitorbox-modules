@@ -152,7 +152,7 @@ def archive():
         verification=VerificationRecord(
             digest_sha256=digest,verified=True,verifier="exact-source-paired-ci",
         ),
-        artifact_filename=ui_builder.RELEASE41.filename,
+        artifact_filename=ui_builder.RELEASE42.filename,
     )
     return payload,artifact,digest
 
@@ -176,7 +176,7 @@ class PairedServer:
             async def boot():
                 runtime=ModuleManagementRuntime.for_root(self.root)
                 installed=runtime.install_verified(self.artifact,self.blob)
-                assert installed.active.manifest.build==41
+                assert installed.active.manifest.build==42
                 app=web.Application()
                 app["monitorbox.public_state_snapshot"] = lambda: {
                     "sites": [self.projection]
@@ -201,7 +201,7 @@ class PairedServer:
                 RecoveryApi(platform).install(app)
                 activation=install_ui(app,source=runtime.installed_source())
                 assert activation.healthy,activation.public()
-                assert (activation.version,activation.build)==("1.5.0",41)
+                assert (activation.version,activation.build)==("1.6.0",42)
                 assert any(
                     route.resource.canonical=="/settings/cards"
                     for route in app.router.routes()
@@ -239,7 +239,7 @@ def browser_contract(server:PairedServer):
     # The real UI42 module must have registered and atomically persisted its
     # first-use default BEFORE HTTP serves even the first homepage request.
     initial=CanonicalConfigStore(server.root).load()
-    automatic={"schema_version":1,"data":{"sites":{"lab":{
+    automatic={"schema_version":2,"data":{"sites":{"lab":{
         "mode":"auto",
         "cards":[{"id":card,"visible":True} for card in (
             "host:arrrrr2","host:goliath","host:router",
