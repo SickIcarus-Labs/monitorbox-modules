@@ -39,10 +39,10 @@
   }
   function numeric(value){return typeof value==='number'&&Number.isFinite(value);}
   function measured(component,key){
-    const name=String(key).replace(/[\\s._-]/g,'').toLowerCase();
+    const normalize=value=>String(value).replace(/[\s._-]/g,'').toLowerCase();
+    const name=normalize(key);
     for(const [raw,value] of Object.entries(component?.metrics||{}))
-      if(String(raw).replace(/[\\s._-]/g,'').toLowerCase()===name&&numeric(value))
-        return value;
+      if(normalize(raw)===name&&numeric(value))return value;
     return null;
   }
   function derived(component,key){
