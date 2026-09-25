@@ -13,7 +13,6 @@ from pathlib import Path
 
 MODULE="com.sickicarus.monitorbox.ui"
 PREDECESSOR=(MODULE,"1.5.0",41)
-FALLBACK=(MODULE,"1.3.1",35)
 RELEASE=(MODULE,"1.6.0",42)
 ENTRY={
   "manifest":{
@@ -49,11 +48,8 @@ def stage(path:Path)->bool:
         if len(matches)!=1 or matches[0]!=ENTRY:raise SystemExit("UI42 catalog conflict")
         return False
     ancestor=[i for i,row in enumerate(entries) if identity(row)==PREDECESSOR]
-    if not ancestor:
-        # The active signed-dev/beta UI41 predecessor is pinned in the b42
-        # release intent. Do not fabricate a second UI41 release here.
-        ancestor=[i for i,row in enumerate(entries) if identity(row)==FALLBACK]
-    if len(ancestor)!=1:raise SystemExit("missing unique UI41 or accepted UI35")
+    if len(ancestor)!=1:
+        raise SystemExit("UI42 requires exactly one signed-beta UI41 predecessor in the cumulative raw catalog; do not publish a partial dev feed")
     entries.insert(ancestor[0]+1,ENTRY)
     path.write_text(json.dumps(document,separators=(",",":"))+"\n",encoding="utf-8")
     print("staged UI 1.6.0 build42 over signed UI41 predecessor")
