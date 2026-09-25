@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>MonitorBox — Dashboard editor · Cards</title>
+  <link rel="stylesheet" href="/static/card-layout.css?v=1.7.0-43">
+  <link rel="stylesheet" href="/static/dashboard-editor-tabs.css?v=1.7.0-43">
+</head>
+<body>
+  <header class="top">
+    <a class="button" href="/">← Dashboard</a>
+    <h1>Dashboard editor</h1>
+    <span class="spacer"></span>
+    <button class="button" id="reload" type="button">Reload</button>
+    <button class="button primary" id="validate" type="button" disabled>Validate changes</button>
+  </header>
+  <nav id="mb-dashboard-editor-tabs" class="dashboard-composer-tabs" aria-label="Dashboard editor sections"><a class="dashboard-composer-tab active" href="/settings/cards" aria-current="page">Cards</a><a class="dashboard-composer-tab" href="/settings/dashboard">Graphs</a></nav>
+  <main class="shell">
+    <section class="card login" id="login">
+      <h2>Configuration administrator</h2>
+      <p class="muted">Authenticate to edit dashboard layout.</p>
+      <label class="field">Password<input id="password" type="password" autocomplete="current-password"></label>
+      <button id="loginButton" class="button primary" type="button">Sign in</button>
+      <div class="status" id="loginStatus" role="status"></div>
+    </section>
+    <div id="editor" hidden>
+      <section class="card">
+        <div class="row">
+          <label class="field">Site<select id="site"></select></label>
+          <span class="spacer"></span>
+          <button id="reset" type="button" class="button">Reset to defaults</button>
+          <button id="add" type="button" class="button">+ Add existing</button>
+          <button id="createCustom" type="button" class="button primary">+ Create custom card</button>
+        </div>
+        <p class="muted">Arrange cards and edit what each card displays. Hiding a member never disables its checks or changes alerts.</p>
+        <p id="layoutStatus" class="status" role="status" hidden></p>
+      </section>
+      <section class="card" aria-labelledby="selected-heading">
+        <div class="row"><h2 id="selected-heading">At a glance</h2>
+          <span class="spacer"></span><span id="count" class="muted"></span></div>
+        <div id="selected" aria-live="polite"></div>
+        <p id="selectedEmpty" class="status" hidden>No cards selected. Choose a suggested card or create a custom card.</p>
+      </section>
+      <section class="card" aria-labelledby="available-heading">
+        <h2 id="available-heading">Suggested cards</h2>
+        <p class="muted">Choose an existing family or intentional host. Individual switches, cameras, UPSes and metrics are available through the same Add item picker in any card.</p>
+        <label class="field">Search suggestions<input id="search" type="search" placeholder="Find a template or host"></label>
+        <div id="available"></div>
+        <p id="availableEmpty" class="muted" hidden>No matching cards are available.</p>
+      </section>
+    </div>
+  </main>
+  <dialog id="preview" aria-labelledby="preview-title">
+    <h2 id="preview-title">Review dashboard changes</h2>
+    <p id="previewSummary" class="status"></p>
+    <pre id="previewChanges"></pre>
+    <div class="row buttons">
+      <button type="button" class="button" id="cancelPreview">Cancel</button>
+      <button type="button" class="button primary" id="apply">Apply</button>
+    </div>
+  </dialog>
+  <dialog id="contents" aria-labelledby="contents-heading">
+    <h2 id="contents-heading">Edit card contents</h2>
+    <p class="muted">Select monitored items from any group. Changing the displayed items never changes underlying checks, health or alerting.</p>
+    <label class="field">Card title<input id="contentTitle" type="text" maxlength="80" autocomplete="off"></label>
+    <label class="advanced-switch"><input id="contentCompact" type="checkbox"> Compact homepage card (hide secondary summary/details)</label>
+    <section id="contentMembersPanel" hidden>
+      <h3>Displayed members</h3>
+      <p class="muted">Unchecking a member hides it from the homepage only; its checks and full card details remain available.</p>
+      <div id="contentMembers" class="members-list"></div>
+    </section>
+    <section aria-labelledby="selected-items-heading">
+      <div class="row"><h3 id="selected-items-heading">Selected display items</h3><span class="spacer"></span>
+        <button id="addContentItem" type="button" class="button primary">+ Add item</button></div>
+      <p class="muted">Use the same grouped picker for existing and custom cards.</p>
+      <div id="contentSelectedItems" aria-live="polite"></div>
+    </section>
+    <p id="contentError" class="status error" role="alert" hidden></p>
+    <div class="row buttons">
+      <button type="button" class="button" id="cancelContents">Cancel</button>
+      <button type="button" class="button primary" id="saveContents">Save to draft</button>
+    </div>
+  </dialog>
+  <dialog id="newCard" aria-labelledby="newCard-heading">
+    <h2 id="newCard-heading">Create a custom card</h2>
+    <p class="muted">Choose a name. Then select any existing monitored sources with Add item.</p>
+    <label class="field">Card name<input id="newCardTitle" type="text" maxlength="80" autocomplete="off" placeholder="Infrastructure"></label>
+    <p id="newCardError" class="status error" role="alert" hidden></p>
+    <div class="row buttons">
+      <button type="button" id="cancelNewCard" class="button">Cancel</button>
+      <button type="button" id="saveNewCard" class="button primary">Create and edit</button>
+    </div>
+  </dialog>
+  <dialog id="itemPicker" aria-labelledby="picker-heading">
+    <h2 id="picker-heading">Add monitored item</h2>
+    <p class="muted">Browse by source or search across hosts, network, power, cameras, Internet and services. Items use live monitoring data.</p>
+    <label class="field">Find source or metric<input id="pickerSearch" type="search" placeholder="CPU, Arrrrr2, UPS, aggregation…"></label>
+    <div id="pickerGroups" class="mb-picker-groups"></div>
+    <p id="pickerEmpty" class="muted" hidden>No available item matches. Only metrics currently projected by monitoring are selectable.</p>
+    <div class="row buttons"><button type="button" id="cancelPicker" class="button">Cancel</button>
+      <button type="button" id="donePicker" class="button primary">Done</button></div>
+  </dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="/static/card-item-registry.js?v=1.7.0-43" defer></script>
+  <script src="/static/card-layout-policy.js?v=1.7.0-43" defer></script>
+  <script src="/static/card-layout-editor.js?v=1.7.0-43" defer></script>
+</body>
+</html>
