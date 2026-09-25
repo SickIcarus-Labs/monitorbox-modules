@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>MonitorBox — Dashboard editor · Cards</title>
+  <link rel="stylesheet" href="/static/card-layout.css?v=1.6.0-42">
+</head>
+<body>
+  <header class="top">
+    <a class="button" href="/">← Dashboard</a>
+    <h1>Dashboard editor</h1>
+    <span class="spacer"></span>
+    <button class="button" id="reload" type="button">Reload</button>
+    <button class="button primary" id="validate" type="button" disabled>Validate changes</button>
+  </header>
+  <main class="shell">
+    <section class="card login" id="login">
+      <h2>Configuration administrator</h2>
+      <p class="muted">Authenticate to edit dashboard layout.</p>
+      <label class="field">Password<input id="password" type="password" autocomplete="current-password"></label>
+      <button id="loginButton" class="button primary" type="button">Sign in</button>
+      <div class="status" id="loginStatus" role="status"></div>
+    </section>
+    <div id="editor" hidden>
+      <section class="card">
+        <div class="row">
+          <label class="field">Site<select id="site"></select></label>
+          <span class="spacer"></span>
+          <button id="reset" type="button" class="button">Reset to defaults</button>
+          <button id="add" type="button" class="button primary">+ Add card</button>
+        </div>
+        <p class="muted">Arrange cards and edit what each card displays. Hiding a member never disables its checks or changes alerts.</p>
+        <p id="layoutStatus" class="status" role="status" hidden></p>
+      </section>
+      <section class="card" aria-labelledby="selected-heading">
+        <div class="row"><h2 id="selected-heading">At a glance</h2>
+          <span class="spacer"></span><span id="count" class="muted"></span></div>
+        <div id="selected" aria-live="polite"></div>
+        <p id="selectedEmpty" class="status" hidden>No cards selected. Add cards from Available.</p>
+      </section>
+      <section class="card" aria-labelledby="available-heading">
+        <h2 id="available-heading">Available cards and hosts</h2>
+        <p class="muted">Suggested cards are families and intentional hosts. Other discovered devices stay grouped unless you explicitly promote one.</p>
+        <label class="field">Search<input id="search" type="search" placeholder="Find an available card"></label>
+        <label class="advanced-switch"><input type="checkbox" id="showDiscovered"> Advanced: promote an individual discovered device</label>
+        <p id="discoveredCount" class="muted" aria-live="polite"></p>
+        <div id="available"></div>
+        <p id="availableEmpty" class="muted" hidden>No matching cards are available.</p>
+      </section>
+    </div>
+  </main>
+  <dialog id="preview" aria-labelledby="preview-title">
+    <h2 id="preview-title">Review dashboard changes</h2>
+    <p id="previewSummary" class="status"></p>
+    <pre id="previewChanges"></pre>
+    <div class="row buttons">
+      <button type="button" class="button" id="cancelPreview">Cancel</button>
+      <button type="button" class="button primary" id="apply">Apply</button>
+    </div>
+  </dialog>
+  <dialog id="contents" aria-labelledby="contents-heading">
+    <h2 id="contents-heading">Edit card contents</h2>
+    <p class="muted">These choices affect presentation only. Monitoring and health remain unchanged.</p>
+    <label class="field">Card title<input id="contentTitle" type="text" maxlength="80" autocomplete="off"></label>
+    <label class="advanced-switch"><input id="contentCompact" type="checkbox"> Compact homepage card (hide secondary summary/details)</label>
+    <section id="contentMembersPanel" hidden>
+      <h3>Displayed members</h3>
+      <p class="muted">Unchecking a member hides it from the homepage only; its checks and full card details remain available.</p>
+      <div id="contentMembers" class="members-list"></div>
+    </section>
+    <p id="contentError" class="status error" role="alert" hidden></p>
+    <div class="row buttons">
+      <button type="button" class="button" id="cancelContents">Cancel</button>
+      <button type="button" class="button primary" id="saveContents">Save to draft</button>
+    </div>
+  </dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="/static/card-layout-policy.js?v=1.6.0-42" defer></script>
+  <script src="/static/card-layout-editor.js?v=1.6.0-42" defer></script>
+</body>
+</html>
