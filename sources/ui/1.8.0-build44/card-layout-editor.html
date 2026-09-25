@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>MonitorBox — Dashboard editor · Cards</title>
-  <link rel="stylesheet" href="/static/card-layout.css?v=1.7.0-43">
-  <link rel="stylesheet" href="/static/dashboard-editor-tabs.css?v=1.7.0-43">
+  <link rel="stylesheet" href="/static/card-layout.css?v=1.8.0-44">
+  <link rel="stylesheet" href="/static/dashboard-editor-tabs.css?v=1.8.0-44">
 </head>
 <body>
   <header class="top">
@@ -73,7 +73,7 @@
     <section aria-labelledby="selected-items-heading">
       <div class="row"><h3 id="selected-items-heading">Selected display items</h3><span class="spacer"></span>
         <button id="addContentItem" type="button" class="button primary">+ Add item</button></div>
-      <p class="muted">Use the same grouped picker for existing and custom cards.</p>
+      <p class="muted">For changing CPU, memory and Ethernet measurements choose a LIVE series. Ordinary check metrics refresh with the controller state (~15 s).</p><p id="liveCatalogStatus" class="muted" role="status">Loading live telemetry…</p>
       <div id="contentSelectedItems" aria-live="polite"></div>
     </section>
     <p id="contentError" class="status error" role="alert" hidden></p>
@@ -94,7 +94,7 @@
   </dialog>
   <dialog id="itemPicker" aria-labelledby="picker-heading">
     <h2 id="picker-heading">Add monitored item</h2>
-    <p class="muted">Browse by source or search across hosts, network, power, cameras, Internet and services. Items use live monitoring data.</p>
+    <p class="muted">Browse by source or search across hosts, network, power, cameras, Internet and services. LIVE readings use the same one-second stream as network graphs; ordinary health checks are not throughput readings.</p>
     <label class="field">Find source or metric<input id="pickerSearch" type="search" placeholder="CPU, Arrrrr2, UPS, aggregation…"></label>
     <div id="pickerGroups" class="mb-picker-groups"></div>
     <p id="pickerEmpty" class="muted" hidden>No available item matches. Only metrics currently projected by monitoring are selectable.</p>
@@ -102,8 +102,8 @@
       <button type="button" id="donePicker" class="button primary">Done</button></div>
   </dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="/static/card-item-registry.js?v=1.7.0-43" defer></script>
-  <script src="/static/card-layout-policy.js?v=1.7.0-43" defer></script>
-  <script src="/static/card-layout-editor.js?v=1.7.0-43" defer></script>
+  <script src="/static/card-item-registry.js?v=1.8.0-44" defer></script>
+  <script src="/static/card-layout-policy.js?v=1.8.0-44" defer></script>
+  <script src="/static/card-layout-editor.js?v=1.8.0-44" defer></script>
 </body>
 </html>
