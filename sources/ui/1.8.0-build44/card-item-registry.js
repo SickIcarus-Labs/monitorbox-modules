@@ -81,9 +81,9 @@
         const units=component.metric_units||component.metadata?.metric_units||{};
         for(const [metric,value] of Object.entries(measurements)){
           if(!token(metric)||!numeric(value))continue;
-          const inferred=/(?:^|[._\\s])percent$/i.test(metric)?'%':
-            /(?:^|[._\\s])kib$/i.test(metric)?'KiB':
-            /(?:^|[._\\s])bytes$/i.test(metric)?'B':null;
+          const inferred=/(?:^|[._\s])percent$/i.test(metric)?'%':
+            /(?:^|[._\s])kib$/i.test(metric)?'KiB':
+            /(?:^|[._\s])bytes$/i.test(metric)?'B':null;
           append('metric',component.id,metric,title(metric),
             typeof units[metric]==='string'?units[metric]:inferred);
         }
