@@ -11,11 +11,11 @@ import json
 from pathlib import Path
 
 from stage_91_ui_build42 import ENTRY as UI42_ENTRY, MODULE, identity
-from stage_94_ui_build47 import ENTRY as UI48_ENTRY
+from stage_94_ui_build47 import ENTRY as UI47_ENTRY
 
 PREDECESSOR=(MODULE,"1.6.0",42)
 RELEASE=(MODULE,"1.12.0",48)
-ENTRY=copy.deepcopy(UI48_ENTRY)
+ENTRY=copy.deepcopy(UI47_ENTRY)
 ENTRY["manifest"]["version"]="1.12.0"
 ENTRY["manifest"]["build"]=48
 ENTRY["manifest"]["entrypoints"]={"webui":"monitorbox_ui_b48:install"}
