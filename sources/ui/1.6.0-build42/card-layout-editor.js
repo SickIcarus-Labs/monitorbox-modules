@@ -87,7 +87,7 @@
       el.className='layout-row'+(available?'':' unavailable');
       const identity=document.createElement('div');identity.className='identity';
       const heading=document.createElement('strong');
-      heading.textContent=available?.label||saved.id;
+      heading.textContent=saved.presentation?.title||available?.label||saved.id;
       const sub=document.createElement('span');sub.className='sub';
       sub.textContent=available
         ?(available.kind==='family'?'Shared monitoring family':
