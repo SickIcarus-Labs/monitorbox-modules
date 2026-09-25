@@ -254,6 +254,23 @@
   document.addEventListener('DOMContentLoaded',()=>refreshLiveRows());
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshLiveRows();});
   setInterval(refreshLiveRows,1000);
+  function visibleLiveDetails(){
+    if(document.hidden||!app.state)return [];
+    const sites=new Map((app.state.sites||[]).map(site=>[
+      site.id,new Set((site.objects||[]).map(obj=>obj.id)),
+    ]));
+    const details=new Set();
+    // The dashboard already renders only selected items. Do not activate
+    // unrelated gauges merely because an operator has opened the homepage.
+    document.querySelectorAll('[data-mb-composer-key]').forEach(node=>{
+      const parts=registry.parseKey(node.getAttribute('data-mb-composer-key'));
+      if(parts?.[0]!=='object'||parts[2]!=='live')return;
+      const site=node.getAttribute('data-mb-composer-site');
+      const object=parts[1];
+      if(sites.get(site)?.has(object))details.add(site+'/'+object);
+    });
+    return [...details].slice(0,32);
+  }
   globalThis.MonitorBoxCardComposer=Object.freeze({refresh:refreshLiveRows,
-    quantity,reading});
+    quantity,reading,visibleLiveDetails});
 })();
