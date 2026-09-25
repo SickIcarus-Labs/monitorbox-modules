@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>MonitorBox — Dashboard editor · Cards</title>
   <link rel="stylesheet" href="/static/card-layout.css?v=1.6.0-42">
+  <link rel="stylesheet" href="/static/dashboard-editor-tabs.css?v=1.6.0-42">
 </head>
 <body>
   <header class="top">
@@ -14,6 +15,7 @@
     <button class="button" id="reload" type="button">Reload</button>
     <button class="button primary" id="validate" type="button" disabled>Validate changes</button>
   </header>
+  <nav class="dashboard-composer-tabs" aria-label="Dashboard editor sections"><a class="dashboard-composer-tab" href="/settings/cards" aria-current="page">Cards</a><a class="dashboard-composer-tab" href="/settings/dashboard">Graphs</a></nav>
   <main class="shell">
     <section class="card login" id="login">
       <h2>Configuration administrator</h2>
