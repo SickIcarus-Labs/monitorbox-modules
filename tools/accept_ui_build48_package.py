@@ -35,7 +35,7 @@ def main():
     assert b"visibleLiveDetails" in renderer
     assert b"setInterval(refreshLiveRows,1000)" in renderer
     live=current[NEW+"assets/live-telemetry.js"]
-    assert b"visibleLiveDetails()" in live
+    assert b"visibleLiveDetails?.()" in live
     assert b"query.append('detail',detail)" in live
     editor=current[NEW+"assets/card-layout-editor.html"]
     assert editor.count(b"v=1.12.0-48")==5
