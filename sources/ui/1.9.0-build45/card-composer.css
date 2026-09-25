@@ -121,3 +121,12 @@ button.mb-card-item:focus-visible{outline:2px solid #7da6ff;outline-offset:-2px}
 }
 @media(max-width:980px){.mb-card-columns{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:650px){.mb-card-columns{grid-template-columns:minmax(0,1fr)}}
+
+/* A shared cadence note replaces 24 identical per-item “15 s state” labels. */
+.mb-card-item-meta:empty{display:none}
+.mb-card-timing{
+  padding:6px 0 1px;margin:0;color:var(--muted);
+  font-size:10px;letter-spacing:.01em;opacity:.8;
+}
+.mb-card-item.unavailable .mb-card-item-detail,
+.mb-card-item .mb-card-item-meta{font-variant-numeric:tabular-nums}
