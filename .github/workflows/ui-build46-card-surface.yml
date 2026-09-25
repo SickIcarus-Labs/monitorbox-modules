@@ -1,0 +1,32 @@
+name: UI46 unified card surface and live cadence regression
+
+on:
+  push:
+    branches: [feature/94-ui46-card-surface]
+    paths:
+      - "sources/ui/1.10.0-build46/**"
+      - "tools/*ui_build46*"
+      - ".github/workflows/ui-build46-card-surface.yml"
+  pull_request:
+    paths:
+      - "sources/ui/1.10.0-build46/**"
+      - "tools/*ui_build46*"
+      - ".github/workflows/ui-build46-card-surface.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source:
+    name: Canonical whole-card interaction and borderless 24-item rows
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: |
+          for file in sources/ui/1.10.0-build46/*.js; do node --check "$file"; done
+      - run: node tools/accept_ui_build46_surface.mjs
