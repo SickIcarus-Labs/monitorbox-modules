@@ -30,3 +30,17 @@ jobs:
       - run: |
           for file in sources/ui/1.10.0-build46/*.js; do node --check "$file"; done
       - run: node tools/accept_ui_build46_surface.mjs
+
+  package:
+    name: Signed-UI45 inheritance and deterministic UI46 candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - run: python tools/accept_ui_build46_package.py
