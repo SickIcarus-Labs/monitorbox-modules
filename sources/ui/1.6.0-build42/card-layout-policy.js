@@ -4,7 +4,7 @@
 // changed by hiding, ordering or promoting a card.
 (()=>{
   const MODULE_ID='com.sickicarus.monitorbox.ui';
-  const SCHEMA=1;
+  const SCHEMA=2; // v1 is readable; first edit migrates to v2.
   const BUILTIN=Object.freeze(['internet','network','cameras','power']);
   const RESERVED=new Set(['monitor','monitorbox']);
   const ID=/^(?:host:[a-z][a-z0-9_-]{0,63}|family:[a-z][a-z0-9_.-]{0,127})$/;
@@ -89,7 +89,7 @@
 
   function validate(entry){
     if(entry==null)return null;
-    if(typeof entry!=='object'||Array.isArray(entry)||entry.schema_version!==SCHEMA||
+    if(typeof entry!=='object'||Array.isArray(entry)||![1,SCHEMA].includes(entry.schema_version)||
       !entry.data||typeof entry.data!=='object'||Array.isArray(entry.data)||
       !entry.data.sites||typeof entry.data.sites!=='object'||Array.isArray(entry.data.sites))
       throw Error('Unsupported dashboard layout schema. Update UI or restore a compatible revision; layout was not reset.');
@@ -103,6 +103,8 @@
           typeof row.visible!=='boolean'||seen.has(row.id))
           throw Error('Invalid or duplicate card for '+siteId);
         seen.add(row.id);
+        if(entry.schema_version===1&&row.presentation!==undefined)
+          throw Error('Card-content preferences require layout schema v2');
         validatePresentation(row.presentation);
       }
     }
