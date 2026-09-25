@@ -170,6 +170,54 @@
     // One visual card; separate sibling buttons retain exact source drilldowns.
     return '<div class="mb-card-shell">'+previous(site,object)+body+'</div>';
   };
+
+  // Row-major admission retains the original first-row intent. Later cards
+  // flow into the shortest independent column so one expanded host never
+  // forces adjacent Network/Cameras/Power panels below all its 24 readings.
+  function columnCount(){
+    if(typeof window==='undefined'||typeof window.matchMedia!=='function')return 3;
+    return window.matchMedia('(max-width:650px)').matches?1:
+      window.matchMedia('(max-width:980px)').matches?2:3;
+  }
+  function cardHeightEstimate(site,object){
+    const family=String(object.family||object.id||'');
+    const base=object.kind==='dashboard_card'
+      ?family==='network'?185:['cameras','power'].includes(family)?135:95
+      :90;
+    const id=object.kind==='ui_custom_card'?String(object.id):
+      object.kind==='dashboard_card'?'family:'+family:'host:'+String(object.id);
+    const pref=layout.displayFor(site,id);
+    const count=Array.isArray(pref?.items)?pref.items.length:0;
+    return base+count*51;
+  }
+  parityCoreMarkup=function composedMasonry(){
+    const sites=app.state?.sites||[],multi=sites.length>1;
+    const columns=columnCount();
+    return sites.map(site=>{
+      const groups=Array.from({length:columns},()=>[]);
+      const heights=Array(columns).fill(0);
+      parityCoreObjects(site).forEach((object,index)=>{
+        const column=index<columns?index:
+          heights.indexOf(Math.min(...heights));
+        groups[column].push(parityCoreCard(site,object));
+        heights[column]+=cardHeightEstimate(site,object)+9;
+      });
+      const heading=multi?'<div class="parity-site-label">'+text(site.label)+'</div>':'';
+      return '<section class="mb-masonry-site" data-mb-site="'+text(site.id)+'">'+
+        heading+'<div class="mb-card-columns" data-mb-columns="'+columns+'">'+
+        groups.map((items,index)=>'<div class="mb-card-column" data-mb-column="'+
+          index+'">'+items.join('')+'</div>').join('')+'</div></section>';
+    }).join('');
+  };
+  if(typeof window!=='undefined'&&typeof window.addEventListener==='function'){
+    let previousColumns=columnCount();
+    window.addEventListener('resize',()=>{
+      const next=columnCount();
+      if(next===previousColumns)return;
+      previousColumns=next;
+      layout.refreshGrid();
+    });
+  }
   document.addEventListener('click',event=>{
     const node=event.target.closest?.('[data-mb-source-object]');
     if(!node)return;
