@@ -344,7 +344,7 @@
       const bytes=new Uint8Array(12);
       if(globalThis.crypto?.getRandomValues)globalThis.crypto.getRandomValues(bytes);
       else for(let i=0;i<bytes.length;i++)bytes[i]=Math.floor(Math.random()*256);
-      id='custom:'+Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
+      id='custom:c'+Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
     }
     while(list.some(row=>row.id===id));
     list.push({id,visible:true,presentation:{schema_version:2,title,items:[]}});
