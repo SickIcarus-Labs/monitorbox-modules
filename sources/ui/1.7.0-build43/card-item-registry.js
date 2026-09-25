@@ -38,7 +38,8 @@
   function catalog(site){
     const sources=[],items=new Map(),seenSources=new Set();
     const objects=Array.isArray(site?.objects)?site.objects:[];
-    const byObject=new Map(objects.filter(o=>o&&token(o.id))
+    const byObject=new Map(objects.filter(o=>o&&token(o.id)&&
+      o.kind!=='appliance'&&o.retired!==true)
       .map(o=>[o.id,o]));
     function insert(item){
       if(items.has(item.key))return;
