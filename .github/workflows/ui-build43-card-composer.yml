@@ -35,3 +35,19 @@ jobs:
         run: node tools/accept_ui_build43_registry.mjs
       - name: Parent integrity, static wiring, schema and deterministic ZIP
         run: python tools/accept_ui_build43_package.py
+
+  browser:
+    name: UI43 desktop and iPad grouped composer
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Browser fixture and Chromium
+        run: |
+          python -m pip install --disable-pip-version-check aiohttp playwright
+          python -m playwright install --with-deps chromium
+      - name: Existing host and custom mixed-source card, snapshots and missing sources
+        run: python tools/accept_ui_build43_editor_browser.py
