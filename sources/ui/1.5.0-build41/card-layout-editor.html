@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>MonitorBox — Dashboard cards</title>
+  <link rel="stylesheet" href="/static/card-layout.css?v=1.5.0-41">
+</head>
+<body>
+  <header class="top">
+    <a class="button" href="/">← Dashboard</a>
+    <a class="button" href="/settings/dashboard">Graphs</a>
+    <h1>Dashboard cards</h1>
+    <span class="spacer"></span>
+    <button class="button" id="reload" type="button">Reload</button>
+    <button class="button primary" id="validate" type="button" disabled>Validate changes</button>
+  </header>
+  <main class="shell">
+    <section class="card login" id="login">
+      <h2>Configuration administrator</h2>
+      <p class="muted">Authenticate to edit dashboard layout.</p>
+      <label class="field">Password<input id="password" type="password" autocomplete="current-password"></label>
+      <button id="loginButton" class="button primary" type="button">Sign in</button>
+      <div class="status" id="loginStatus" role="status"></div>
+    </section>
+    <div id="editor" hidden>
+      <section class="card">
+        <div class="row">
+          <label class="field">Site<select id="site"></select></label>
+          <span class="spacer"></span>
+          <button id="reset" type="button" class="button">Reset to defaults</button>
+          <button id="add" type="button" class="button primary">+ Add card</button>
+        </div>
+        <p class="muted">Uses the same Show, Up, Down and Validate → Preview → Apply model as the graph editor.
+        Hidden cards and discovered devices remain monitored. Only your homepage arrangement changes.</p>
+        <p id="layoutStatus" class="status" role="status" hidden></p>
+      </section>
+      <section class="card" aria-labelledby="selected-heading">
+        <div class="row"><h2 id="selected-heading">At a glance</h2>
+          <span class="spacer"></span><span id="count" class="muted"></span></div>
+        <div id="selected" aria-live="polite"></div>
+        <p id="selectedEmpty" class="status" hidden>No cards selected. Add cards from Available.</p>
+      </section>
+      <section class="card" aria-labelledby="available-heading">
+        <h2 id="available-heading">Available cards and hosts</h2>
+        <p class="muted">Module discoveries stay inside their family. Promote individual monitored hosts
+          or devices only when you want a separate homepage card.</p>
+        <label class="field">Search<input id="search" type="search" placeholder="Search families, hosts and devices"></label>
+        <div id="available"></div>
+        <p id="availableEmpty" class="muted" hidden>No matching cards are available.</p>
+      </section>
+    </div>
+  </main>
+  <dialog id="preview" aria-labelledby="preview-title">
+    <h2 id="preview-title">Review dashboard changes</h2>
+    <p id="previewSummary" class="status"></p>
+    <pre id="previewChanges"></pre>
+    <div class="row buttons">
+      <button type="button" class="button" id="cancelPreview">Cancel</button>
+      <button type="button" class="button primary" id="apply">Apply</button>
+    </div>
+  </dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="/static/card-layout-policy.js?v=1.5.0-41" defer></script>
+  <script src="/static/card-layout-editor.js?v=1.5.0-41" defer></script>
+</body>
+</html>

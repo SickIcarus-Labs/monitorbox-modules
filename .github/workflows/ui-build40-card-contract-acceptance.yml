@@ -1,0 +1,35 @@
+name: UI build40 card contract acceptance
+
+on:
+  pull_request:
+    paths:
+      - "sources/ui/1.4.1-build40/**"
+      - "tools/build_first_party_ui_build40.py"
+      - "tools/stage_p1_85_ui_build40.py"
+      - "tools/accept_ui_build40_card_contract.py"
+      - "tools/accept_ui_build40_card_projection.mjs"
+      - "release-intents/ui-1.4.1-build40.json"
+      - ".github/workflows/ui-build40-card-contract-acceptance.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-contract:
+    name: UI40 guarded package and card semantics
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Assert immutable successor and pre-route guard
+        run: python tools/accept_ui_build40_card_contract.py
+      - name: Check bounded browser script
+        run: node --check sources/ui/1.4.1-build40/card-projection.js
+      - name: Verify provider-blind dashboard semantics
+        run: node tools/accept_ui_build40_card_projection.mjs
