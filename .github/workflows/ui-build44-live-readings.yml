@@ -1,0 +1,34 @@
+name: UI44 live inline dashboard readings
+
+on:
+  push:
+    branches:
+      - feature/94-ui44-live-stat-rows
+    paths:
+      - "sources/ui/1.8.0-build44/**"
+      - "tools/*ui_build44*"
+      - ".github/workflows/ui-build44-live-readings.yml"
+  pull_request:
+    paths:
+      - "sources/ui/1.8.0-build44/**"
+      - "tools/*ui_build44*"
+      - ".github/workflows/ui-build44-live-readings.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Validate all UI44 scripts
+        run: |
+          for asset in sources/ui/1.8.0-build44/*.js; do node --check "$asset"; done
+      - name: Exact live-stat source/throughput/inline renderer contract
+        run: node tools/accept_ui_build44_live.mjs
