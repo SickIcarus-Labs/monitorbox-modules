@@ -212,7 +212,7 @@ async def accept():
                     await page.reload(wait_until="networkidle")
                     await page.locator("#selected .layout-row").first.wait_for()
                     assert "Edge 01" in await page.locator("#selected").inner_text()
-                    await page.locator("#selected").get_by_text("Network",exact=True).first.wait_for()
+                    await page.locator("#selected").get_by_text("My LAN",exact=True).first.wait_for()
                     assert fixture.entry["data"]["sites"]["home"]["cards"]==cards
 
                     await page.request.post(base+"/_fixture/family")
