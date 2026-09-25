@@ -1,0 +1,20 @@
+/* UI43: composed values are separate buttons, not nested in existing card buttons. */
+.mb-card-shell{display:flex;flex-direction:column;min-width:0;border:1px solid rgba(125,166,255,.22);border-radius:14px;overflow:hidden}
+.mb-card-shell>.parity-card{width:100%;border-radius:0;min-height:0}
+.mb-card-items{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,136px),1fr));gap:7px;padding:9px;background:rgba(6,16,29,.55)}
+.mb-card-item{font:inherit;display:flex;flex-direction:column;align-items:flex-start;text-align:left;
+  min-width:0;gap:4px;padding:10px;border-radius:9px;border:1px solid rgba(125,166,255,.21);
+  color:inherit;background:rgba(125,166,255,.07);overflow-wrap:anywhere}
+button.mb-card-item{cursor:pointer;touch-action:manipulation}
+button.mb-card-item:focus-visible{outline:2px solid #7da6ff;outline-offset:2px}
+.mb-card-item-source{font-size:11px;opacity:.7}
+.mb-card-item-label{font-size:12px;opacity:.9}
+.mb-card-item-value{font-size:16px;font-variant-numeric:tabular-nums}
+.mb-card-item.unavailable{border-color:#8c6b32;color:#f2cd8e}
+.mb-card-item.failed .mb-card-item-value{color:#ff979d}
+.mb-card-item.degraded .mb-card-item-value{color:#efbd66}
+.mb-custom-card{display:flex;flex-direction:column;gap:8px;text-align:left;cursor:default}
+.mb-custom-card .parity-card-head{display:flex;justify-content:space-between;gap:7px;align-items:center}
+.mb-card-display-label{font-size:11px;font-weight:500;opacity:.64}
+.mb-card-item-empty{opacity:.7;padding:10px}
+.mb-custom-card .mb-card-items{width:100%;background:transparent;padding:2px}
