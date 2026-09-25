@@ -17,8 +17,10 @@
     if(!Array.isArray(keys)||!keys.length)return '';
     const index=registry.catalog(site).items;
     return '<div class="mb-card-items" aria-label="Selected monitored values">'+
-      keys.map(key=>{
-        const item=registry.display(site,key,index);
+      keys.map(selection=>{
+        const item=registry.display(site,selection.key,index);
+        const mode=selection.mode==='value'&&item.type==='metric'?'value':
+          selection.mode==='list'?'list':'tile';
         const available=item.available;
         const kind=available?state(item.state):'unknown';
         const value=!available?'Unavailable':item.type==='metric'
@@ -32,7 +34,7 @@
           ?' type="button" data-mb-source-site="'+text(site.id)+
             '" data-mb-source-object="'+text(item.drilldownObjectId)+'"'
           :'';
-        return '<'+control+' class="mb-card-item '+kind+
+        return '<'+control+' class="mb-card-item mb-item-mode-'+mode+' '+kind+
           (available?'':' unavailable')+'"'+action+'>'+
           '<span class="mb-card-item-source">'+text(source)+'</span>'+
           '<span class="mb-card-item-label">'+text(item.label)+'</span>'+
