@@ -128,7 +128,35 @@
     return liveSeries.find(row=>row.site_id===site?.id&&
       row.object_id===objectId&&row.check_id===checkId&&row.id===seriesId);
   }
-  function liveReading(item,series){
+  function capacityFor(site,series){
+    const obj=(site?.objects||[]).find(row=>row.id===series.object_id);
+    const component=(obj?.components||[]).find(row=>row.id===series.check_id);
+    const metrics=component?.metrics||{};
+    const metadata=component?.metadata||{};
+    const candidates=[];
+    const fields=[
+      ['link_speed_bps',1],['interface_speed_bps',1],['if_speed_bps',1],
+      ['link_speed_mbps',1000000],['interface_speed_mbps',1000000],
+      ['if_speed_mbps',1000000],
+    ];
+    for(const [name,multiplier] of fields){
+      const raw=metrics[name]??metadata[name];
+      if(numeric(raw)&&raw>0)candidates.push(raw*multiplier);
+    }
+    // A source may expose several interfaces through one check. A generic
+    // speed is not attributable without a unique counter series.
+    const siblingCounters=liveSeries.filter(row=>
+      row.site_id===site?.id&&row.object_id===series.object_id&&
+      row.check_id===series.check_id&&row.kind==='counter_pair');
+    const distinct=[...new Set(candidates)];
+    if(distinct.length===1&&siblingCounters.length===1)
+      return {bps:distinct[0],basis:'link'};
+    // Core's maximum is a graph scale, not proof of negotiated link speed.
+    const configured=Number(series.maximum);
+    return Number.isFinite(configured)&&configured>0
+      ?{bps:configured,basis:'configured'}:null;
+  }
+  function liveReading(item,series,site){
     const points=Array.isArray(series.points)?series.points:[];
     const last=points[points.length-1];
     const age=last?Date.now()-Date.parse(last.timestamp):Infinity;
@@ -138,25 +166,28 @@
       return {...item,available:false,state:'unknown',value:null,
         unavailableReason:age>6000?'Live sample stale':'Waiting for live sample',
         liveKind:series.kind,maximum:series.maximum};
+    const obj=(site?.objects||[]).find(row=>row.id===series.object_id);
+    const component=(obj?.components||[]).find(row=>row.id===series.check_id);
+    const observedState=component?.state||obj?.state||'unknown';
     if(series.kind==='counter_pair'){
       const rx=Number(last.rx),tx=Number(last.tx);
       if(!Number.isFinite(rx)||!Number.isFinite(tx)||rx<0||tx<0)
         return {...item,available:false,state:'unknown',value:null,
           unavailableReason:'Invalid throughput sample'};
-      const maximum=Number(series.maximum);
-      const hasCapacity=Number.isFinite(maximum)&&maximum>0&&series.unit==='bit/s';
-      // An Ethernet link is normally full duplex: use the busiest direction
-      // relative to per-direction line speed, not rx+tx divided by one lane.
-      const utilization=hasCapacity?Math.max(rx,tx)/maximum*100:null;
-      return {...item,available:true,state:'healthy',value:utilization,
-        unit:hasCapacity?'%':series.unit||'bit/s',liveKind:'counter_pair',
-        rx,tx,maximum:hasCapacity?maximum:null,sampledAt:last.timestamp};
+      const capacity=series.unit==='bit/s'?capacityFor(site,series):null;
+      // A full-duplex interface has an independent capacity per direction.
+      // Show the highest directional share, not rx+tx divided by one lane.
+      const utilization=capacity?Math.max(rx,tx)/capacity.bps*100:null;
+      return {...item,available:true,state:observedState,value:utilization,
+        unit:capacity?'%':series.unit||'bit/s',liveKind:'counter_pair',
+        rx,tx,maximum:capacity?.bps||null,basis:capacity?.basis||null,
+        sampledAt:last.timestamp};
     }
     const value=Number(last.value);
     if(!Number.isFinite(value))
       return {...item,available:false,state:'unknown',value:null,
         unavailableReason:'Invalid live sample'};
-    return {...item,available:true,state:'healthy',value,
+    return {...item,available:true,state:observedState,value,
       liveKind:'gauge',unit:series.unit||item.unit||null,
       sampledAt:last.timestamp};
   }
@@ -174,7 +205,7 @@
       const series=matchingLiveFor(site,sourceId,componentId,metricKey);
       if(!series)return {...found,available:false,state:'unknown',value:null,
         unavailableReason:'Live series unavailable'};
-      return liveReading(found,series);
+      return liveReading(found,series,site);
     }
     if(type==='status')
       return {...found,available:true,state:source.state||'unknown',value:null};
@@ -190,7 +221,7 @@
       if(candidates.length===1&&/eth|network|traffic|throughput|interface/i
           .test(String(component.label||component.id))){
         const live=liveReading({...found,type:'live',
-          label:'Ethernet throughput'},candidates[0]);
+          label:'Ethernet throughput'},candidates[0],site);
         return {...live,key:found.key};
       }
       return {...found,available:true,state:component.state||'unknown',value:null};
