@@ -39,7 +39,9 @@ def main() -> None:
     assert b"itemPicker" in files[NEW + "assets/card-layout-editor.html"]
     assert b"pickerChosen" in files[NEW + "assets/card-layout-editor.js"]
     assert b"const SCHEMA=3;" in files[NEW + "assets/card-layout-policy.js"]
-    assert b"snapshot-paired" in files[NEW + "assets/card-layout.js"]
+    # Verify the actual retained-snapshot read path rather than a comment string.
+    assert b"restored_preference_ids" in files[NEW + "assets/card-layout.js"]
+    assert b"row?.presentation||null" in files[NEW + "assets/card-layout.js"]
     app = files[NEW + "__init__.py"].decode()
     ast.parse(app)
     assert 'not in (1, 2, 3)' in app
