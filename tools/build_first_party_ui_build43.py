@@ -31,7 +31,7 @@ SOURCE_BLOBS = {
 
 
 def _git_blob_sha(payload: bytes) -> str:
-    return hashlib.sha1(f"blob {len(payload)}\\0".encode().replace(b"\\0", b"\x00") + payload).hexdigest()
+    return hashlib.sha1(f"blob {len(payload)}\0".encode() + payload).hexdigest()
 
 
 def _replace_once(payload: bytes, old: bytes, new: bytes, label: str) -> bytes:
@@ -67,11 +67,11 @@ def _application(parent: bytes) -> bytes:
     data = data.replace(PARENT_GENERATION.encode(), UI_GENERATION.encode())
     data = data.replace(PARENT_IMPORT_PACKAGE.encode(), TARGET_IMPORT_PACKAGE.encode())
     data = _replace_once(
-        data, b"ASSETS = {\\n",
-        b"ASSETS = {\\n"
-        b'    "card-item-registry.js": "text/javascript",\\n'
-        b'    "card-composer-renderer.js": "text/javascript",\\n'
-        b'    "card-composer.css": "text/css",\\n',
+        data, b"ASSETS = {\n",
+        b"ASSETS = {\n"
+        b'    "card-item-registry.js": "text/javascript",\n'
+        b'    "card-composer-renderer.js": "text/javascript",\n'
+        b'    "card-composer.css": "text/css",\n',
         "new static assets",
     )
     # No silent rewrite of historical schema-v1/v2 automatic snapshots. Newly
