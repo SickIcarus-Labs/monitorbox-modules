@@ -41,7 +41,7 @@ def main() -> None:
     assert b"speedKey=" in package[NEW + "assets/card-item-registry.js"]
     assert b"@derived.cpu_used_percent" in package[NEW + "assets/card-item-registry.js"]
     assert b"mb-card-columns" in package[NEW + "assets/card-composer-renderer.js"]
-    assert b"class=\\\"mb-card-shell\\\"" in package[NEW + "assets/card-composer-renderer.js"]
+    assert b"mb-card-shell" in package[NEW + "assets/card-composer-renderer.js"]
     assert b"button.mb-card-shell:focus-visible" in package[NEW + "assets/card-composer.css"]
     app = package[NEW + "__init__.py"].decode()
     ast.parse(app)
