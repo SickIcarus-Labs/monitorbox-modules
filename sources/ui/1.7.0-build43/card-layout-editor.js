@@ -340,7 +340,12 @@
       $('newCardError').hidden=false;return;}
     const list=changeRows();
     let id;
-    do{id='custom:'+crypto.randomUUID().replace(/-/g,'').slice(0,24);}
+    do{
+      const bytes=new Uint8Array(12);
+      if(globalThis.crypto?.getRandomValues)globalThis.crypto.getRandomValues(bytes);
+      else for(let i=0;i<bytes.length;i++)bytes[i]=Math.floor(Math.random()*256);
+      id='custom:'+Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
+    }
     while(list.some(row=>row.id===id));
     list.push({id,visible:true,presentation:{schema_version:2,title,items:[]}});
     const index=list.length-1;
@@ -382,7 +387,7 @@
     const originalRow=rows()[editingContents];
     if(!originalRow)return;
     const title=$('contentTitle').value.trim();
-    const base=label(originalRow);
+    const base=rowFor(originalRow)?.label||originalRow.presentation?.title||originalRow.id;
     const previous=originalRow.presentation||{};
     const currentlyListed=new Set([...$('contentMembers').querySelectorAll('input[data-member-id]')]
       .map(input=>input.dataset.memberId));
