@@ -130,28 +130,35 @@
   }
   function capacityFor(site,series){
     const obj=(site?.objects||[]).find(row=>row.id===series.object_id);
-    const component=(obj?.components||[]).find(row=>row.id===series.check_id);
-    const metrics=component?.metrics||{};
-    const metadata=component?.metadata||{};
-    const candidates=[];
-    const fields=[
-      ['link_speed_bps',1],['interface_speed_bps',1],['if_speed_bps',1],
-      ['link_speed_mbps',1000000],['interface_speed_mbps',1000000],
-      ['if_speed_mbps',1000000],
-    ];
-    for(const [name,multiplier] of fields){
-      const raw=metrics[name]??metadata[name];
-      if(numeric(raw)&&raw>0)candidates.push(raw*multiplier);
+    const components=Array.isArray(obj?.components)?obj.components:[];
+    const speed=[];
+    const speedKey=/^(?:(.+?)[\\s_.-]+)?(?:link|interface|if)?[\\s_.-]*speed[\\s_.-]*(mbps|bps)$/i;
+    const name=String(series.id||'')+' '+String(series.label||'');
+    const normalizedName=name.toLowerCase().replace(/[^a-z0-9]/g,' ');
+    for(const component of components){
+      for(const metrics of [component.metrics||{},component.metadata||{}]){
+        for(const [key,raw] of Object.entries(metrics)){
+          const match=key.match(speedKey);
+          if(!match||!numeric(raw)||raw<=0)continue;
+          const interfaceName=String(match[1]||'').toLowerCase()
+            .replace(/[^a-z0-9]/g,'');
+          const capacity=raw*(match[2].toLowerCase()==='mbps'?1e6:1);
+          const exactInterface=interfaceName.length>1&&
+            normalizedName.replace(/[^a-z0-9]/g,' ').split(/\\s+/)
+              .includes(interfaceName);
+          speed.push({capacity,exactInterface});
+        }
+      }
     }
-    // A source may expose several interfaces through one check. A generic
-    // speed is not attributable without a unique counter series.
-    const siblingCounters=liveSeries.filter(row=>
-      row.site_id===site?.id&&row.object_id===series.object_id&&
-      row.check_id===series.check_id&&row.kind==='counter_pair');
-    const distinct=[...new Set(candidates)];
-    if(distinct.length===1&&siblingCounters.length===1)
-      return {bps:distinct[0],basis:'link'};
-    // Core's maximum is a graph scale, not proof of negotiated link speed.
+    const counters=liveSeries.filter(row=>row.site_id===site?.id&&
+      row.object_id===series.object_id&&row.kind==='counter_pair');
+    const matched=[...new Set(speed.filter(x=>x.exactInterface).map(x=>x.capacity))];
+    const unique=[...new Set(speed.map(x=>x.capacity))];
+    // Interface-specific speed beats graph maximum; never conflate a 2 Gb/s
+    // display scale with the negotiated 10 Gb/s link seen in public metrics.
+    if(matched.length===1)return {bps:matched[0],basis:'link'};
+    if(matched.length===0&&speed.length===1&&counters.length===1)
+      return {bps:unique[0],basis:'link'};
     const configured=Number(series.maximum);
     return Number.isFinite(configured)&&configured>0
       ?{bps:configured,basis:'configured'}:null;
