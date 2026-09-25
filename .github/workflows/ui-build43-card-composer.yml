@@ -33,6 +33,8 @@ jobs:
           node-version: "22"
       - name: Registry and unavailable-source contracts
         run: node tools/accept_ui_build43_registry.mjs
+      - name: Signed UI42 history and single additive UI43 release staging
+        run: python tools/accept_ui_build43_staging.py
       - name: Parent integrity, static wiring, schema and deterministic ZIP
         run: python tools/accept_ui_build43_package.py
 
