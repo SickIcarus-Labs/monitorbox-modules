@@ -30,7 +30,9 @@ jobs:
         with:
           node-version: "22"
       - name: Exact immutable UI47 density and deterministic UI48 package
-        run: python tools/accept_ui_build48_package.py
+        run: |
+          python tools/accept_ui_build48_package.py
+          python tools/accept_ui_build48_staging.py
 
   browser:
     runs-on: ubuntu-latest
