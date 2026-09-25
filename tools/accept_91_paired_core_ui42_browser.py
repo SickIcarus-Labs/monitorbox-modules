@@ -20,7 +20,7 @@ from aiohttp import web
 from playwright.sync_api import sync_playwright
 
 from monitorbox.v2.canonical_store import CanonicalConfigStore
-from monitorbox.v2.config import AgentDefinition, ObjectConfig, SiteConfig
+from monitorbox.v2.config import AgentDefinition, CheckConfig, ObjectConfig, SiteConfig
 from monitorbox.v2.config_platform import ConfigPlatform
 from monitorbox.v2.dashboard_config_api import DashboardConfigApi
 from monitorbox.v2.module_management_runtime import ModuleManagementRuntime
@@ -38,8 +38,31 @@ sys.path.insert(0,str(MODULES_ROOT/"tools"))
 import build_first_party_ui_build42 as ui_builder  # noqa:E402
 import stage_91_ui_build42 as ui_stage  # noqa:E402
 
-sys.path.insert(0,str(Path(os.environ['MONITORBOX_PAIRED_CORE_ROOT']).resolve()/'tools'/'acceptance'))
-from accept_85_paired_ui40_browser import check,observation  # noqa:E402
+# Self-contained public Core-fixture helpers. Qualification checks out only
+# the exact published Core image source, not an unrelated draft test branch.
+def check(identifier: str, owner: str, adapter: str, *, family: str | None = None,
+          role: str | None = None) -> CheckConfig:
+    options: dict[str, str] = {}
+    if family is not None:
+        options["card_family"] = family
+    if role is not None:
+        options["diagnostic_role"] = role
+    return CheckConfig(
+        id=identifier, object_id=owner, label=identifier, adapter=adapter,
+        interval_seconds=30, timeout_seconds=3, enabled=True, options=options,
+        agent_id="monitor",
+    )
+
+def observation(identifier: str, owner: str, state: str, now: datetime,
+                *, metadata: dict | None = None) -> dict:
+    return {
+        "event_id": "paired-" + identifier, "site_id": "lab", "agent_id": "monitor",
+        "boot_id": "paired-ci", "sequence": 1, "config_generation": "paired-ci",
+        "object_id": owner, "check_id": identifier,
+        "observed_at": now.isoformat(), "received_at": now.isoformat(),
+        "duration_ms": 1, "state": state, "summary": state,
+        "metrics": {}, "metadata": metadata or {},
+    }
 
 UI_ID="com.sickicarus.monitorbox.ui"
 PASSWORD="synthetic-admin-password"
