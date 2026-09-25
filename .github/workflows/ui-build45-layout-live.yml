@@ -47,6 +47,7 @@ jobs:
         with:
           python-version: "3.13"
       - run: python tools/accept_ui_build45_package.py
+      - run: python tools/accept_ui_build45_staging.py
 
   browser:
     name: UI45 24-item iPad/desktop geometry and live-fallback browser
