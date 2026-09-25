@@ -60,8 +60,8 @@
       }
       if(sourceKind==='object')
         append('status','','',result.label+' · status',null);
-      const components=Array.isArray(components)?components:[];
-      for(const component of components){
+      const projectedComponents=Array.isArray(components)?components:[];
+      for(const component of projectedComponents){
         if(!component||!token(component.id))continue;
         const componentLabel=String(component.label||component.id);
         append('check',component.id,'',componentLabel+' · status',null);
