@@ -27,7 +27,7 @@ SOURCE_BLOBS = {
     "card-layout-policy.js": "63c5df54022cf6225e88db214028828bb9da8452",
     "card-layout.js": "205dcb8a3ebb40ca9a605ff90b1d92ffbbb5d5b5",
     "card-layout-editor.html": "1c71602341cbbc05635402ed97d0677d91929baa",
-    "card-layout-editor.js": "b2189dbfd9c432550843a9db52d805c6fb6a68ae",
+    "card-layout-editor.js": "80bc404af3082e7de14be797e81fdf47fcc04aef",
     "card-layout.css": "5de979130259c9b8c781a81b4cedfc17a932ccdd",
     "dashboard-editor-tabs.js": "0a4c5929612077fb488ed6ed98de68feaf23fe51",
     "dashboard-editor-tabs.css": "b67a8b9af08c37c0825db9b110ee9fe1dd3d5a98",
