@@ -24,10 +24,10 @@ RELEASE42 = stable.Release(
     build=UI_BUILD, certified_sha="p1-91-dashboard-card-editor", version=UI_VERSION,
 )
 SOURCE_BLOBS = {
-    "card-layout-policy.js": "63c5df54022cf6225e88db214028828bb9da8452",
+    "card-layout-policy.js": "30789db3c044b099f32028cf6e73516ac303c4d5",
     "card-layout.js": "205dcb8a3ebb40ca9a605ff90b1d92ffbbb5d5b5",
-    "card-layout-editor.html": "1c71602341cbbc05635402ed97d0677d91929baa",
-    "card-layout-editor.js": "80bc404af3082e7de14be797e81fdf47fcc04aef",
+    "card-layout-editor.html": "fcee73dbb60898dd5758d3e17b7319c0bc882083",
+    "card-layout-editor.js": "94a3769b63b257bd6a33d410fab9f409e4624eb2",
     "card-layout.css": "5de979130259c9b8c781a81b4cedfc17a932ccdd",
     "dashboard-editor-tabs.js": "0a4c5929612077fb488ed6ed98de68feaf23fe51",
     "dashboard-editor-tabs.css": "b67a8b9af08c37c0825db9b110ee9fe1dd3d5a98",
@@ -76,6 +76,18 @@ def _application(parent: bytes) -> bytes:
         b'    "dashboard-editor-tabs.css": "text/css",\n',
         "static assets",
     )
+    # UI41 historic v1 remains byte-for-byte; UI42 initializes new automatic
+    # snapshots as v2 and keeps existing v1/v2 auto layouts reconcilable.
+    payload = _replace_once(
+        payload, b'if current.get("schema_version") != 1:',
+        b'if current.get("schema_version") not in (1, 2):',
+        "initialization accepts v1 and v2",
+    )
+    payload = _replace_once(
+        payload, b'return {"schema_version": 1, "data": {"sites": output}}',
+        b'return {"schema_version": current["schema_version"] if current is not None else 2, "data": {"sites": output}}',
+        "new automatic snapshots are v2",
+    )
 
     middleware = rf'''_DASHBOARD_EDITOR_TABS = (
     '<link rel="stylesheet" href="/static/dashboard-editor-tabs.css?v={UI_GENERATION}">'
@@ -87,7 +99,7 @@ def _application(parent: bytes) -> bytes:
 async def dashboard_editor_tabs_middleware(request: web.Request, handler):
     response = await handler(request)
     if (
-        request.path not in ("/settings/dashboard", "/settings/cards")
+        request.path != "/settings/dashboard"
         or not isinstance(response, web.Response)
         or response.content_type != "text/html"
         or not response.body
@@ -143,6 +155,16 @@ def _package_files(root: Path) -> dict[str, bytes]:
         "Dashboard peer classification",
     )
     html = parent["assets/dashboard.html"]
+    html = _replace_once(html, b"Dashboard / Graphs", b"Dashboard", "settings link")
+    html = _replace_once(
+        html, b"</head>",
+        b"<style>.parity-card.mb-card-compact .parity-card-copy,"
+        b".parity-card.mb-card-compact .parity-mini-directory,"
+        b".parity-card.mb-card-compact .parity-camera-directory,"
+        b".parity-card.mb-card-compact .parity-power-list{display:none}</style></head>",
+        "compact homepage presentation",
+    )
+    parent["assets/dashboard.html"] = html
     if html.count(b"card-layout-policy.js") != 1 or html.count(b"card-layout.js") != 1:
         raise SystemExit("UI42 lost inherited composition scripts")
     if b"card-layout-edit" in delta["card-layout.js"]:
