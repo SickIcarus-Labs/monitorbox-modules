@@ -132,7 +132,7 @@
     const obj=(site?.objects||[]).find(row=>row.id===series.object_id);
     const components=Array.isArray(obj?.components)?obj.components:[];
     const speed=[];
-    const speedKey=/^(?:(.+?)[\\s_.-]+)?(?:link|interface|if)?[\\s_.-]*speed[\\s_.-]*(mbps|bps)$/i;
+    const speedKey=/^(?:(.+?)[ _.-]+)?(?:link|interface|if)?[ _.-]*speed[ _.-]*(mbps|bps)$/i;
     const name=String(series.id||'')+' '+String(series.label||'');
     const normalizedName=name.toLowerCase().replace(/[^a-z0-9]/g,' ');
     for(const component of components){
@@ -144,7 +144,7 @@
             .replace(/[^a-z0-9]/g,'');
           const capacity=raw*(match[2].toLowerCase()==='mbps'?1e6:1);
           const exactInterface=interfaceName.length>1&&
-            normalizedName.replace(/[^a-z0-9]/g,' ').split(/\\s+/)
+            normalizedName.replace(/[^a-z0-9]/g,' ').split(/ +/)
               .includes(interfaceName);
           speed.push({capacity,exactInterface});
         }
