@@ -3,7 +3,7 @@
   "signed": {
     "repository_id": "official-dev",
     "display_name": "MonitorBox Official Dev",
-    "generated_at": "2026-09-23T23:48:37.825077Z",
+    "generated_at": "2026-09-25T01:17:25.320574Z",
     "modules": [
       {
         "manifest": {
@@ -168,6 +168,39 @@
           "sha256": "579fa730faf5579a5e9d67554a616f013b818e6f872e648de62553619cce476f",
           "signature_identity": "official-ed25519-1",
           "signature": "WxTld1wgZEp8U1Sqh7LfBQdgBNbOTG4I6v+zthGtX6WMrUICPd0McrpDcny/rb8qctYR0XAoAz7BOuHyRitjDw=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.backup-restore",
+          "display_name": "Backup / Restore",
+          "version": "1.0.5",
+          "build": 6,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "recovery",
+          "entrypoints": {
+            "recovery": "monitorbox_backup_restore_b6:install"
+          },
+          "requires_core": ">=2.6.0 <3.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [
+            "recovery.snapshot",
+            "recovery.inspect",
+            "recovery.schedule",
+            "recovery.destination",
+            "saved-backup-vault"
+          ],
+          "lifecycle_policy": "optional"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.backup-restore-1.0.5-build6.zip",
+          "filename": "com.sickicarus.monitorbox.backup-restore-1.0.5-build6.zip",
+          "sha256": "428ae54efcabf62674987fee83ece8a1c4b576cfcce5bab9d7bfe511e3816c2c",
+          "signature_identity": "official-ed25519-1",
+          "signature": "gtllxbJBZJsKgr8wYviFvO3OR918hbmW5fa3GfRuyz6Niu6sBNzq3ufBRChg0urflzeQiFQievioDybGbHFkCg=="
         }
       },
       {
@@ -1873,13 +1906,13 @@
           "module_id": "com.sickicarus.monitorbox.ui",
           "display_name": "MonitorBox UI",
           "description": "MonitorBox web interface, shared shell and operator presentation.",
-          "version": "1.4.0",
-          "build": 39,
+          "version": "1.5.0",
+          "build": 41,
           "schema": 1,
           "state_schema": 1,
           "module_type": "ui",
           "entrypoints": {
-            "webui": "monitorbox_ui_b39:install"
+            "webui": "monitorbox_ui_b41:install"
           },
           "requires_core": ">=2.6.0 <3.0.0",
           "requires_runtime_api": ">=1 <2",
@@ -1889,11 +1922,11 @@
           "lifecycle_policy": "required"
         },
         "package": {
-          "url": "packages/com.sickicarus.monitorbox.ui-1.4.0-build39.zip",
-          "filename": "com.sickicarus.monitorbox.ui-1.4.0-build39.zip",
-          "sha256": "e47fbf58165c73a2d212f28c26cba2a33fa15c3b3740e569f9e60d930a1cd61e",
+          "url": "packages/com.sickicarus.monitorbox.ui-1.5.0-build41.zip",
+          "filename": "com.sickicarus.monitorbox.ui-1.5.0-build41.zip",
+          "sha256": "35532e91b42bbce71dfaa9a0f123ccc9a8a92826007621650f0d11ff5c82dda1",
           "signature_identity": "official-ed25519-1",
-          "signature": "EcKEbxZny3Rq0kIi0QC0/JOKzZ8mXvNUvduJkj+46TeJWgy3QMdT9eYNA2B7BZjvkDH0yPNeAImmru2hKhlTBQ=="
+          "signature": "zq44He3Y8c5hl3ArLsBMACJLaXzAy/Ys4M1lV0ZDLHJfKtls6Vwarr9l2cMa03DWrOTLUypuL3JlzjVORaNyCw=="
         }
       },
       {
@@ -2140,6 +2173,6 @@
   "signature": {
     "algorithm": "ed25519",
     "identity": "official-ed25519-1",
-    "value": "lQkY7fIhro0yP9BRnD9r/96pLZVe+Bz3z4tDqAgT1oyEPDko4blwrqCfDenxqOHYAD1ZbsPFVgRHlNyQT8sjBg=="
+    "value": "nn9zwkUF730s0NdxJHa+Ts0H9ajOQ3FjVTluD6ORjMiOAW1jaCQgEcF5FovN3Rt7u1/z8J4WiaOdYQ1LFQvxCg=="
   }
 }
