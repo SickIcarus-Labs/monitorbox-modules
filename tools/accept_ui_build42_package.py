@@ -38,6 +38,8 @@ def main() -> None:
     assert b"showDiscovered" in files[NEW+"assets/card-layout-editor.html"]
     assert b"contentMembers" in files[NEW+"assets/card-layout-editor.html"]
     assert b"dashboard-editor-tabs" in files[NEW+"assets/dashboard-editor-tabs.js"]
+    assert b'id="mb-dashboard-editor-tabs"' in files[NEW+"assets/card-layout-editor.html"]
+    assert b"mb-card-compact" in files[NEW+"assets/dashboard.html"]
     assert b"/settings/cards" in files[NEW+"assets/configuration-peer-navigation.js"]
     assert b"Dashboard Cards" not in files[NEW+"assets/dashboard.html"]
 
@@ -45,12 +47,14 @@ def main() -> None:
     ast.parse(app)
     assert '"/settings/cards", dashboard_cards_page' in app
     assert "app.middlewares.append(dashboard_editor_tabs_middleware)" in app
-    assert 'request.path not in ("/settings/dashboard", "/settings/cards")' in app
+    assert 'request.path != "/settings/dashboard"' in app
     assert '"com.sickicarus.monitorbox.ui", _automatic_layout_snapshot' in app
     assert "MODULE_PREFERENCES_INITIALIZATION_CONTRACT_VERSION != 2" in app
-    # UI preference schema v1 extends each saved card with optional versioned
-    # content; every already-written UI41 revision retains its exact identity.
-    assert b"const SCHEMA=1;" in files[NEW+"assets/card-layout-policy.js"]
+    # UI42 writes v2 on explicit edits, reads every historical UI41 v1
+    # revision unchanged; rolling back UI41 fails closed on future v2.
+    assert b"const SCHEMA=2;" in files[NEW+"assets/card-layout-policy.js"]
+    assert b"![1,SCHEMA]" in files[NEW+"assets/card-layout-policy.js"]
+    assert b"if current.get(\\\"schema_version\\\") not in (1, 2)" in files[NEW+"__init__.py"]
     assert b"schema_version:1" in files[NEW+"assets/card-layout-editor.js"]
     assert b"presentation" in files[NEW+"assets/card-layout.js"]
     assert b"baseCoreCard(view,shown)" in files[NEW+"assets/card-layout.js"]
