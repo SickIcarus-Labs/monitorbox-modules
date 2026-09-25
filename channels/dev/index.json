@@ -3,7 +3,7 @@
   "signed": {
     "repository_id": "official-dev",
     "display_name": "MonitorBox Official Dev",
-    "generated_at": "2026-09-25T19:52:09.844661Z",
+    "generated_at": "2026-09-25T22:13:34.781132Z",
     "modules": [
       {
         "manifest": {
@@ -1962,13 +1962,13 @@
           "module_id": "com.sickicarus.monitorbox.ui",
           "display_name": "MonitorBox UI",
           "description": "MonitorBox web interface, shared shell and operator presentation.",
-          "version": "1.8.0",
-          "build": 44,
+          "version": "1.9.0",
+          "build": 45,
           "schema": 1,
           "state_schema": 1,
           "module_type": "ui",
           "entrypoints": {
-            "webui": "monitorbox_ui_b44:install"
+            "webui": "monitorbox_ui_b45:install"
           },
           "requires_core": ">=2.6.0 <3.0.0",
           "requires_runtime_api": ">=1 <2",
@@ -1978,11 +1978,11 @@
           "lifecycle_policy": "required"
         },
         "package": {
-          "url": "packages/com.sickicarus.monitorbox.ui-1.8.0-build44.zip",
-          "filename": "com.sickicarus.monitorbox.ui-1.8.0-build44.zip",
-          "sha256": "5cb851a34585edcec322fdc3051cc47133c557004b2e9a0500e215e1071a2855",
+          "url": "packages/com.sickicarus.monitorbox.ui-1.9.0-build45.zip",
+          "filename": "com.sickicarus.monitorbox.ui-1.9.0-build45.zip",
+          "sha256": "8c15b2a7ec3cf9d290f04ed6aa54fadc2ce84c1b1aa7b1571ff065e55c3821cf",
           "signature_identity": "official-ed25519-1",
-          "signature": "EfEXbxYJ5F64P2AmneFMRPspEgFJCRTWTsGfpUlEjTABPGGfkMEQsN9s6W+O7sdjaaVTRiftVpwBOhnbaVgCAQ=="
+          "signature": "kY/Ep4L4XdYH6TIksPren5u1tx7hxh5wdq4WZuLincfMpLNkaPifB7SVUeZ+WRgE9honMkQ2Ei4SMDxNmfvIDw=="
         }
       },
       {
@@ -2229,6 +2229,6 @@
   "signature": {
     "algorithm": "ed25519",
     "identity": "official-ed25519-1",
-    "value": "ZyQEb+wcpWfCr8Mk6WRH5PchPkf9e6DiScfj4ELSpVuXm++jq7k3TSaDbdzEX+gxblTpzOcsAo9njDQiCoG6Ag=="
+    "value": "FmYu02yhbblR+yUOH6Qaf43noKU6N2rVJJHPZwQTBY7BICj9ON4vzDYsqu20We2QZqxk0jBIRYnwZHwBjTtEAg=="
   }
 }
