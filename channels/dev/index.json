@@ -3,7 +3,7 @@
   "signed": {
     "repository_id": "official-dev",
     "display_name": "MonitorBox Official Dev",
-    "generated_at": "2026-09-25T22:13:34.781132Z",
+    "generated_at": "2026-09-25T22:38:50.460082Z",
     "modules": [
       {
         "manifest": {
@@ -1962,13 +1962,13 @@
           "module_id": "com.sickicarus.monitorbox.ui",
           "display_name": "MonitorBox UI",
           "description": "MonitorBox web interface, shared shell and operator presentation.",
-          "version": "1.9.0",
-          "build": 45,
+          "version": "1.10.0",
+          "build": 46,
           "schema": 1,
           "state_schema": 1,
           "module_type": "ui",
           "entrypoints": {
-            "webui": "monitorbox_ui_b45:install"
+            "webui": "monitorbox_ui_b46:install"
           },
           "requires_core": ">=2.6.0 <3.0.0",
           "requires_runtime_api": ">=1 <2",
@@ -1978,11 +1978,11 @@
           "lifecycle_policy": "required"
         },
         "package": {
-          "url": "packages/com.sickicarus.monitorbox.ui-1.9.0-build45.zip",
-          "filename": "com.sickicarus.monitorbox.ui-1.9.0-build45.zip",
-          "sha256": "8c15b2a7ec3cf9d290f04ed6aa54fadc2ce84c1b1aa7b1571ff065e55c3821cf",
+          "url": "packages/com.sickicarus.monitorbox.ui-1.10.0-build46.zip",
+          "filename": "com.sickicarus.monitorbox.ui-1.10.0-build46.zip",
+          "sha256": "cc38a79c2cc13cb3474c68fc7ec24fe7362c4a000558fbdcdd59be9e5c8a5013",
           "signature_identity": "official-ed25519-1",
-          "signature": "kY/Ep4L4XdYH6TIksPren5u1tx7hxh5wdq4WZuLincfMpLNkaPifB7SVUeZ+WRgE9honMkQ2Ei4SMDxNmfvIDw=="
+          "signature": "Uhzjnow1t0o9BfNh2XGvmPjJgusFnh0BZcOHG0y04764RNrKUazoNski4mNi45VHzYVUaTnM/waHnug+cmWiDw=="
         }
       },
       {
@@ -2229,6 +2229,6 @@
   "signature": {
     "algorithm": "ed25519",
     "identity": "official-ed25519-1",
-    "value": "FmYu02yhbblR+yUOH6Qaf43noKU6N2rVJJHPZwQTBY7BICj9ON4vzDYsqu20We2QZqxk0jBIRYnwZHwBjTtEAg=="
+    "value": "6RQdMblrbVjTlFGGI6iUuUR2+VYoKmxstviDIREPUr5xACQIBIH6mAmhBpW9d/iv3rLUsBmCb3UszrhhkYtDBw=="
   }
 }
