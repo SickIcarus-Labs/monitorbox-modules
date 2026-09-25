@@ -38,8 +38,9 @@
   function labelFor(item){
     let label=String(item.label||'').replace(/[_.-]/g,' ').replace(/\s+/g,' ').trim();
     const source=String(item.sourceLabel||'');
-    if(label.toLowerCase().startsWith(source.toLowerCase()+' · '))
-      label=label.slice(source.length+3);
+    if(label.toLowerCase().startsWith(source.toLowerCase())&&
+        /^[\s·:–-]/.test(label.slice(source.length)))
+      label=label.slice(source.length).replace(/^[\s·:–-]+/,'');
     label=label.replace(/\s*·\s*(live|status)$/i,'').trim();
     const key=String(item.metricKey||'').toLowerCase();
     if(/(?:^|[._ ])cpu[._ ]system[._ ]percent$/.test(key))return 'CPU (system)';
@@ -47,8 +48,10 @@
       return 'CPU';
     if(/memory[._ ]available[._ ]kib$/.test(key))return 'Available memory';
     if(/memory[._ ]used[._ ]percent$/.test(key))return 'Memory used';
-    if(item.liveKind==='counter_pair'||/ethernet throughput/i.test(label))
-      return 'Ethernet throughput';
+    if(item.liveKind==='counter_pair')
+      return /eth|nic|interface|enp|bond/i.test(label)?'Ethernet throughput':
+        label.replace(/\s*·\s*throughput$/i,' throughput');
+    if(/ethernet throughput/i.test(label))return 'Ethernet throughput';
     if(item.type==='check'&&/eth|network|interface|traffic/i.test(label))
       return label.replace(/\s*stats?\b/i,'')+' health';
     return label||'Measurement';
