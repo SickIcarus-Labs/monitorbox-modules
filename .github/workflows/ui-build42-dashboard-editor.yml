@@ -1,0 +1,114 @@
+name: UI42 dashboard editor corrections
+
+on:
+  push:
+    branches:
+      - feature/91-ui42-dashboard-editor
+    paths:
+      - "sources/ui/1.6.0-build42/**"
+      - "tools/*ui_build42*"
+      - "release-intents/ui-1.6.0-build42.json"
+      - ".github/workflows/ui-build42-dashboard-editor.yml"
+  pull_request:
+    paths:
+      - "sources/ui/1.6.0-build42/**"
+      - "tools/*ui_build42*"
+      - "release-intents/ui-1.6.0-build42.json"
+      - ".github/workflows/ui-build42-dashboard-editor.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: UI42 inherited-b41 immutable package and JS contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Static scripts, immutable ancestry and reproducible ZIP
+        run: python tools/accept_ui_build42_package.py
+
+  browser:
+    name: UI42 desktop and iPad Cards/Graphs Chromium
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Browser fixture and Chromium dependencies
+        run: |
+          python -m pip install --disable-pip-version-check aiohttp playwright
+          python -m playwright install --with-deps chromium
+      - name: Card-content editor, 30-device advanced chooser, optimistic writes, restoration
+        run: python tools/accept_ui_build42_editor_browser.py
+
+  cumulative-release:
+    name: Unsigned cumulative UI42 staging against accepted beta source
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - name: Read trusted policy from latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          path: trusted
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check out candidate head
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: candidate
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Reproduce exact signed beta source baseline
+        uses: actions/checkout@v6
+        with:
+          ref: 8b1e0ab86a9fa8157dc83cce23c2986024a2b254
+          path: beta-base
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Verify source ancestry and reproduce additive unsigned candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          baseline=8b1e0ab86a9fa8157dc83cce23c2986024a2b254
+          test "$(git -C beta-base rev-parse HEAD)" = "$baseline"
+          git -C candidate merge-base --is-ancestor "$baseline" HEAD
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=json.loads(Path('beta-base/catalog.source.json').read_text())
+          ids={(x['manifest']['module_id'],x['manifest']['version'],x['manifest']['build']) for x in root['modules']}
+          expected={('com.sickicarus.monitorbox.ui','1.5.0',41),
+                    ('com.sickicarus.monitorbox.backup-restore','1.0.5',6)}
+          assert expected<=ids, "signed beta baseline absent; refuse noncumulative dev release"
+          print('Exact signed-beta 68-entry baseline qualified')
+          PY
+          cd candidate
+          python ../trusted/tools/release_policy.py run-intents --base-ref "$baseline"
+          python ../trusted/tools/release_policy.py validate \
+            --base-catalog ../beta-base/catalog.source.json \
+            --candidate-catalog catalog.source.json \
+            --base-ref "$baseline" \
+            --require-packages
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          rows=json.loads(Path('catalog.source.json').read_text())['modules']
+          assert len(rows)==69, f"Expected 68 signed beta entries plus UI42, got {len(rows)}"
+          ui=[r for r in rows if r['manifest']['module_id']=='com.sickicarus.monitorbox.ui']
+          assert any(r['manifest']['version']=='1.5.0' and r['manifest']['build']==41 for r in ui)
+          assert any(r['manifest']['version']=='1.6.0' and r['manifest']['build']==42 for r in ui)
+          target=Path('packages/com.sickicarus.monitorbox.ui-1.6.0-build42.zip')
+          print('Cumulative unsigned UI42 archive sha256='+hashlib.sha256(target.read_bytes()).hexdigest())
+          PY

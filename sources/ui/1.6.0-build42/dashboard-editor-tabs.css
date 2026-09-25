@@ -1,0 +1,5 @@
+#mb-dashboard-editor-tabs{display:flex;align-items:center;gap:8px;padding:9px 16px;margin:0 auto;max-width:1040px;border-bottom:1px solid #293b55;color:#eaf2ff}
+#mb-dashboard-editor-tabs a{display:inline-flex;align-items:center;min-height:44px;padding:9px 16px;border-radius:10px;border:1px solid #293b55;text-decoration:none;color:inherit;background:#142238;font-weight:650}
+#mb-dashboard-editor-tabs a.active{background:#7da6ff;color:#07111f;border-color:#7da6ff}
+#mb-dashboard-editor-tabs a:focus-visible{outline:2px solid #eaf2ff;outline-offset:2px}
+.parity-card.mb-card-compact .parity-card-copy,.parity-card.mb-card-compact .parity-mini-directory,.parity-card.mb-card-compact .parity-camera-directory,.parity-card.mb-card-compact .parity-power-list{display:none}
