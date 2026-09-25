@@ -33,3 +33,32 @@ jobs:
           for file in sources/ui/1.9.0-build45/*.js; do node --check "$file"; done
       - name: Site-safe live fallback, link speed and masonry regression
         run: node tools/accept_ui_build45_live.mjs
+
+  package:
+    name: Immutable UI44 parent and deterministic UI45 ZIP
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - run: python tools/accept_ui_build45_package.py
+
+  browser:
+    name: UI45 24-item iPad/desktop geometry and live-fallback browser
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Install browser fixture and Chromium
+        run: |
+          python -m pip install --disable-pip-version-check aiohttp playwright
+          python -m playwright install --with-deps chromium
+      - run: python tools/accept_ui_build45_browser.py
