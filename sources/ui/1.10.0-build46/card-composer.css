@@ -130,3 +130,49 @@ button.mb-card-item:focus-visible{outline:2px solid #7da6ff;outline-offset:-2px}
 }
 .mb-card-item.unavailable .mb-card-item-detail,
 .mb-card-item .mb-card-item-meta{font-variant-numeric:tabular-nums}
+
+/* UI46 physical iPad polish: one familiar tappable card, no row separators.
+   Text hierarchy inherits the accepted host/Network/Power typography. */
+button.mb-card-shell{
+  font:inherit;color:var(--text);text-align:left;cursor:pointer;
+  width:100%;touch-action:manipulation;
+  transition:border-color .12s ease,background .12s ease;
+}
+button.mb-card-shell:hover{
+  border-color:rgba(160,190,216,.3);
+  background:rgba(20,39,61,.92);
+}
+button.mb-card-shell:focus-visible{
+  outline:2px solid var(--accent);outline-offset:3px;
+}
+.mb-card-shell>.parity-card{cursor:inherit;pointer-events:none;}
+.mb-card-shell>.parity-card:hover{background:transparent;transform:none;}
+.mb-card-native{font:inherit;color:inherit;padding-top:0;}
+.mb-card-native>.mb-card-item{
+  font:inherit;grid-template-columns:minmax(0,1fr) auto;
+  padding:5px 0;border:0;border-radius:0;margin:0;
+  background:transparent;width:100%;
+}
+.mb-card-native>.mb-card-item:first-child{border:0;}
+.mb-card-native>.mb-item-mode-native-tile{
+  background:transparent;border:0;margin:0;
+  padding:5px 0;width:100%;border-radius:0;
+}
+.mb-card-native>.mb-card-item:hover{background:transparent;}
+.mb-card-native .mb-card-item-label{
+  font-family:inherit;font-size:12px;font-weight:500;
+  line-height:1.35;letter-spacing:normal;color:var(--muted);
+}
+.mb-card-native .mb-card-item-value{
+  font-family:inherit;font-size:12px;font-weight:700;
+  line-height:1.35;letter-spacing:normal;
+  font-variant-numeric:tabular-nums;
+}
+.mb-card-native .mb-card-item-detail{
+  font-family:inherit;font-size:10px;line-height:1.4;
+}
+.mb-card-native .mb-card-item-meta{font-family:inherit;}
+@media(max-width:600px){
+  .mb-card-native .mb-card-item-label,
+  .mb-card-native .mb-card-item-value{font-size:12px}
+}
