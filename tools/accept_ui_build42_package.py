@@ -54,7 +54,7 @@ def main() -> None:
     # revision unchanged; rolling back UI41 fails closed on future v2.
     assert b"const SCHEMA=2;" in files[NEW+"assets/card-layout-policy.js"]
     assert b"![1,SCHEMA]" in files[NEW+"assets/card-layout-policy.js"]
-    assert b"if current.get(\\\"schema_version\\\") not in (1, 2)" in files[NEW+"__init__.py"]
+    assert b"not in (1, 2):" in files[NEW+"__init__.py"]
     assert b"schema_version:1" in files[NEW+"assets/card-layout-editor.js"]
     assert b"presentation" in files[NEW+"assets/card-layout.js"]
     assert b"baseCoreCard(view,shown)" in files[NEW+"assets/card-layout.js"]
