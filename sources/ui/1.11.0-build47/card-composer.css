@@ -176,3 +176,38 @@ button.mb-card-shell:focus-visible{
   .mb-card-native .mb-card-item-label,
   .mb-card-native .mb-card-item-value{font-size:12px}
 }
+
+/* UI47: match the ~20px native Network list rhythm. The earlier four-row
+   explicit grid reserved gaps even when source/detail/meta were hidden.
+   Auto placement creates ONLY the rows actually present for each reading. */
+.mb-card-native>.mb-card-item,
+.mb-card-extended .mb-card-native>.mb-card-item,
+.mb-card-native>.mb-item-mode-native-tile{
+  display:grid;grid-template-columns:minmax(0,1fr) auto;
+  grid-template-areas:none;grid-auto-flow:row;
+  column-gap:9px;row-gap:0;
+  padding:2px 0;margin:0;border:0;border-radius:0;
+  background:transparent;line-height:1.35;align-items:baseline;
+  width:100%;
+}
+.mb-card-native .mb-card-item-source{
+  grid-area:auto;grid-column:1 / -1;
+}
+.mb-card-native .mb-card-item-label{
+  grid-area:auto;grid-column:1;
+}
+.mb-card-native .mb-card-item-value{
+  grid-area:auto;grid-column:2;
+}
+.mb-card-native .mb-card-item-detail,
+.mb-card-native .mb-card-item-meta{
+  grid-area:auto;grid-column:1 / -1;
+}
+.mb-card-native .mb-card-item-detail:not([hidden]),
+.mb-card-native .mb-card-item-meta:not(:empty){
+  margin-top:1px;
+}
+.mb-card-native>.mb-card-item:has(.mb-card-item-detail:not([hidden])),
+.mb-card-native>.mb-card-item:has(.mb-card-item-meta:not(:empty)){
+  padding-bottom:4px;
+}
