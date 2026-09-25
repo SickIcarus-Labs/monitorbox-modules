@@ -1,78 +1,187 @@
 'use strict';
 
-// #94 shared public-state presentation for preset host/family and custom cards.
-// Existing Core state, parent card health and object drill-down are unchanged.
+// UI44: compact inline readings for ordinary cards, grouped rows for custom
+// cards, and the same viewer-aware 1 Hz feed used by the accepted live graphs.
+// Canonical health, object drill-downs and historical configuration are untouched.
 (()=>{
   const registry=globalThis.MonitorBoxCardItems;
   const layout=globalThis.MonitorBoxCardLayout;
   if(!registry||!layout)throw Error('Dashboard composer runtime is missing');
   const previous=parityCoreCard;
   const text=value=>esc(String(value==null?'':value));
-  const state=value=>['healthy','degraded','failed','unknown','paused','disabled']
-    .includes(value)?value:'unknown';
-  const showNumber=value=>Number.isFinite(value)
-    ?new Intl.NumberFormat(undefined,{maximumFractionDigits:2}).format(value):'—';
-  function items(site,preference){
-    const keys=preference?.items;
-    if(!Array.isArray(keys)||!keys.length)return '';
+  const states=['healthy','degraded','failed','unknown','paused','disabled'];
+  const knownState=value=>states.includes(value)?value:'unknown';
+  const number=value=>new Intl.NumberFormat(undefined,{
+    maximumFractionDigits:Math.abs(value)>=10?1:2,
+  }).format(value);
+  function quantity(value,unit){
+    if(!Number.isFinite(value))return '—';
+    const u=String(unit||'').trim();
+    if(u==='%'||u==='percent')return number(value)+'%';
+    if(u==='KiB'||u==='kib')return number(value/(1024*1024))+' GiB';
+    if(u==='MiB')return number(value/1024)+' GiB';
+    if(u==='B'||u==='bytes'){
+      if(Math.abs(value)>=1024**4)return number(value/1024**4)+' TiB';
+      if(Math.abs(value)>=1024**3)return number(value/1024**3)+' GiB';
+      if(Math.abs(value)>=1024**2)return number(value/1024**2)+' MiB';
+      if(Math.abs(value)>=1024)return number(value/1024)+' KiB';
+      return number(value)+' B';
+    }
+    if(u==='bit/s'){
+      const scale=['bit/s','Kbit/s','Mbit/s','Gbit/s','Tbit/s'];
+      let n=value,index=0;
+      while(Math.abs(n)>=1000&&index<scale.length-1){n/=1000;index++;}
+      return number(n)+' '+scale[index];
+    }
+    return number(value)+(u?' '+u:'');
+  }
+  function labelFor(item){
+    let label=String(item.label||'').replace(/[_.-]/g,' ').replace(/\s+/g,' ').trim();
+    const source=String(item.sourceLabel||'');
+    if(label.toLowerCase().startsWith(source.toLowerCase()+' · '))
+      label=label.slice(source.length+3);
+    label=label.replace(/\s*·\s*(live|status)$/i,'').trim();
+    const key=String(item.metricKey||'').toLowerCase();
+    if(/(?:^|[._ ])cpu[._ ]system[._ ]percent$/.test(key))return 'CPU (system)';
+    if(/(?:^|[._ ])cpu[._ ](usage|used|total)[._ ]percent$/.test(key))
+      return 'CPU';
+    if(/memory[._ ]available[._ ]kib$/.test(key))return 'Available memory';
+    if(/memory[._ ]used[._ ]percent$/.test(key))return 'Memory used';
+    if(item.liveKind==='counter_pair'||/ethernet throughput/i.test(label))
+      return 'Ethernet throughput';
+    if(item.type==='check'&&/eth|network|interface|traffic/i.test(label))
+      return label.replace(/\s*stats?\b/i,'')+' health';
+    return label||'Measurement';
+  }
+  function reading(item){
+    if(!item.available){
+      return {value:item.unavailableReason||'Unavailable',detail:'',
+        meta:item.type==='live'?'LIVE · unavailable':'Unavailable'};
+    }
+    if(item.liveKind==='counter_pair'){
+      const traffic='↓ '+quantity(item.rx,'bit/s')+' · ↑ '+quantity(item.tx,'bit/s');
+      if(item.value!==null&&Number.isFinite(item.value)){
+        const basis=item.basis==='link'?'of reported link speed':
+          'of configured graph maximum';
+        return {value:quantity(item.value,'%'),detail:traffic+' · '+basis,meta:'LIVE'};
+      }
+      return {value:traffic,detail:'Link capacity unavailable',meta:'LIVE'};
+    }
+    if(item.type==='metric'||item.liveKind==='gauge')
+      return {value:quantity(item.value,item.unit),
+        detail:'',meta:item.liveKind?'LIVE':'15 s state'};
+    if(item.type==='check'&&/eth|network|interface|traffic/i.test(item.label))
+      return {value:knownState(item.state).replace(/^./,s=>s.toUpperCase()),
+        detail:'No matching live throughput series',meta:'Health only'};
+    return {value:knownState(item.state).replace(/^./,s=>s.toUpperCase()),
+      detail:'',meta:'Health'};
+  }
+  function row(site,selection,index,object,custom=false){
+    const item=registry.display(site,selection.key,index);
+    // Built-in cards use low-profile native rows even for previously saved
+    // tile selections. Custom-card tiles remain a deliberate distinct mode.
+    const selected=selection.mode==='value'?'value':
+      selection.mode==='list'?'list':'tile';
+    const mode=custom?selected:selected==='tile'?'native-tile':selected;
+    const data=reading(item),available=item.available;
+    const kind=available?knownState(item.state):'unknown';
+    const sameSource=object&&!custom&&item.sourceLabel===object.label;
+    const drill=item.drilldownObjectId&&
+      (site.objects||[]).some(obj=>obj.id===item.drilldownObjectId);
+    const tag=drill?'button':'div';
+    const action=drill?' type="button" data-mb-source-site="'+text(site.id)+
+      '" data-mb-source-object="'+text(item.drilldownObjectId)+'"':'';
+    return '<'+tag+' class="mb-card-item mb-item-mode-'+mode+' '+kind+
+      (available?'':' unavailable')+'" data-mb-composer-site="'+text(site.id)+
+      '" data-mb-composer-key="'+text(selection.key)+'"'+action+'>'+
+      (sameSource?'':'<span class="mb-card-item-source">'+text(item.sourceLabel)+'</span>')+
+      '<span class="mb-card-item-label">'+text(labelFor(item))+'</span>'+
+      '<strong class="mb-card-item-value">'+text(data.value)+'</strong>'+
+      '<small class="mb-card-item-detail"'+(data.detail?'':' hidden')+'>'+
+        text(data.detail)+'</small>'+
+      '<small class="mb-card-item-meta">'+text(data.meta)+'</small>'+
+      '</'+tag+'>';
+  }
+  function contents(site,pref,object,custom){
+    const selections=Array.isArray(pref?.items)?pref.items:[];
+    if(!selections.length)return '';
     const index=registry.catalog(site).items;
-    return '<div class="mb-card-items" aria-label="Selected monitored values">'+
-      keys.map(selection=>{
-        const item=registry.display(site,selection.key,index);
-        const mode=selection.mode==='value'&&item.type==='metric'?'value':
-          selection.mode==='list'?'list':'tile';
-        const available=item.available;
-        const kind=available?state(item.state):'unknown';
-        const value=!available?'Unavailable':item.type==='metric'
-          ?showNumber(item.value)+(item.unit?' '+text(item.unit):'')
-          :state(item.state).replace(/^./,s=>s.toUpperCase());
-        const source=String(item.sourceLabel||'');
-        const drilldown=item.drilldownObjectId&&
-          (site.objects||[]).some(obj=>obj.id===item.drilldownObjectId);
-        const control=drilldown?'button':'span';
-        const action=drilldown
-          ?' type="button" data-mb-source-site="'+text(site.id)+
-            '" data-mb-source-object="'+text(item.drilldownObjectId)+'"'
-          :'';
-        return '<'+control+' class="mb-card-item mb-item-mode-'+mode+' '+kind+
-          (available?'':' unavailable')+'"'+action+'>'+
-          '<span class="mb-card-item-source">'+text(source)+'</span>'+
-          '<span class="mb-card-item-label">'+text(item.label)+'</span>'+
-          '<strong class="mb-card-item-value">'+text(value)+'</strong>'+
-          '</'+control+'>';
-      }).join('')+'</div>';
+    if(!custom)return '<div class="mb-card-items mb-card-native" aria-label="Selected monitored readings">'+
+      selections.map(item=>row(site,item,index,object,false)).join('')+'</div>';
+    // Preserve user-selected order: only adjacent identical source references
+    // share a heading; never reorder the persisted snapshot.
+    let previousSource='',html='';
+    const distinct=new Set(selections.map(s=>registry.display(site,s.key,index).sourceLabel));
+    for(const selection of selections){
+      const item=registry.display(site,selection.key,index);
+      const source=String(item.sourceLabel||'Other');
+      if(source!==previousSource&&distinct.size>1)
+        html+='<div class="mb-card-source-heading">'+text(source)+'</div>';
+      previousSource=source;
+      html+=row(site,selection,index,object,true);
+    }
+    return '<div class="mb-card-items mb-custom-readings" aria-label="Selected monitored readings">'+html+'</div>';
+  }
+  function refreshLiveRows(){
+    if(document.hidden||!app.state)return;
+    registry.setLiveSeries(app.liveTelemetry);
+    const sites=new Map((app.state.sites||[]).map(site=>[site.id,site]));
+    const indexes=new Map();
+    document.querySelectorAll('[data-mb-composer-key]').forEach(node=>{
+      const site=sites.get(node.getAttribute('data-mb-composer-site'));
+      if(!site)return;
+      if(!indexes.has(site.id))indexes.set(site.id,registry.catalog(site).items);
+      const item=registry.display(site,node.getAttribute('data-mb-composer-key'),
+        indexes.get(site.id));
+      const data=reading(item);
+      node.classList.remove(...states,'unavailable');
+      node.classList.add(item.available?knownState(item.state):'unknown');
+      if(!item.available)node.classList.add('unavailable');
+      const label=node.querySelector('.mb-card-item-label');
+      if(label)label.textContent=labelFor(item);
+      const value=node.querySelector('.mb-card-item-value');
+      if(value)value.textContent=data.value;
+      const detail=node.querySelector('.mb-card-item-detail');
+      if(detail){detail.textContent=data.detail;detail.hidden=!data.detail;}
+      const meta=node.querySelector('.mb-card-item-meta');
+      if(meta)meta.textContent=data.meta;
+    });
   }
   parityCoreCard=function composedCard(site,object){
+    registry.setLiveSeries(app.liveTelemetry);
     const custom=object.kind==='ui_custom_card';
     const key=custom?String(object.id):object.kind==='dashboard_card'
       ?'family:'+String(object.family||object.id)
       :'host:'+String(object.id);
     const pref=layout.displayFor(site,key);
     if(!custom&&(!pref||!pref.items?.length))return previous(site,object);
+    const body=contents(site,pref,object,custom);
     if(custom){
       const title=text(pref?.title||object.label||'Custom card');
-      const contents=items(site,pref);
-      const description=contents?'':'<p class="mb-card-item-empty">Add a monitored item in Dashboard → Cards.</p>';
-      return '<article class="parity-card mb-custom-card" data-site="'+
-        text(site.id)+'"><span class="parity-card-head"><strong>'+
-        title+'</strong><span class="mb-card-display-label">Display only</span></span>'+
-        (contents||description)+'</article>';
+      return '<article class="parity-card mb-custom-card" data-site="'+text(site.id)+'">'+
+        '<span class="parity-card-head"><strong>'+title+
+        '</strong><span class="mb-card-display-label">Display only</span></span>'+
+        (body||'<p class="mb-card-item-empty">Add an item in Dashboard → Cards.</p>')+
+        '</article>';
     }
-    // Keep the accepted built-in card unchanged and clickable for its normal
-    // Core drawer. Render cross-source items as separate, non-nested buttons.
-    return '<div class="mb-card-shell">'+previous(site,object)+
-      items(site,pref)+'</div>';
+    // One visual card; separate sibling buttons retain exact source drilldowns.
+    return '<div class="mb-card-shell">'+previous(site,object)+body+'</div>';
   };
   document.addEventListener('click',event=>{
     const node=event.target.closest?.('[data-mb-source-object]');
     if(!node)return;
     const siteId=node.getAttribute('data-mb-source-site');
     const objectId=node.getAttribute('data-mb-source-object');
-    if(!siteId||!objectId)return;
-    // Never navigate a fabricated object; a missing source should remain
-    // visible as unavailable until the user repairs the configuration.
-    const current=(app.state?.sites||[]).find(s=>s.id===siteId);
-    if(!current?.objects?.some(o=>o.id===objectId))return;
+    const site=(app.state?.sites||[]).find(s=>s.id===siteId);
+    if(!site?.objects?.some(o=>o.id===objectId))return;
     openDrawer(siteId,objectId);
   });
+  // /api/v2/state refreshes every 15s; /api/v2/live is already polled
+  // each second by the existing graph renderer. Repaint only the readings,
+  // never rebuild the card or initiate another network request.
+  document.addEventListener('DOMContentLoaded',()=>refreshLiveRows());
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshLiveRows();});
+  setInterval(refreshLiveRows,1000);
+  globalThis.MonitorBoxCardComposer=Object.freeze({refresh:refreshLiveRows,
+    quantity,reading});
 })();
