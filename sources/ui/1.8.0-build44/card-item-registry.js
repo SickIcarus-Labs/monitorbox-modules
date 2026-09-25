@@ -13,6 +13,12 @@
     ups:'power',camera:'cameras',service:'services',
   };
   const LABELS=new Map(GROUPS);
+  // Ephemeral Core /api/v2/live output. Do not store samples in card preferences.
+  let liveSeries=[];
+  function setLiveSeries(payload){
+    const rows=Array.isArray(payload)?payload:payload?.series;
+    liveSeries=Array.isArray(rows)?rows.filter(row=>row&&typeof row==='object'):[];
+  }
   const nonEmpty=value=>typeof value==='string'&&value.length>0&&value.length<=160;
   const token=value=>nonEmpty(value)?value:null;
   const makeKey=(sourceKind,sourceId,type,componentId='',metricKey='')=>
@@ -23,7 +29,7 @@
     try{parts=JSON.parse(key);}catch{return null;}
     return Array.isArray(parts)&&parts.length===5&&
       ['object','family'].includes(parts[0])&&token(parts[1])&&
-      ['status','check','metric'].includes(parts[2])&&
+      ['status','check','metric','live'].includes(parts[2])&&
       parts.slice(3).every(v=>typeof v==='string'&&v.length<=160)
       ?parts:null;
   }
@@ -36,6 +42,9 @@
     return KINDS[String(object.kind||'')]||'other';
   }
   function catalog(site){
+    const matchingLive=liveSeries.filter(row=>row.site_id===site?.id&&
+      token(row.object_id)&&token(row.check_id)&&token(row.id)&&
+      ['gauge','counter_pair'].includes(row.kind));
     const sources=[],items=new Map(),seenSources=new Set();
     const objects=Array.isArray(site?.objects)?site.objects:[];
     const byObject=new Map(objects.filter(o=>o&&token(o.id)&&
@@ -72,9 +81,23 @@
         const units=component.metric_units||component.metadata?.metric_units||{};
         for(const [metric,value] of Object.entries(measurements)){
           if(!token(metric)||!numeric(value))continue;
+          const inferred=/(?:^|[._\\s])percent$/i.test(metric)?'%':
+            /(?:^|[._\\s])kib$/i.test(metric)?'KiB':
+            /(?:^|[._\\s])bytes$/i.test(metric)?'B':null;
           append('metric',component.id,metric,title(metric),
-            typeof units[metric]==='string'?units[metric]:null);
+            typeof units[metric]==='string'?units[metric]:inferred);
         }
+      }
+      // The live stream has its own checked, site-scoped source identity.
+      // It exposes actual rates/measurements; a network health check is NOT
+      // a network utilization value.
+      if(sourceKind==='object')for(const series of matchingLive){
+        if(series.object_id!==sourceId)continue;
+        const name=String(series.label||series.id);
+        const display=series.kind==='counter_pair'
+          ?name+' · throughput':name+' · live';
+        append('live',series.check_id,series.id,display,
+          typeof series.unit==='string'?series.unit:null);
       }
       if(result.items.length)sources.push(result);
     }
@@ -101,6 +124,42 @@
     })).filter(g=>g.sources.length);
     return {groups,items};
   }
+  function matchingLiveFor(site,objectId,checkId,seriesId){
+    return liveSeries.find(row=>row.site_id===site?.id&&
+      row.object_id===objectId&&row.check_id===checkId&&row.id===seriesId);
+  }
+  function liveReading(item,series){
+    const points=Array.isArray(series.points)?series.points:[];
+    const last=points[points.length-1];
+    const age=last?Date.now()-Date.parse(last.timestamp):Infinity;
+    // Active graph viewers ordinarily sample each second. If the producer
+    // stops, mark the reading unavailable rather than retaining stale green.
+    if(!last||!last.valid||!Number.isFinite(age)||age< -2000||age>6000)
+      return {...item,available:false,state:'unknown',value:null,
+        unavailableReason:age>6000?'Live sample stale':'Waiting for live sample',
+        liveKind:series.kind,maximum:series.maximum};
+    if(series.kind==='counter_pair'){
+      const rx=Number(last.rx),tx=Number(last.tx);
+      if(!Number.isFinite(rx)||!Number.isFinite(tx)||rx<0||tx<0)
+        return {...item,available:false,state:'unknown',value:null,
+          unavailableReason:'Invalid throughput sample'};
+      const maximum=Number(series.maximum);
+      const hasCapacity=Number.isFinite(maximum)&&maximum>0&&series.unit==='bit/s';
+      // An Ethernet link is normally full duplex: use the busiest direction
+      // relative to per-direction line speed, not rx+tx divided by one lane.
+      const utilization=hasCapacity?Math.max(rx,tx)/maximum*100:null;
+      return {...item,available:true,state:'healthy',value:utilization,
+        unit:hasCapacity?'%':series.unit||'bit/s',liveKind:'counter_pair',
+        rx,tx,maximum:hasCapacity?maximum:null,sampledAt:last.timestamp};
+    }
+    const value=Number(last.value);
+    if(!Number.isFinite(value))
+      return {...item,available:false,state:'unknown',value:null,
+        unavailableReason:'Invalid live sample'};
+    return {...item,available:true,state:'healthy',value,
+      liveKind:'gauge',unit:series.unit||item.unit||null,
+      sampledAt:last.timestamp};
+  }
   function resolve(site,key,index){
     const parts=parseKey(key);
     if(!parts)return null;
@@ -111,12 +170,31 @@
       ?(site?.objects||[]).find(o=>o.id===sourceId)
       :(site?.cards||[]).find(c=>String(c.family||c.id)===sourceId);
     if(!source)return {...found,available:false,state:'unknown',value:null};
+    if(type==='live'){
+      const series=matchingLiveFor(site,sourceId,componentId,metricKey);
+      if(!series)return {...found,available:false,state:'unknown',value:null,
+        unavailableReason:'Live series unavailable'};
+      return liveReading(found,series);
+    }
     if(type==='status')
       return {...found,available:true,state:source.state||'unknown',value:null};
     const component=(source.components||[]).find(c=>c.id===componentId);
     if(!component)return {...found,available:false,state:'unknown',value:null};
-    if(type==='check')
+    if(type==='check'){
+      // Existing UI43 network-status selections acquire genuine throughput
+      // only when their exact producing check advertises ONE counter series.
+      // Never guess an interface when more than one series matches.
+      const candidates=liveSeries.filter(row=>row.site_id===site?.id&&
+        row.object_id===sourceId&&row.check_id===componentId&&
+        row.kind==='counter_pair');
+      if(candidates.length===1&&/eth|network|traffic|throughput|interface/i
+          .test(String(component.label||component.id))){
+        const live=liveReading({...found,type:'live',
+          label:'Ethernet throughput'},candidates[0]);
+        return {...live,key:found.key};
+      }
       return {...found,available:true,state:component.state||'unknown',value:null};
+    }
     const value=component.metrics?.[metricKey];
     return {...found,available:numeric(value),state:component.state||'unknown',
       value:numeric(value)?value:null};
@@ -127,11 +205,15 @@
     const found=resolve(site,key,index);
     if(found)return found;
     const parts=parseKey(key);
-    return {key,type:parts?.[2]||'unknown',sourceLabel:parts?.[1]||'Unavailable source',
+    const object=(site?.objects||[]).find(row=>row.id===parts?.[1]);
+    return {key,type:parts?.[2]||'unknown',
+      sourceLabel:object?.label||parts?.[1]||'Unavailable source',
       label:parts?.[4]||parts?.[3]||'Unavailable item',
-      available:false,state:'unknown',value:null,unit:null,drilldownObjectId:null};
+      available:false,state:'unknown',value:null,unit:null,
+      unavailableReason:parts?.[2]==='live'?'Live series unavailable':'Source unavailable',
+      drilldownObjectId:object?.id||null};
   }
   globalThis.MonitorBoxCardItems=Object.freeze({
-    GROUPS,makeKey,parseKey,catalog,resolve,display,
+    GROUPS,makeKey,parseKey,catalog,resolve,display,setLiveSeries,
   });
 })();
