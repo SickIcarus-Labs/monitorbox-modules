@@ -55,6 +55,8 @@
     const current=working.data.sites[siteId];
     if(!current||current.mode!=='custom')
       working.data.sites[siteId]={mode:'custom',cards:rows().map(row=>({...row}))};
+    // Explicit edits upgrade historical UI41 v1 layouts, never on read.
+    working.schema_version=policy.SCHEMA;
     return working.data.sites[siteId].cards;
   }
   function rowFor(row){
@@ -310,6 +312,7 @@
     $('available').scrollIntoView({behavior:'smooth',block:'start'});
   };
   $('reset').onclick=()=>{
+    working.schema_version=policy.SCHEMA;
     working.data.sites[siteId]={mode:'auto',cards:policy.defaults(liveSite(),liveSite().objects||[])};
     notice('Product defaults staged; Validate changes to preview and apply.');
     render();
