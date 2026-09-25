@@ -1,0 +1,37 @@
+name: UI43 shared dashboard card composer
+
+on:
+  push:
+    branches:
+      - feature/94-ui43-shared-card-composer
+    paths:
+      - "sources/ui/1.7.0-build43/**"
+      - "tools/*ui_build43*"
+      - ".github/workflows/ui-build43-card-composer.yml"
+  pull_request:
+    paths:
+      - "sources/ui/1.7.0-build43/**"
+      - "tools/*ui_build43*"
+      - ".github/workflows/ui-build43-card-composer.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    name: Immutable UI43 package and grouped registry
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Registry and unavailable-source contracts
+        run: node tools/accept_ui_build43_registry.mjs
+      - name: Parent integrity, static wiring, schema and deterministic ZIP
+        run: python tools/accept_ui_build43_package.py
