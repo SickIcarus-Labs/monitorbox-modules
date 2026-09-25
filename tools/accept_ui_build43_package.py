@@ -30,7 +30,7 @@ def main() -> None:
     assert {p.removeprefix(OLD) for p in inherited} | expected_new == {
         p.removeprefix(NEW) for p in files}
     assert files[NEW + "assets/card-projection.js"] == inherited[OLD + "assets/card-projection.js"]
-    assert files[NEW + "assets/graph-layout.js"] == inherited[OLD + "assets/graph-layout.js"]
+    # Graph editor is a Core surface; its contract is tested by paired Core CI.
     html = files[NEW + "assets/dashboard.html"]
     assert html.index(b"card-item-registry.js") < html.index(b"card-layout-policy.js")
     assert html.index(b"card-layout.js") < html.index(b"card-composer-renderer.js")
