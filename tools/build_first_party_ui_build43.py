@@ -21,7 +21,7 @@ RELEASE43 = stable.Release(
 SOURCE_BLOBS = {
     "card-composer-renderer.js": "65e8e8ebed7bf822d901e713ba17d3559a44a3b3",
     "card-composer.css": "3b725b3fd86a72eaefd6b7929a5a6cd8652a6cb5",
-    "card-item-registry.js": "4509eba1b6f91ae7f35b42c426310e32e855d37e",
+    "card-item-registry.js": "4533bfec7ea2db50fce042d853b9a3572b82cf3e",
     "card-layout-editor.html": "e8f922ebee91be7dd203d52bae56a3b6a5337253",
     "card-layout-editor.js": "d76fa5fe2cee705afe49159cc5e3ed9ac14bde93",
     "card-layout-policy.js": "34ece158d4c0bc4bc7f95b055ac19a5418dd1449",
