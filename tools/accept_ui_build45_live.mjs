@@ -163,7 +163,7 @@ screenshot.objects.find(o=>o.id==='a2').components
   .find(c=>c.id==='host-eth').metrics={'enp51s0 speed mbps':10000};
 model.setLiveSeries({series:[net(1.4e9,2.9e8,2e9)]});
 const speed=model.display(screenshot,ethKey);
-assert.equal(speed.value,14);
+assert(Math.abs(speed.value-14)<1e-9,'NIC utilization is 14% of 10 Gb/s');
 assert.equal(speed.basis,'link');
 assert.equal(speed.maximum,1e10);
 const found=context.MonitorBoxCardComposer.reading(speed);
