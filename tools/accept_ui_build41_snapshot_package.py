@@ -90,8 +90,13 @@ def accept() -> None:
         assert len(digest)==64
         catalog=root/"catalog.source.json"
         catalog.write_bytes((ROOT/"catalog.source.json").read_bytes())
+        original=json.loads(catalog.read_bytes())["modules"]
+        previously_signed=sum(stage41.identity(m)==stage41.RELEASE for m in original)
+        assert previously_signed in (0,1)
         assert stage40.stage(catalog) is True
-        assert stage41.stage(catalog) is True
+        # This accepted package test runs on both the original pre-UI41 raw
+        # catalog and the exact cumulative signed-beta source baseline.
+        assert stage41.stage(catalog) is (previously_signed==0)
         snapshot=catalog.read_bytes()
         assert stage41.stage(catalog) is False
         assert catalog.read_bytes()==snapshot
