@@ -88,14 +88,19 @@
     if(value.schema_version===1&&value.items!==undefined)
       throw Error('Selected card items require presentation schema v2');
     if(value.items!==undefined){
-      if(!Array.isArray(value.items)||value.items.length>64)
-        throw Error('Too many selected card items');
+      if(value.schema_version!==2||!Array.isArray(value.items)||
+          value.items.length>64)
+        throw Error('Selected items require schema v2 and at most 64 entries');
       const seen=new Set(),registry=globalThis.MonitorBoxCardItems;
       if(!registry)throw Error('Dashboard source registry is unavailable');
-      for(const key of value.items){
-        if(!registry.parseKey(key)||seen.has(key))
-          throw Error('Invalid or duplicate card item reference');
-        seen.add(key);
+      for(const item of value.items){
+        if(!item||typeof item!=='object'||Array.isArray(item)||
+            Object.keys(item).some(k=>!['key','mode'].includes(k))||
+            !registry.parseKey(item.key)||seen.has(item.key)||
+            !['tile','list','value'].includes(item.mode)||
+            (item.mode==='value'&&registry.parseKey(item.key)[2]!=='metric'))
+          throw Error('Invalid or duplicate card display item');
+        seen.add(item.key);
       }
     }
   }
