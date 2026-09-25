@@ -185,8 +185,8 @@
     // entire composed surface ONE native button. Its data-object is on the
     // outer button only, so existing bindCards opens exactly one drawer.
     const canonical=previous(site,object)
-      .replace(/^<button\\b/,'<div').replace(/<\\/button>$/,'</div>')
-      .replace(/\\sdata-site="[^"]*"/,'').replace(/\\sdata-object="[^"]*"/,'');
+      .replace(/^<button\b/,'<div').replace(/<\/button>$/,'</div>')
+      .replace(/\sdata-site="[^"]*"/,'').replace(/\sdata-object="[^"]*"/,'');
     return '<button type="button" class="mb-card-shell" data-site="'+
       text(site.id)+'" data-object="'+text(object.id)+'">'+
       canonical+body+'</button>';
