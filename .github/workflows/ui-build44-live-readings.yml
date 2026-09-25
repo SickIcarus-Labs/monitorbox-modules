@@ -37,3 +37,19 @@ jobs:
           python-version: "3.13"
       - name: Immutable inheritance, script syntax and deterministic UI44 package
         run: python tools/accept_ui_build44_package.py
+
+  browser:
+    name: UI44 iPad and desktop real-time card presentation
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Browser fixture and Chromium
+        run: |
+          python -m pip install --disable-pip-version-check aiohttp playwright
+          python -m playwright install --with-deps chromium
+      - name: Grouped live picker, exact snapshots and 1 Hz native card repaint
+        run: python tools/accept_ui_build44_browser.py
