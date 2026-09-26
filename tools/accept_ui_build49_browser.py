@@ -63,6 +63,28 @@ async def editor_case(browser, fixture, base, width, height):
     await page.locator("#undoArrange").click()
     assert await page.locator('.mb-arrange-column[data-mb-arrange-column="0"] '
                               '.mb-arrange-card[data-mb-arrange-card="family:power"]').count()==0
+    if width >= 1200:
+        # One direct pointer operation: place Power immediately after Arrrrr2.
+        handle = page.locator('.mb-arrange-card[data-mb-arrange-card="family:power"] .mb-arrange-handle')
+        target = page.locator('.mb-arrange-column[data-mb-arrange-column="0"] '
+                              '.mb-arrange-slot[data-mb-before="host:goliath"]')
+        await handle.scroll_into_view_if_needed()
+        source_box = await handle.bounding_box()
+        dest_box = await target.bounding_box()
+        assert source_box and dest_box
+        await page.mouse.move(source_box["x"]+source_box["width"]/2,
+                              source_box["y"]+source_box["height"]/2)
+        await page.mouse.down()
+        await page.mouse.move(dest_box["x"]+dest_box["width"]/2,
+                              dest_box["y"]+dest_box["height"]/2,steps=8)
+        await page.mouse.up()
+        placed = await page.locator('.mb-arrange-column[data-mb-arrange-column="0"] '
+              '.mb-arrange-card').evaluate_all(
+                  "(nodes)=>nodes.map(node=>node.dataset.mbArrangeCard)")
+        assert placed.index("family:power")==placed.index("host:arrrrr2")+1,placed
+        await page.locator("#undoArrange").click()
+        assert await page.locator('.mb-arrange-column[data-mb-arrange-column="0"] '
+             '.mb-arrange-card[data-mb-arrange-card="family:power"]').count()==0
     await page.get_by_label("Move Power to column").select_option("0")
     await page.locator("#doneArrange").click()
     await page.locator("#validate").click()
