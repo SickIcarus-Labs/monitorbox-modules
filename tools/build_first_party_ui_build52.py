@@ -31,6 +31,7 @@ SOURCE_BLOBS={
   "card-layout.css":"8d8f71c29d3cfe179e93e73a0d34d0d244fd7a34",
   "card-layout.js":"f293ba09d65aed74160d59d04a0cdcc21302cc9c",
   "live-telemetry.js":"24d723db90cf6dddc8aa4ea241a11ae465e64c4e",
+  "bootstrap.py":"b9ab6ff3885f18a1cd8ac66bbe8006f3192b2b96",
 }
 def git_sha(data:bytes)->str:
   return hashlib.sha1(f"blob {len(data)}\0".encode()+data).hexdigest()
@@ -60,7 +61,20 @@ def _package_files(root:Path)->dict[str,bytes]:
   for name,value in list(parent.items()):
     parent[name]=value.replace(PARENT_GENERATION.encode(),UI_GENERATION.encode()).replace(
       PARENT_IMPORT_PACKAGE.encode(),TARGET_IMPORT_PACKAGE.encode())
-  for name,value in _sources(root).items():
+  sources=_sources(root)
+  bootstrap=sources.pop("bootstrap.py")
+  # Eliminate UI41's shadow schema-v1 writer from the *new* UI52 module.
+  # The module-owned v5 writer receives Core's same revisioned pre-serve
+  # preference lifecycle and is differential-tested against the JS generator.
+  start=parent["__init__.py"].find(b"def _automatic_layout_snapshot(app, document, current):")
+  end=parent["__init__.py"].find(b"def _require_opaque_preference_contract():",start)
+  if start<0 or end<=start:
+    raise SystemExit("UI52 initial preference writer seam changed")
+  parent["__init__.py"]=(parent["__init__.py"][:start]+
+    b"from .bootstrap import automatic_layout_snapshot as _automatic_layout_snapshot\n\n"+
+    parent["__init__.py"][end:])
+  parent["bootstrap.py"]=bootstrap
+  for name,value in sources.items():
     parent["assets/"+name]=value
   html=parent["assets/dashboard.html"]
   needle=b'<script src="/static/card-layout-policy.js?v='+UI_GENERATION.encode()+b'" defer></script>'

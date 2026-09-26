@@ -10,7 +10,7 @@ ROOT=Path(__file__).resolve().parent.parent
 SIGNED51="5de2e866b5d39186036bed1979a296542673a77a2cad2ac5aa01a0b0a2622379"
 def main():
   sources=candidate._sources(ROOT)
-  assert len(sources)==10
+  assert len(sources)==11
   for name in sources:
     if name.endswith(".js"):
       subprocess.run(["node","--check",
@@ -31,13 +31,17 @@ def main():
   assert assets["assets/card-projection.js"]==old[
     previous.TARGET_IMPORT_PACKAGE+"/assets/card-projection.js"]
   ast.parse(assets["__init__.py"].decode())
+  ast.parse(assets["bootstrap.py"].decode())
+  assert b"from .bootstrap import automatic_layout_snapshot" in assets["__init__.py"]
+  assert b"def _automatic_layout_snapshot(app, document, current):" not in assets["__init__.py"]
+  assert b"schema_version" in assets["bootstrap.py"]
+  assert b"schema_version\":5" in assets["bootstrap.py"]
   with tempfile.TemporaryDirectory(prefix="ui52-wip-") as raw:
     a=candidate.build(ROOT,Path(raw)/"a").read_bytes()
     b=candidate.build(ROOT,Path(raw)/"b").read_bytes()
     assert a==b
     print("UI52 WIP package deterministic; signed UI51 unchanged, v5 standalone rendering and #103 retained. SHA256 "+hashlib.sha256(a).hexdigest())
-  # Mandatory outstanding first-boot test: the inherited Python initializer
-  # must be replaced before publishing the package to official-dev. This gate
-  # intentionally does not claim new-install readiness from browser tests.
-  print("PENDING RELEASE BLOCKER: UI52 first-ready Python initialization / wizard parity")
+  # Python/JS differential parity is tested in accept_ui_build52_generator.mjs.
+  # First-start live readiness still needs actual Core startup qualification.
+  print("PENDING RELEASE BLOCKER: Core bootstrap first-ready LIVE lifecycle / wizard parity")
 if __name__=="__main__":main()

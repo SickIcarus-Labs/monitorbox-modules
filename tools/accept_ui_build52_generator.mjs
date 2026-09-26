@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import {spawnSync} from 'node:child_process';
 const asset=name=>fs.readFileSync(
   new URL('../sources/ui/1.16.0-build52/'+name,import.meta.url),'utf8');
 for(const path of ['card-item-registry.js','card-generation.js','card-layout-policy.js'])
@@ -81,11 +82,49 @@ assert.equal(gp.presentation.items.length,3);
 assert.deepEqual(gp.presentation.items.map(x=>JSON.parse(x.key)[2]),
   ['live','live','metric']);
 assert.equal(JSON.parse(gp.presentation.items[2].key)[4],'pool_free_bytes');
+
+// The Python Core startup initializer and JS reset must serialize exactly
+// the same normalized cards for identical *current* site and live metadata.
+const bootstrapPython=String.raw`import sys,json,importlib.util
+from pathlib import Path
+payload=json.load(sys.stdin)
+file=Path("sources/ui/1.16.0-build52/bootstrap.py")
+spec=importlib.util.spec_from_file_location("ui52_bootstrap",file)
+module=importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+site=payload["site"]
+live=payload["live"]
+app={"monitorbox.public_state_snapshot":lambda:{"sites":[site]},
+     "monitorbox.ui_live_series_snapshot":lambda:live}
+document={"sites":[{"id":site["id"]}]}
+rows=module.generate(site,live)
+entry=module.automatic_layout_snapshot(app,document,None)
+old={"schema_version":4,"data":{"sites":{"lab":{
+    "mode":"custom","cards":[{"id":"host:a2","visible":True}]}}}}
+assert module.automatic_layout_snapshot(app,document,old) is old
+print(json.dumps({"rows":rows,"initial":entry},separators=(",",":")))
+`;
+function comparePython(site,liveRows,jsCards,label){
+  const run=spawnSync('python',['-c',bootstrapPython],{
+    input:JSON.stringify({site,live:liveRows}),encoding:'utf8'
+  });
+  assert.equal(run.status,0,label+' Python startup error:\n'+run.stderr);
+  const result=JSON.parse(run.stdout);
+  assert.deepEqual(result.rows,JSON.parse(JSON.stringify(jsCards)),
+    label+' JS/Python first-bootstrap versus Reset differ');
+  assert.deepEqual(result.initial,{
+    schema_version:5,data:{sites:{[site.id]:{
+      mode:'auto',cards:JSON.parse(JSON.stringify(jsCards))
+    }}}
+  },label+' Core startup preference schema mismatch');
+}
+comparePython(site,live,fresh,'LIVE available at first readiness');
 // Mutating the old v1 featured flags may NEVER change a generated card.
 for(const o of network)o.components[0].metadata={front_page:false};
 network[0].front_page=false;
 remote.front_page=false;
 const cleanReset=policy.defaults(site,site.objects);
+comparePython(site,live,cleanReset,'v1 presentation hints changed');
 assert.deepEqual(JSON.parse(JSON.stringify(cleanReset)),saved);
 const freshEntry={schema_version:5,data:{sites:{lab:{
   mode:'auto',cards:JSON.parse(JSON.stringify(fresh))}}}};
@@ -103,4 +142,7 @@ const legacy={schema_version:4,data:{sites:{lab:{mode:'auto',cards:[
 ]}}}};
 policy.validate(legacy);
 assert.equal(policy.siteRows(legacy,site,site.objects)[0].presentation.schema_version,2);
+registry.setLiveSeries({series:[]});
+comparePython(site,[],policy.defaults(site,site.objects),
+  'startup before ephemeral LIVE metadata is advertised');
 console.log('UI52 clean generation: 12 local Network, 2 UPS, 8 cameras, WAN LIVE, 2 hosts LIVE, third-party family, v4 exact recovery and v5 reset parity PASS');
