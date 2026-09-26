@@ -244,9 +244,15 @@ async def case(browser,fixture,base,width,height):
                 "key":'["object","arrrrr2","metric","cpu","stress_'+
                       str(i).zfill(2)+'"]',
                 "mode":"value"} for i in range(24)]}
+        # Exercise the actual composer: thirteen discoverable network
+        # devices, but just six deliberately selected display references.
+        # Synthetic family projection alone has no native member directory.
         next(row for row in definitions if row["id"]=="family:network")[
-            "presentation"]={"schema_version":1,
-                "hidden_member_ids":["edge"+str(i) for i in range(6,13)]}
+            "presentation"]={"schema_version":2,
+                "hidden_member_ids":["edge"+str(i) for i in range(6,13)],
+                "items":[{
+                    "key":'["object","edge'+str(i)+'","status","",""]',
+                    "mode":"list"} for i in range(6)]}
         fixture.entry=stress;fixture.revision=15;fixture.hash="fixture-hash-15"
         await page.reload()
         await page.locator("#selected .layout-row").first.wait_for()
@@ -263,28 +269,19 @@ async def case(browser,fixture,base,width,height):
             '[data-object="arrrrr2"] .mb-card-item').count()==24
         network_in_preview=detailed.locator(
             '.mb-arrange-frame-card[data-mb-arrange-card="family:network"] '
-            '.parity-mini-directory > small')
+            '.mb-card-item')
         network_on_home=home.locator(
-            '[data-object="network"] .parity-mini-directory > small')
+            '[data-object="network"] .mb-card-item')
         preview_count=await network_in_preview.count()
         homepage_count=await network_on_home.count()
-        assert preview_count==6 and homepage_count==6, (
-            "Network family visibility mismatch",
+        assert preview_count==6 and homepage_count==6,(
+            "Network family six-selected-of-thirteen mismatch",
             preview_count,homepage_count,
             await detailed.locator(
-              '.mb-arrange-frame-card[data-mb-arrange-card="family:network"]'
-            ).inner_html(),
-            await home.locator('[data-object="network"]').inner_html(),
-            await detailed.locator('body').evaluate(
-              "(el)=>({loaded:MonitorBoxCardLayout.state().loaded,"
-              "blocked:MonitorBoxCardLayout.state().blocked,"
-              "layout:MonitorBoxCardLayout.state().entry,"
-              "preview:MonitorBoxCardLayout.state().preview})")
-        )
-        assert await detailed.locator(
-            '.mb-arrange-frame-card[data-mb-arrange-card="family:network"] '
-            '.parity-mini-directory').inner_text()==await home.locator(
-            '[data-object="network"] .parity-mini-directory').inner_text()
+                '.mb-arrange-frame-card[data-mb-arrange-card="family:network"]'
+            ).inner_text(),
+            await home.locator('[data-object="network"]').inner_text())
+        assert await network_in_preview.all_inner_texts()==await network_on_home.all_inner_texts()
         await page.locator("#cancelArrange").click()
         assert fixture.entry==stress,"Cancel must never rewrite saved snapshot"
     # Restrict page errors to the checked card/renderer pathways in synthetic
