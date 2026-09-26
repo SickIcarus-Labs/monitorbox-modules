@@ -160,6 +160,32 @@ async def case(browser,fixture,base,width,height):
     preview=await cards_from(frame,".mb-arrange-frame-card")
     assert preview==actual,(width,preview,actual)
     assert len(preview)==6
+    # Compare actual native-card dimensions, not only their labels. The iframe
+    # has the same renderer and CSS, but slightly different content width.
+    geometry_js="""nodes=>Object.fromEntries(nodes.map(n=>{
+      const card=n.matches('.mb-arrange-frame-card')
+        ?n.querySelector('.parity-card,.mb-card-shell'):n;
+      const id=card.dataset.object||
+        card.querySelector('[data-object]')?.dataset.object||
+        card.dataset.mbCustomCardId;
+      const rect=card.getBoundingClientRect();
+      return [id,{width:rect.width,height:rect.height}];
+    }))"""
+    actual_geometry=await home.locator(
+        ".mb-card-column > .parity-card,.mb-card-column > .mb-card-shell"
+    ).evaluate_all(geometry_js)
+    preview_geometry=await frame.locator(
+        ".mb-arrange-frame-card"
+    ).evaluate_all(geometry_js)
+    assert set(actual_geometry)==set(preview_geometry),(
+        width,actual_geometry,preview_geometry)
+    for key,original_box in actual_geometry.items():
+        shown_box=preview_geometry[key]
+        assert original_box["height"]>40 and shown_box["height"]>40,(
+            width,key,original_box,shown_box)
+        assert abs(shown_box["height"]-original_box["height"])<=max(
+            32,original_box["height"]*.12),(
+            "Native card height diverged",width,key,original_box,shown_box)
     # Real editor actions operate on the real rendered card wrappers.
     if width>=1200:
         await frame.locator(
@@ -171,10 +197,30 @@ async def case(browser,fixture,base,width,height):
         await power.wait_for()
         await page.locator("#undoArrange").click()
         assert await power.count()==0
-        await frame.locator(
+        # Test actual pointer drag across lanes; the menu alone cannot prove
+        # touch-friendly spatial movement on the real card surface.
+        handle=frame.locator(
             '.mb-arrange-frame-card[data-mb-arrange-card="family:power"] '
-            '.mb-arrange-menu-button').click()
-        await frame.get_by_label("Move Power to column").select_option("0")
+            '.mb-arrange-handle')
+        target=frame.locator(
+            '.mb-arrange-frame-card[data-mb-arrange-card="host:arrrrr2"]')
+        await handle.scroll_into_view_if_needed()
+        box=await handle.bounding_box()
+        destination=await target.bounding_box()
+        assert box and destination,(box,destination)
+        await page.mouse.move(box["x"]+box["width"]/2,
+                              box["y"]+box["height"]/2)
+        await page.mouse.down()
+        await page.mouse.move(destination["x"]+destination["width"]/2,
+                              destination["y"]+destination["height"]*.72,
+                              steps=12)
+        await page.mouse.up()
+        placed=await frame.locator(
+            '.mb-card-column[data-mb-arrange-column="0"] .mb-arrange-frame-card'
+        ).evaluate_all("(nodes)=>nodes.map(x=>x.dataset.mbArrangeCard)")
+        assert "family:power" in placed and placed.index("family:power")==(
+            placed.index("host:arrrrr2")+1),(
+            placed,await page.locator("#arrangeStatus").inner_text())
     await page.locator("#doneArrange").click()
     await page.locator("#validate").click()
     await page.locator("#apply").click()
@@ -188,6 +234,46 @@ async def case(browser,fixture,base,width,height):
     fixture.entry=oldsave;fixture.revision=14;fixture.hash="fixture-hash-14"
     await page.reload();await page.locator("#selected .layout-row").first.wait_for()
     assert fixture.entry==oldsave,"Modern A/B snapshot restored improperly"
+    if width>=1200:
+        # Reproduce the physical mismatch: a 24-reading host and thirteen
+        # Network members, of which only six are selected for display.
+        stress=deepcopy(oldsave)
+        definitions=stress["data"]["sites"]["home"]["cards"]
+        next(row for row in definitions if row["id"]=="host:arrrrr2")[
+            "presentation"]={"schema_version":2,"items":[{
+                "key":'["object","arrrrr2","metric","cpu","stress_'+
+                      str(i).zfill(2)+'"]',
+                "mode":"value"} for i in range(24)]}
+        next(row for row in definitions if row["id"]=="family:network")[
+            "presentation"]={"schema_version":1,
+                "hidden_member_ids":["edge"+str(i) for i in range(6,13)]}
+        fixture.entry=stress;fixture.revision=15;fixture.hash="fixture-hash-15"
+        await page.reload()
+        await page.locator("#selected .layout-row").first.wait_for()
+        await home.reload()
+        await home.locator(".mb-card-column").first.wait_for()
+        await page.locator("#arrange").click()
+        detailed=page.frame_locator("#mb-arrange-actual-homepage")
+        live_rows=detailed.locator(
+            '.mb-arrange-frame-card[data-mb-arrange-card="host:arrrrr2"] '
+            '.mb-card-item')
+        await live_rows.first.wait_for(timeout=12000)
+        assert await live_rows.count()==24
+        assert await home.locator(
+            '[data-object="arrrrr2"] .mb-card-item').count()==24
+        network_in_preview=detailed.locator(
+            '.mb-arrange-frame-card[data-mb-arrange-card="family:network"] '
+            '.parity-mini-directory > small')
+        network_on_home=home.locator(
+            '[data-object="network"] .parity-mini-directory > small')
+        assert await network_in_preview.count()==6
+        assert await network_on_home.count()==6
+        assert await detailed.locator(
+            '.mb-arrange-frame-card[data-mb-arrange-card="family:network"] '
+            '.parity-mini-directory').inner_text()==await home.locator(
+            '[data-object="network"] .parity-mini-directory').inner_text()
+        await page.locator("#cancelArrange").click()
+        assert fixture.entry==stress,"Cancel must never rewrite saved snapshot"
     # Restrict page errors to the checked card/renderer pathways in synthetic
     # API fixture; any browser runtime exceptions are a real failure.
     assert not errors,errors
