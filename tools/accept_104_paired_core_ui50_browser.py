@@ -417,18 +417,45 @@ def browser_contract(server: PairedServer):
             assert preview == actual, (preview, actual)
             assert len(preview) == len(expected)
             # Explicit staging and Undo cannot mutate the real Core snapshot.
+            # A clean bootstrap may ALREADY place Power in the left
+            # column. Never claim a no-op is evidence that Undo works.
+            power_card = (
+                '.mb-arrange-frame-card[data-mb-arrange-card="family:power"]'
+            )
+            power_menu = power_card + ' .mb-arrange-menu-button'
+            first_lane = frame.locator(power_card).evaluate(
+                "(el)=>Number(el.closest('.mb-card-column').dataset.mbArrangeColumn)")
+            away = (first_lane + 1) % 3
+            frame.locator(power_menu).click()
+            frame.get_by_label("Move Power to column").select_option(str(away))
             frame.locator(
-                '.mb-arrange-frame-card[data-mb-arrange-card="family:power"] '
-                '.mb-arrange-menu-button'
-            ).click()
-            frame.get_by_label("Move Power to column").select_option("0")
+                '.mb-card-column[data-mb-arrange-column="' + str(away) + '"] ' +
+                power_card
+            ).wait_for()
+            assert page.locator("#undoArrange").is_enabled(), (
+                "An actual cross-lane move must be undoable")
             page.locator("#undoArrange").click()
-            assert store.load().data["module_preferences"][UI_ID] == rebuilt
             frame.locator(
-                '.mb-arrange-frame-card[data-mb-arrange-card="family:power"] '
-                '.mb-arrange-menu-button'
-            ).click()
+                '.mb-card-column[data-mb-arrange-column="' + str(first_lane) +
+                '"] ' + power_card
+            ).wait_for()
+            assert store.load().data["module_preferences"][UI_ID] == rebuilt
+
+            # Exercise a real move ending in column 0 even when the automatic
+            # baseline put Power there already. Any intermediate layout
+            # remains draft-only until the single canonical Apply below.
+            if first_lane == 0:
+                frame.locator(power_menu).click()
+                frame.get_by_label("Move Power to column").select_option(str(away))
+                frame.locator(
+                    '.mb-card-column[data-mb-arrange-column="' + str(away) + '"] ' +
+                    power_card
+                ).wait_for()
+            frame.locator(power_menu).click()
             frame.get_by_label("Move Power to column").select_option("0")
+            frame.locator(
+                '.mb-card-column[data-mb-arrange-column="0"] ' + power_card
+            ).wait_for()
             page.locator("#doneArrange").click()
             page.locator("#validate").click()
             page.locator("#apply").click()
