@@ -58,7 +58,8 @@ async def scenario(browser,fixture,url,width,height):
     '[data-object="power"] [data-mb-member]').count()==2
   assert await home.locator(
     '[data-object="cameras"] [data-mb-member]').count()==8
-  diagnosis=await home.locator('[data-object="internet"] .mb-native-diagnosis').count()
+  diagnosis=await home.locator(
+    '[data-mb-site="home"] [data-object="internet"] .mb-native-diagnosis').count()
   assert diagnosis==1,("Internet diagnosis missing",
     await home.locator("#core-grid").inner_html(),
     cards["family:internet"])
@@ -90,10 +91,10 @@ async def scenario(browser,fixture,url,width,height):
     '[data-object="network"] [data-mb-member]').count()==11
   # Both browser surfaces run the same actual native renderer.
   actual=await home.locator(
-    '.mb-card-column > .mb-card-shell').evaluate_all(
+    '.mb-masonry-site[data-mb-site="home"] .mb-card-column > .mb-card-shell').evaluate_all(
       "(nodes)=>Object.fromEntries(nodes.map(n=>[n.dataset.object,n.innerText]))")
   preview=await frame.locator(
-    '.mb-arrange-frame-card .mb-card-shell').evaluate_all(
+    '.mb-masonry-site[data-mb-site="home"] .mb-arrange-frame-card .mb-card-shell').evaluate_all(
       "(nodes)=>Object.fromEntries(nodes.map(n=>[n.dataset.object,n.innerText]))")
   assert actual==preview,(actual,preview)
   assert not errors,errors
