@@ -1,0 +1,52 @@
+name: UI51 curated bootstrap and single-grip Arrange (#104)
+on:
+  push:
+    branches: [feature/104-ui51-bootstrap-curation]
+    paths:
+      - "sources/ui/1.15.0-build51/**"
+      - "tools/*ui_build51*"
+      - "tools/stage_104_ui_build51.py"
+      - "release-intents/ui-1.15.0-build51.json"
+      - ".github/workflows/ui51-curated-bootstrap.yml"
+  pull_request:
+    paths:
+      - "sources/ui/1.15.0-build51/**"
+      - "tools/*ui_build51*"
+      - "tools/stage_104_ui_build51.py"
+      - "release-intents/ui-1.15.0-build51.json"
+      - ".github/workflows/ui51-curated-bootstrap.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Signed predecessor, exact UI51 sources and one-release staging
+        run: python tools/accept_ui_build51_package.py
+      - name: Provider-neutral, bounded observed defaults and immutable old snapshots
+        run: node tools/accept_ui_build51_defaults.mjs
+      - name: Historical UI50 accepted package stays immutable
+        run: python tools/accept_ui_build50_package.py
+  synthetic-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Disposable Chromium
+        run: |
+          python -m pip install --disable-pip-version-check aiohttp==3.11.16 playwright==1.55.0
+          python -m playwright install --with-deps chromium
+      - name: Fresh bootstrap, scoped/all-site rebuild, one-grip, real preview and #103
+        run: python tools/accept_ui_build51_browser.py

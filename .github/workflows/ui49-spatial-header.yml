@@ -1,0 +1,57 @@
+name: UI49 spatial arrangement and shared-header convergence
+
+on:
+  push:
+    branches: [feature/104-ui49-spatial-dashboard]
+    paths:
+      - "sources/ui/1.13.0-build49/**"
+      - "tools/*ui_build49*"
+      - "tools/stage_104_ui_build49.py"
+      - "catalog.source.json"
+      - "release-intents/ui-1.13.0-build49.json"
+      - ".github/workflows/ui49-spatial-header.yml"
+  pull_request:
+    paths:
+      - "sources/ui/1.13.0-build49/**"
+      - "tools/*ui_build49*"
+      - "tools/stage_104_ui_build49.py"
+      - "catalog.source.json"
+      - "release-intents/ui-1.13.0-build49.json"
+      - ".github/workflows/ui49-spatial-header.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-and-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Signed UI48 ancestry, immutable UI49 package and staging
+        run: |
+          python tools/accept_ui_build49_package.py
+          python tools/accept_ui_build49_staging.py
+      - name: Legacy schemas, spatial 3/2/1 packing, and 24-row stability
+        run: node tools/accept_ui_build49_spatial.mjs
+  synthetic-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install disposable browser dependencies
+        run: |
+          python -m pip install --disable-pip-version-check aiohttp playwright
+          python -m playwright install --with-deps chromium
+      - name: iPad/tablet/phone synthetic layout, snapshot and stale-header acceptance
+        run: python tools/accept_ui_build49_browser.py
