@@ -279,7 +279,7 @@ async def case(browser,fixture,base,width,height):
               "(el)=>({loaded:MonitorBoxCardLayout.state().loaded,"
               "blocked:MonitorBoxCardLayout.state().blocked,"
               "layout:MonitorBoxCardLayout.state().entry,"
-              "preview:MonitorBoxCardLayout.state().preview})"))
+              "preview:MonitorBoxCardLayout.state().preview})")
         )
         assert await detailed.locator(
             '.mb-arrange-frame-card[data-mb-arrange-card="family:network"] '
