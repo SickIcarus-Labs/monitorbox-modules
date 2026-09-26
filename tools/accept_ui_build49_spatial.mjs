@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 'use strict';
 // Synthetic, deterministic migration/packing tests. No appliance/API access.
-const assert=require('node:assert/strict');
-const fs=require('node:fs');
-const vm=require('node:vm');
-const root=require('node:path').resolve(__dirname,'../sources/ui/1.13.0-build49');
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),
+  '../sources/ui/1.13.0-build49');
 const site={id:'home',objects:[
   {id:'a2',label:'Arrrrr2',kind:'host',homepage_origin:'operator'},
   {id:'g',label:'Goliath',kind:'host',homepage_origin:'operator'},

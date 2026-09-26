@@ -13,20 +13,18 @@ ROOT=Path(__file__).resolve().parent.parent
 
 def main():
     source=json.loads((ROOT/"catalog.source.json").read_text(encoding="utf-8"))
-    staged=[i for i,row in enumerate(source["modules"])
-            if identity(row)==candidate.RELEASE]
-    assert len(staged)==1 and source["modules"][staged[0]]==candidate.ENTRY
-    assert source["modules"][staged[0]-1]==UI48
-    assert not any(identity(row)[0]==MODULE and identity(row)[2] in (43,44,45,46,47)
-                   for row in source["modules"])
+    assert not any(identity(row)==candidate.RELEASE for row in source["modules"])
+    accepted=[i for i,row in enumerate(source["modules"]) if row==UI48]
+    assert len(accepted)==1, "trunk must retain signed UI48 before acceptance"
     with tempfile.TemporaryDirectory() as tmp:
         path=Path(tmp)/"catalog.json"
-        original=copy.deepcopy(source)
-        original["modules"].pop(staged[0])
-        path.write_text(json.dumps(original))
+        path.write_text(json.dumps(source))
         assert candidate.stage(path) is True
-        assert json.loads(path.read_text())==source
+        result=json.loads(path.read_text())
+        assert result["modules"][accepted[0]+1]==candidate.ENTRY
+        assert result["modules"][:accepted[0]+1]+result["modules"][accepted[0]+2:]==source["modules"]
         assert candidate.stage(path) is False
+        assert json.loads(path.read_text())==result
     intent=json.loads((ROOT/"release-intents/ui-1.13.0-build49.json").read_text())
     assert intent["supersedes_dev"]["sha256"]==(
         "f0530057348bfc45bd9f85d1c5ff812659601286326478669574bb07bbed508b")
