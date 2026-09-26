@@ -68,10 +68,17 @@ async def editor_case(browser, fixture, base, width, height):
         handle = page.locator('.mb-arrange-card[data-mb-arrange-card="family:power"] .mb-arrange-handle')
         target = page.locator('.mb-arrange-column[data-mb-arrange-column="0"] '
                               '.mb-arrange-slot[data-mb-before="host:goliath"]')
-        await handle.scroll_into_view_if_needed()
+        # A sticky settings header may occlude the first 80px after Playwright's
+        # default scroll-into-view. Center both nearby lanes before the gesture.
+        await handle.evaluate("(el)=>el.scrollIntoView({block:'center',inline:'nearest'})")
         source_box = await handle.bounding_box()
         dest_box = await target.bounding_box()
         assert source_box and dest_box
+        if min(source_box["y"],dest_box["y"])<90:
+            await page.evaluate("window.scrollBy(0,-180)")
+            source_box = await handle.bounding_box()
+            dest_box = await target.bounding_box()
+        assert min(source_box["y"],dest_box["y"])>=90, (source_box,dest_box)
         await page.mouse.move(source_box["x"]+source_box["width"]/2,
                               source_box["y"]+source_box["height"]/2)
         await page.mouse.down()
