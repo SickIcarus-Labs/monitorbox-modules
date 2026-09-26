@@ -147,7 +147,9 @@ async def case(browser,fixture,base,width,height):
     assert await frame.locator(".mb-arrange-menu-button").count()==0
     assert await frame.locator(".mb-arrange-handle").count()==6
     cols=3 if width>980 else 2 if width>650 else 1
-    assert await frame.locator(".mb-card-column").count()==cols
+    assert await frame.locator(
+        '.mb-masonry-site[data-mb-site="home"] .mb-card-column'
+    ).count()==cols
     # Native card's first pixel lies AFTER editor-only toolbar and handle.
     grip=frame.locator(
         '.mb-arrange-frame-card[data-mb-arrange-card="host:arrrrr2"] '

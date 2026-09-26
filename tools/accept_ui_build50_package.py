@@ -54,7 +54,9 @@ def main():
         assert added==[stager.ENTRY]
         assert stager.stage(path) is False
         assert json.loads(path.read_text())==newdoc
-    intent=json.loads((ROOT/"release-intents/ui-1.14.0-build50.json").read_text())
+    active=ROOT/"release-intents/ui-1.14.0-build50.json"
+    historical=ROOT/"docs/release-intent-history/ui-1.14.0-build50.json"
+    intent=json.loads((active if active.exists() else historical).read_text())
     assert intent["supersedes_dev"]=={
         "version":"1.13.0","build":49,"sha256":SIGNED_UI49,
         "authority_commit":"88e0acd4ab6f632bcf1ee022f61266891e55ef43"}

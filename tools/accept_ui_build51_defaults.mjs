@@ -35,15 +35,15 @@ const objects=[host('arr',{not:'relevant'}),host('arrrrr2','operator',normal),
 objects.shift();
 const baseline=p.defaults(site,objects);
 const ids=baseline.map(row=>row.id);
-assert.deepEqual(ids,[
+assert.deepEqual(JSON.parse(JSON.stringify(ids)),[
   'host:arrrrr2','host:goliath','host:empty','host:gateway',
   'family:internet','family:network','family:cameras','family:power']);
 const a2=baseline[0].presentation.items;
 assert.equal(a2.length,4);
-assert.deepEqual(a2.map(item=>JSON.parse(item.key).at(-1)),[
+assert.deepEqual(JSON.parse(JSON.stringify(a2.map(item=>JSON.parse(item.key).at(-1)))),[
   '@derived.cpu_used_percent','@derived.memory_used_percent',
   'storage_used_percent','ethernet_utilization_percent']);
-assert.deepEqual(baseline[1].presentation.items.map(x=>JSON.parse(x.key).at(-1)),[
+assert.deepEqual(JSON.parse(JSON.stringify(baseline[1].presentation.items.map(x=>JSON.parse(x.key).at(-1)))),[
   'cpu_usage_percent','memory_used_percent','storage_used_percent',
   'ethernet_utilization_percent']);
 assert.equal(baseline[2].presentation,undefined);
