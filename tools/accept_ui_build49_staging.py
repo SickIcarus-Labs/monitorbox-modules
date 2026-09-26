@@ -25,8 +25,19 @@ def main():
         assert result["modules"][:accepted[0]+1]+result["modules"][accepted[0]+2:]==source["modules"]
         assert candidate.stage(path) is False
         assert json.loads(path.read_text())==result
-    intent=json.loads((ROOT/"release-intents/ui-1.13.0-build49.json").read_text())
+    # UI49 may be the active PR candidate or an immutable archived signed-dev
+    # predecessor when its failed physical acceptance is superseded by UI50.
+    active=ROOT/"release-intents/ui-1.13.0-build49.json"
+    archival=ROOT/"docs/release-intent-history/ui-1.13.0-build49.json"
+    source=active if active.exists() else archival
+    intent=json.loads(source.read_text())
     assert "supersedes_dev" not in intent, "UI48 is already in accepted trunk"
+    if source==archival:
+        next_intent=json.loads((ROOT/"release-intents/ui-1.14.0-build50.json").read_text())
+        assert next_intent["supersedes_dev"]["version"]=="1.13.0"
+        assert next_intent["supersedes_dev"]["build"]==49
+        assert next_intent["supersedes_dev"]["sha256"]==(
+            "d0f1b86d71545a34633eb94eab7f82e507e0912256ccab3ab2d7603bc8c53e79")
     archived=(ROOT/"docs/release-intent-history/ui-1.12.0-build48.json").read_bytes()
     assert json.loads(archived)["build"]==48
     print("UI49 additive staging, accepted UI48 trunk ancestry and idempotence: PASS")
