@@ -29,3 +29,31 @@ jobs:
           done
       - name: Clean bootstrap/Reset semantic parity, explicit membership and real LIVE sources
         run: node tools/accept_ui_build52_generator.mjs
+
+  wip-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Exact source and deterministic TEST-ONLY UI52 package
+        run: python tools/accept_ui_build52_package.py
+  synthetic-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Disposable local Playwright
+        run: |
+          python -m pip install --disable-pip-version-check aiohttp==3.11.16 playwright==1.55.0
+          python -m playwright install --with-deps chromium
+      - name: Actual native-card browser and member-selection parity
+        run: python tools/accept_ui_build52_browser.py
