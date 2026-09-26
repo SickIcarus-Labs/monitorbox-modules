@@ -33,11 +33,22 @@ def main():
     intent=json.loads(source.read_text())
     assert "supersedes_dev" not in intent, "UI48 is already in accepted trunk"
     if source==archival:
-        next_intent=json.loads((ROOT/"release-intents/ui-1.14.0-build50.json").read_text())
+        ui50_active=ROOT/"release-intents/ui-1.14.0-build50.json"
+        ui50_history=ROOT/"docs/release-intent-history/ui-1.14.0-build50.json"
+        next_intent=json.loads((ui50_active if ui50_active.exists()
+            else ui50_history).read_text())
         assert next_intent["supersedes_dev"]["version"]=="1.13.0"
         assert next_intent["supersedes_dev"]["build"]==49
         assert next_intent["supersedes_dev"]["sha256"]==(
             "d0f1b86d71545a34633eb94eab7f82e507e0912256ccab3ab2d7603bc8c53e79")
+        if ui50_history.exists() and not ui50_active.exists():
+            ui51=ROOT/"release-intents/ui-1.15.0-build51.json"
+            if ui51.exists():
+                current=json.loads(ui51.read_text())
+                assert current["supersedes_dev"]["version"]=="1.14.0"
+                assert current["supersedes_dev"]["build"]==50
+                assert current["supersedes_dev"]["sha256"]==(
+                    "d978bea3ab5170d515b131f9bb7a8a5ca311ac0c7746da0b9db0dd259d6c4b03")
     archived=(ROOT/"docs/release-intent-history/ui-1.12.0-build48.json").read_bytes()
     assert json.loads(archived)["build"]==48
     print("UI49 additive staging, accepted UI48 trunk ancestry and idempotence: PASS")

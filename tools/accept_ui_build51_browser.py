@@ -175,6 +175,31 @@ async def case(browser,fixture,base,width,height):
         ).wait_for(timeout=15000)
         await editor.locator("#undoArrange").click()
         assert fixture.entry==multi,"Undo did not remain draft only"
+        # The single grip also supports direct cross-column pointer drag,
+        # not merely tap-to-move. Move Power immediately after A2 in the
+        # actual native homepage card DOM, then Undo before Cancel.
+        grip=frame.locator(power+" .mb-arrange-handle")
+        dest=frame.locator(
+            '.mb-arrange-frame-card[data-mb-arrange-card="host:arrrrr2"]')
+        await grip.scroll_into_view_if_needed()
+        origin=await grip.bounding_box()
+        target=await dest.bounding_box()
+        assert origin and target,(origin,target)
+        await editor.mouse.move(origin["x"]+origin["width"]/2,
+                                origin["y"]+origin["height"]/2)
+        await editor.mouse.down()
+        await editor.mouse.move(target["x"]+target["width"]/2,
+                                target["y"]+target["height"]*.72,steps=12)
+        await editor.mouse.up()
+        moved=frame.locator(
+            '.mb-card-column[data-mb-arrange-column="0"] '+power)
+        await moved.wait_for(timeout=12000)
+        ordered=await frame.locator(
+            '.mb-card-column[data-mb-arrange-column="0"] .mb-arrange-frame-card'
+        ).evaluate_all("(nodes)=>nodes.map(n=>n.dataset.mbArrangeCard)")
+        assert ordered.index("family:power")==ordered.index("host:arrrrr2")+1,ordered
+        await editor.locator("#undoArrange").click()
+        assert fixture.entry==multi,"Pointer move persisted before Apply"
     await editor.locator("#cancelArrange").click()
     assert fixture.entry==multi
     # A retained v4 layout remains bitwise the same after restoring it:
