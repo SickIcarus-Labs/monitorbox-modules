@@ -26,11 +26,10 @@ def main():
         assert candidate.stage(path) is False
         assert json.loads(path.read_text())==result
     intent=json.loads((ROOT/"release-intents/ui-1.13.0-build49.json").read_text())
-    assert intent["supersedes_dev"]["sha256"]==(
-        "f0530057348bfc45bd9f85d1c5ff812659601286326478669574bb07bbed508b")
+    assert "supersedes_dev" not in intent, "UI48 is already in accepted trunk"
     archived=(ROOT/"docs/release-intent-history/ui-1.12.0-build48.json").read_bytes()
     assert json.loads(archived)["build"]==48
-    print("UI49 additive staging, exact accepted UI48 and dev supersession: PASS")
+    print("UI49 additive staging, accepted UI48 trunk ancestry and idempotence: PASS")
 
 if __name__=="__main__":
     main()
