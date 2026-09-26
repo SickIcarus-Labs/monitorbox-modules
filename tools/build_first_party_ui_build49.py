@@ -140,6 +140,14 @@ def _package_files(root: Path) -> dict[str, bytes]:
         parent[name] = content.replace(
             PARENT_GENERATION.encode(), UI_GENERATION.encode()
         ).replace(PARENT_IMPORT_PACKAGE.encode(), TARGET_IMPORT_PACKAGE.encode())
+    # Schema v4 is still UI-owned opaque state. Keep Core's accepted provider
+    # reconciling unarranged automatic layouts and preserving explicit rows.
+    parent["__init__.py"] = _replace_once(
+        parent["__init__.py"],
+        b'if current.get("schema_version") not in (1, 2, 3):',
+        b'if current.get("schema_version") not in (1, 2, 3, 4):',
+        "UI49 automatic snapshot admission",
+    )
     shell, dashboard = _header_dividend(
         parent["assets/app-shell.js"], parent["assets/dashboard.js"],
     )
