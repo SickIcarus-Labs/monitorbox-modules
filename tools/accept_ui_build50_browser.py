@@ -266,8 +266,21 @@ async def case(browser,fixture,base,width,height):
             '.parity-mini-directory > small')
         network_on_home=home.locator(
             '[data-object="network"] .parity-mini-directory > small')
-        assert await network_in_preview.count()==6
-        assert await network_on_home.count()==6
+        preview_count=await network_in_preview.count()
+        homepage_count=await network_on_home.count()
+        assert preview_count==6 and homepage_count==6, (
+            "Network family visibility mismatch",
+            preview_count,homepage_count,
+            await detailed.locator(
+              '.mb-arrange-frame-card[data-mb-arrange-card="family:network"]'
+            ).inner_html(),
+            await home.locator('[data-object="network"]').inner_html(),
+            await detailed.locator('body').evaluate(
+              "(el)=>({loaded:MonitorBoxCardLayout.state().loaded,"
+              "blocked:MonitorBoxCardLayout.state().blocked,"
+              "layout:MonitorBoxCardLayout.state().entry,"
+              "preview:MonitorBoxCardLayout.state().preview})"))
+        )
         assert await detailed.locator(
             '.mb-arrange-frame-card[data-mb-arrange-card="family:network"] '
             '.parity-mini-directory').inner_text()==await home.locator(
