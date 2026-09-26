@@ -1,0 +1,31 @@
+name: UI52 clean card-generation contract (#104)
+on:
+  push:
+    branches: [feature/104-ui52-clean-card-engine]
+    paths:
+      - "sources/ui/1.16.0-build52/**"
+      - "tools/accept_ui_build52_*"
+      - ".github/workflows/ui52-clean-card-engine.yml"
+  pull_request:
+    paths:
+      - "sources/ui/1.16.0-build52/**"
+      - "tools/accept_ui_build52_*"
+      - ".github/workflows/ui52-clean-card-engine.yml"
+permissions:
+  contents: read
+jobs:
+  source-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check every new UI52 JavaScript asset
+        run: |
+          for asset in sources/ui/1.16.0-build52/*.js; do
+            node --check "$asset"
+          done
+      - name: Clean bootstrap/Reset semantic parity, explicit membership and real LIVE sources
+        run: node tools/accept_ui_build52_generator.mjs
