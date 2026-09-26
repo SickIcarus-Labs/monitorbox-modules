@@ -46,6 +46,8 @@ def main() -> None:
     assert b"siteEpoch === startedEpoch" in current[NEW+"assets/app-shell.js"]
     assert b"visibleLiveDetails" in current[NEW+"assets/card-composer-renderer.js"]
     assert b"arrangePanel" in current[NEW+"assets/card-layout-editor.html"]
+    assert current[NEW+"assets/card-layout-editor.html"].count(b"v=1.13.0-49")==5
+    assert b"v=1.12.0-48" not in current[NEW+"assets/card-layout-editor.html"]
     assert b"/static/live-telemetry.js?v=1.13.0-49" in current[NEW+"assets/dashboard.html"]
     ast.parse(current[NEW+"__init__.py"].decode())
     with tempfile.TemporaryDirectory() as tmp:
