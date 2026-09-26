@@ -205,6 +205,7 @@ async def main():
                     await case(browser,fixture,base,width,height)
                 # #103 remains inherited from UI49 unchanged. Run its
                 # delayed initial unknown versus fresh canonical health case.
+                fixture.session=False  # Do not race shell hydration with editor's own state GET.
                 await ui49.header_case(browser,base)
             finally:await browser.close()
     finally:await runner.cleanup()
