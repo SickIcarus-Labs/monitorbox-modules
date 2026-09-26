@@ -183,7 +183,7 @@ async def case(browser,fixture,base,width,height):
     await editor.reload()
     await editor.locator("#selected .layout-row").first.wait_for()
     assert fixture.entry==prior.legacy()
-    assert "Manual legacy" in await editor.locator("#selected").inner_text()
+    assert "Legacy manually built" in await editor.locator("#selected").inner_text()
     assert not errors,errors
     await context.close()
     print(f"UI51 {width}x{height}: curated fresh bootstrap, scoped/all-site "

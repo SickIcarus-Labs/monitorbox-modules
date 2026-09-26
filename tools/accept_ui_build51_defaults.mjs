@@ -58,6 +58,10 @@ const unknown=p.autoHostItems(host('no-guess','operator',{
   storage_used_percent:900,rx_bytes:99999,interface_speed_mbps:10000,
   network_health:1}));
 assert.equal(unknown.length,0);
+const pool=p.autoHostItems(host('storage','operator',{
+  pool_free_bytes:123456789,network_rx_bytes:99999,interface_speed_mbps:10000}));
+assert.equal(pool.length,1);
+assert.equal(JSON.parse(pool[0].key).at(-1),'pool_free_bytes');
 // Prior signed UI50 schema-4 auto layouts are protected against unattended
 // upgrade/regeneration. Explicit operator Regenerate replaces them instead.
 const prior={schema_version:4,data:{sites:{lab:{

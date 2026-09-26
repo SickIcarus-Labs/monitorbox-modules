@@ -21,7 +21,7 @@ SOURCE_BLOBS={
     "card-item-registry.js":"7209fac13f543ad390f28d8a61f484539dac10f3",
     "card-layout-editor.html":"e9333dae4e7464cc3a033b5dd0c8d75c3d8aff24",
     "card-layout-editor.js":"d9683c84c3fd6324f731b3d1346a7878b6befd29",
-    "card-layout-policy.js":"86931cce26be3cda3076c2a0c6b64494c1836a27",
+    "card-layout-policy.js":"fe0aee230706e646056dde4f1f60e203025ec96b",
     "card-layout.css":"bc054bdae27d33b54e6bfc9e3d54516758d60e61",
     "card-layout.js":"07f83366891aa36675fad91a971aaab093c2f8d2",
     "live-telemetry.js":"24d723db90cf6dddc8aa4ea241a11ae465e64c4e",

@@ -82,6 +82,11 @@
           offer('storage',0,component,key);
         if(validPercent&&/^(?:eth|ethernet|nic|network|interface|link)(?:used|usage|utilization)(?:percent|pct)$/.test(k))
           offer('network',0,component,key);
+        // Absolute free capacity is truthful storage data even if that
+        // provider exposes no used-percent metric. Prefer percent when both
+        // exist. Never infer utilization from a lone free capacity.
+        if(value>=0&&/^(?:disk|storage|filesystem|fs|pool|volume)(?:available|free)(?:bytes|kib|mib)$/.test(k))
+          offer('storage',3,component,key);
       }
       const idle=measured.get('cpuidlepercent');
       if(idle!==undefined&&idle>=0&&idle<=100)
