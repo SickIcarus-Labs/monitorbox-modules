@@ -28,7 +28,7 @@ SOURCE_BLOBS = {
     "card-composer.css": "8ff904118690c65621cc785ad990b11d01a57dc4",
     "card-item-registry.js": "7209fac13f543ad390f28d8a61f484539dac10f3",
     "card-layout-editor.html": "a7d25b9b2a6cff726dd8b35cb9484c29ce7bb472",
-    "card-layout-editor.js": "6c17711e20578d8ca0305344b5bacf0af09169ed",
+    "card-layout-editor.js": "ac4ee8352c3285d53a9df67b7fca2163f2a7890f",
     "card-layout-policy.js": "58d46f9b056217ec67fd7926c752f10fd4ee3a94",
     "card-layout.css": "c6b3d748868a6c667832e68e5a62d03f41db2dd6",
     "card-layout.js": "6676cc4b55faa9c590518b766c4728db79842085",

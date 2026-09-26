@@ -81,7 +81,10 @@ async def editor_case(browser, fixture, base, width, height):
         placed = await page.locator('.mb-arrange-column[data-mb-arrange-column="0"] '
               '.mb-arrange-card').evaluate_all(
                   "(nodes)=>nodes.map(node=>node.dataset.mbArrangeCard)")
-        assert placed.index("family:power")==placed.index("host:arrrrr2")+1,placed
+        assert "family:power" in placed and placed.index("family:power")==placed.index("host:arrrrr2")+1, (
+            placed,await page.locator("#arrangeStatus").inner_text(),source_box,dest_box,
+            await page.locator(".mb-arrange-column").evaluate_all(
+                "(cols)=>cols.map(col=>[col.dataset.mbArrangeColumn, [...col.querySelectorAll(\'.mb-arrange-card\')].map(row=>row.dataset.mbArrangeCard)])"))
         await page.locator("#undoArrange").click()
         assert await page.locator('.mb-arrange-column[data-mb-arrange-column="0"] '
              '.mb-arrange-card[data-mb-arrange-card="family:power"]').count()==0

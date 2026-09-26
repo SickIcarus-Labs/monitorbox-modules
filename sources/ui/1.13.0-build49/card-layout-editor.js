@@ -161,6 +161,46 @@
     else if(direction>0&&index>=0&&index<same.length-1)
       moveCard(id,lane,same[index+2]?.id||null);
   }
+
+  // Document-level capture keeps pointer movement and release observable even
+  // when Safari changes targets during touch scrolling or a cross-lane drag.
+  // The explicit placement is committed on pointer-up, never on every frame.
+  function clearDropTarget(){
+    document.querySelectorAll('.mb-arrange-target').forEach(node=>
+      node.classList.remove('mb-arrange-target'));
+  }
+  function cancelDragging(){
+    dragging?.item?.classList.remove('mb-arrange-dragging');
+    dragging=null;clearDropTarget();
+  }
+  document.addEventListener('pointermove',event=>{
+    if(!dragging||event.pointerId!==dragging.pointerId)return;
+    const traveled=Math.hypot(event.clientX-dragging.startX,
+                              event.clientY-dragging.startY);
+    if(traveled<9)return;
+    const edge=44,viewport=window.innerHeight||0;
+    if(viewport&&event.clientY>viewport-edge)window.scrollBy?.(0,20);
+    else if(event.clientY<edge)window.scrollBy?.(0,-20);
+    const point=document.elementFromPoint(event.clientX,event.clientY);
+    const slot=point?.closest?.('.mb-arrange-slot');
+    const candidate=slot||point?.closest?.('.mb-arrange-card,.mb-arrange-column');
+    const column=candidate?.closest?.('.mb-arrange-column');
+    clearDropTarget();
+    if(!column){dragging.last=null;return;}
+    const before=slot?.dataset.mbBefore||
+      candidate?.closest?.('.mb-arrange-card')?.dataset.mbArrangeCard||null;
+    candidate.classList.add('mb-arrange-target');
+    dragging.last={lane:Number(column.dataset.mbArrangeColumn),before};
+  },true);
+  document.addEventListener('pointerup',event=>{
+    if(!dragging||event.pointerId!==dragging.pointerId)return;
+    const {id,last,startX,startY}=dragging;
+    const traveled=Math.hypot(event.clientX-startX,event.clientY-startY);
+    cancelDragging();
+    if(traveled>=9&&last)moveCard(id,last.lane,last.before);
+  },true);
+  document.addEventListener('pointercancel',cancelDragging,true);
+
   function renderArrangement(){
     const host=$('arrangeColumns');host.replaceChildren();
     const visible=rows().filter(row=>row.visible);
@@ -186,42 +226,12 @@
         handle.setAttribute('aria-label','Drag '+label(saved));
         handle.title='Drag to move card; use buttons or column picker for keyboard';
         handle.onpointerdown=event=>{
-          if(event.button!==0||pending)return;
+          if(event.button!==0||pending||!arranging)return;
           event.preventDefault();
-          dragging={id:saved.id,startX:event.clientX,startY:event.clientY,
-            last:null,origin:handle};
-          handle.setPointerCapture?.(event.pointerId);
+          dragging={id:saved.id,pointerId:event.pointerId,
+            startX:event.clientX,startY:event.clientY,last:null,item};
+          try{handle.setPointerCapture?.(event.pointerId);}catch(_){ /* Safari fallback below */ }
           item.classList.add('mb-arrange-dragging');
-        };
-        handle.onpointermove=event=>{
-          if(!dragging||dragging.id!==saved.id)return;
-          const target=document.elementFromPoint(event.clientX,event.clientY);
-          const slot=target?.closest?.('.mb-arrange-slot');
-          const candidate=slot||target?.closest?.('.mb-arrange-card,.mb-arrange-column');
-          const dest=candidate?.closest?.('.mb-arrange-column');
-          document.querySelectorAll('.mb-arrange-target').forEach(node=>
-            node.classList.remove('mb-arrange-target'));
-          if(!dest)return;
-          const beforeId=slot?.dataset.mbBefore||
-            candidate?.closest?.('.mb-arrange-card')?.dataset.mbArrangeCard||null;
-          const drop=slot||candidate;
-          drop?.classList.add('mb-arrange-target');
-          dragging.last={lane:Number(dest.dataset.mbArrangeColumn),before:beforeId};
-        };
-        handle.onpointerup=event=>{
-          if(!dragging||dragging.id!==saved.id)return;
-          const last=dragging.last,delta=Math.hypot(
-            event.clientX-dragging.startX,event.clientY-dragging.startY);
-          dragging=null;
-          document.querySelectorAll('.mb-arrange-target').forEach(node=>
-            node.classList.remove('mb-arrange-target'));
-          item.classList.remove('mb-arrange-dragging');
-          if(delta>=9&&last)moveCard(saved.id,last.lane,last.before);
-        };
-        handle.onpointercancel=()=>{
-          dragging=null;item.classList.remove('mb-arrange-dragging');
-          document.querySelectorAll('.mb-arrange-target').forEach(node=>
-            node.classList.remove('mb-arrange-target'));
         };
         const name=document.createElement('strong');name.textContent=label(saved);
         line.append(handle,name);item.append(line);
