@@ -1,0 +1,62 @@
+name: UI46 unified card surface and live cadence regression
+
+on:
+  push:
+    branches: [feature/94-ui46-card-surface]
+    paths:
+      - "sources/ui/1.10.0-build46/**"
+      - "tools/*ui_build46*"
+      - ".github/workflows/ui-build46-card-surface.yml"
+  pull_request:
+    paths:
+      - "sources/ui/1.10.0-build46/**"
+      - "tools/*ui_build46*"
+      - ".github/workflows/ui-build46-card-surface.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source:
+    name: Canonical whole-card interaction and borderless 24-item rows
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: |
+          for file in sources/ui/1.10.0-build46/*.js; do node --check "$file"; done
+      - run: node tools/accept_ui_build46_surface.mjs
+
+  package:
+    name: Signed-UI45 inheritance and deterministic UI46 candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - run: python tools/accept_ui_build46_package.py
+      - run: python tools/accept_ui_build46_staging.py
+
+  browser:
+    name: UI46 iPad/desktop canonical card and 24-item regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Install disposable browser and Chromium
+        run: |
+          python -m pip install --disable-pip-version-check aiohttp playwright
+          python -m playwright install --with-deps chromium
+      - run: python tools/accept_ui_build46_browser.py

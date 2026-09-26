@@ -1,0 +1,57 @@
+name: UI44 live inline dashboard readings
+
+on:
+  push:
+    branches:
+      - feature/94-ui44-live-stat-rows
+    paths:
+      - "sources/ui/1.8.0-build44/**"
+      - "tools/*ui_build44*"
+      - ".github/workflows/ui-build44-live-readings.yml"
+  pull_request:
+    paths:
+      - "sources/ui/1.8.0-build44/**"
+      - "tools/*ui_build44*"
+      - ".github/workflows/ui-build44-live-readings.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Validate all UI44 scripts
+        run: |
+          for asset in sources/ui/1.8.0-build44/*.js; do node --check "$asset"; done
+      - name: Exact live-stat source/throughput/inline renderer contract
+        run: node tools/accept_ui_build44_live.mjs
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Immutable inheritance, script syntax and deterministic UI44 package
+        run: python tools/accept_ui_build44_package.py
+      - name: Additive UI44 dev staging with exact accepted UI42 source history
+        run: python tools/accept_ui_build44_staging.py
+
+  browser:
+    name: UI44 iPad and desktop real-time card presentation
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Browser fixture and Chromium
+        run: |
+          python -m pip install --disable-pip-version-check aiohttp playwright
+          python -m playwright install --with-deps chromium
+      - name: Grouped live picker, exact snapshots and 1 Hz native card repaint
+        run: python tools/accept_ui_build44_browser.py

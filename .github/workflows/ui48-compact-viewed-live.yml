@@ -1,0 +1,52 @@
+name: UI48 signed-density and paired viewed-card live interest
+
+on:
+  push:
+    branches: [feature/402-ui48-compact-viewed-live]
+    paths:
+      - "sources/ui/1.12.0-build48/**"
+      - "tools/*ui_build48*"
+      - ".github/workflows/ui48-compact-viewed-live.yml"
+  pull_request:
+    paths:
+      - "sources/ui/1.12.0-build48/**"
+      - "tools/*ui_build48*"
+      - ".github/workflows/ui48-compact-viewed-live.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Exact immutable UI47 density and deterministic UI48 package
+        run: |
+          python tools/accept_ui_build48_package.py
+          python tools/accept_ui_build48_staging.py
+
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install disposable Chromium
+        run: |
+          python -m pip install --disable-pip-version-check aiohttp playwright
+          python -m playwright install --with-deps chromium
+      - name: Twenty-four-item iPad/desktop density and full-card interactions
+        run: python tools/accept_ui_build48_browser.py
+      - name: Exact multi-card selected-viewer interest and hidden-tab release
+        run: python tools/accept_ui_build48_interest_browser.py

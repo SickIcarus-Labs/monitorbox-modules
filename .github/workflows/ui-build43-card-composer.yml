@@ -1,0 +1,55 @@
+name: UI43 shared dashboard card composer
+
+on:
+  push:
+    branches:
+      - feature/94-ui43-shared-card-composer
+    paths:
+      - "sources/ui/1.7.0-build43/**"
+      - "tools/*ui_build43*"
+      - ".github/workflows/ui-build43-card-composer.yml"
+  pull_request:
+    paths:
+      - "sources/ui/1.7.0-build43/**"
+      - "tools/*ui_build43*"
+      - ".github/workflows/ui-build43-card-composer.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    name: Immutable UI43 package and grouped registry
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Registry and unavailable-source contracts
+        run: node tools/accept_ui_build43_registry.mjs
+      - name: Signed UI42 history and single additive UI43 release staging
+        run: python tools/accept_ui_build43_staging.py
+      - name: Parent integrity, static wiring, schema and deterministic ZIP
+        run: python tools/accept_ui_build43_package.py
+
+  browser:
+    name: UI43 desktop and iPad grouped composer
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Browser fixture and Chromium
+        run: |
+          python -m pip install --disable-pip-version-check aiohttp playwright
+          python -m playwright install --with-deps chromium
+      - name: Existing host and custom mixed-source card, snapshots and missing sources
+        run: python tools/accept_ui_build43_editor_browser.py

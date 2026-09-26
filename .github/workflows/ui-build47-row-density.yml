@@ -1,0 +1,56 @@
+name: UI47 compact native metric row density
+
+on:
+  push:
+    branches: [feature/94-ui47-compact-row-density]
+    paths:
+      - sources/ui/1.11.0-build47/**
+      - tools/*ui_build47*
+      - .github/workflows/ui-build47-row-density.yml
+  pull_request:
+    paths:
+      - sources/ui/1.11.0-build47/**
+      - tools/*ui_build47*
+      - .github/workflows/ui-build47-row-density.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: |
+          for file in sources/ui/1.11.0-build47/*.js; do node --check "$file"; done
+          node tools/accept_ui_build47_surface.mjs
+
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: python tools/accept_ui_build47_package.py
+      - run: python tools/accept_ui_build47_staging.py
+
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install Chromium and browser fixture
+        run: |
+          python -m pip install --disable-pip-version-check aiohttp playwright
+          python -m playwright install --with-deps chromium
+      - run: python tools/accept_ui_build47_browser.py
