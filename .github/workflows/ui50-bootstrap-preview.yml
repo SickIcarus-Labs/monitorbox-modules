@@ -1,0 +1,50 @@
+name: UI50 clean bootstrap and true homepage preview
+on:
+  push:
+    branches: [feature/104-ui50-bootstrap-rebuild]
+    paths:
+      - "sources/ui/1.14.0-build50/**"
+      - "tools/*ui_build50*"
+      - "tools/stage_104_ui_build50.py"
+      - "release-intents/ui-1.14.0-build50.json"
+      - ".github/workflows/ui50-bootstrap-preview.yml"
+  pull_request:
+    paths:
+      - "sources/ui/1.14.0-build50/**"
+      - "tools/*ui_build50*"
+      - "tools/stage_104_ui_build50.py"
+      - "release-intents/ui-1.14.0-build50.json"
+      - ".github/workflows/ui50-bootstrap-preview.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: UI50 immutable build ancestry and canonical staging
+        run: python tools/accept_ui_build50_package.py
+      - name: Legacy v1-v4 and 3/2/1 packing inherited from UI49
+        run: node tools/accept_ui_build49_spatial.mjs
+  synthetic-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Disposable Playwright/Chromium
+        run: |
+          python -m pip install --disable-pip-version-check aiohttp playwright
+          python -m playwright install --with-deps chromium
+      - name: Actual homepage iframe, reset/snapshot, cross-column drag and #103
+        run: python tools/accept_ui_build50_browser.py
