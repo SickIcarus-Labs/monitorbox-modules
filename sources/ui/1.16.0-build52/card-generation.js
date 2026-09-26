@@ -93,19 +93,21 @@
         x.sourceId===object.id&&x.type==='metric')
       .sort((a,b)=>String(a.key).localeCompare(String(b.key)));
     const named=x=>text(x.metricKey).replace(/[_./-]+/g,' ');
-    const value=x=>Number.isFinite(x.value)||x.metricKey?.startsWith('@derived.');
-    const pick=(rx)=>entries.find(x=>rx.test(named(x))&&
-      (x.unit==='%'||rx===storagePattern)&&value(x))||null;
+    const value=x=>{
+      if(x.metricKey?.startsWith('@derived.'))return true;
+      const component=(object.components||[]).find(c=>c.id===x.componentId);
+      return Number.isFinite(component?.metrics?.[x.metricKey]);
+    };
     const storagePattern=/(?:disk|storage|filesystem|fs|pool|volume).*(?:used|free|available)/;
     return {
-      cpu:entries.find(x=>x.metricKey==='@derived.cpu_used_percent')||
-        entries.find(x=>/\bcpu\b.*(?:used|usage|utilization)/.test(named(x))&&x.unit==='%')||null,
+      cpu:entries.find(x=>x.metricKey==='@derived.cpu_used_percent'&&value(x))||
+        entries.find(x=>/\bcpu\b.*(?:used|usage|utilization)/.test(named(x))&&x.unit==='%'&&value(x))||null,
       mem:entries.find(x=>/\b(memory|ram|mem)\b.*(?:used|usage)/.test(named(x))&&
-        ['B','bytes','GiB','MiB','KiB'].includes(String(x.unit)))||
-        entries.find(x=>x.metricKey==='@derived.memory_used_percent')||
-        entries.find(x=>/\b(memory|ram|mem)\b.*(?:used|usage)/.test(named(x))&&x.unit==='%')||null,
+        ['B','bytes','GiB','MiB','KiB'].includes(String(x.unit))&&value(x))||
+        entries.find(x=>x.metricKey==='@derived.memory_used_percent'&&value(x))||
+        entries.find(x=>/\b(memory|ram|mem)\b.*(?:used|usage)/.test(named(x))&&x.unit==='%'&&value(x))||null,
       storage:entries.find(x=>storagePattern.test(named(x))&&value(x))||null,
-      network:entries.find(x=>/\b(eth|ethernet|nic|network|interface|link)\b.*(?:used|usage|utilization)/.test(named(x))&&x.unit==='%')||null,
+      network:entries.find(x=>/\b(eth|ethernet|nic|network|interface|link)\b.*(?:used|usage|utilization)/.test(named(x))&&x.unit==='%'&&value(x))||null,
     };
   }
   function hostItems(site,object,catalog){
