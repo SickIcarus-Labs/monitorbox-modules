@@ -58,7 +58,10 @@ async def scenario(browser,fixture,url,width,height):
     '[data-object="power"] [data-mb-member]').count()==2
   assert await home.locator(
     '[data-object="cameras"] [data-mb-member]').count()==8
-  assert await home.locator('[data-object="internet"] .mb-native-diagnosis').count()==1
+  diagnosis=await home.locator('[data-object="internet"] .mb-native-diagnosis').count()
+  assert diagnosis==1,("Internet diagnosis missing",
+    await home.locator("#core-grid").inner_html(),
+    cards["family:internet"])
   # Each checked Network member is rendered, despite every legacy device
   # reporting front_page=false. The last remote_site is not selectable.
   await editor.locator('#selected .layout-row').filter(
