@@ -5,6 +5,8 @@ on:
       - "platform/runtime/**"
       - "tools/package_self_contained_runtime.py"
       - "tools/test_self_contained_runtime.py"
+      - "tools/freeze_runtime_debian_closure.py"
+      - "tools/test_frozen_runtime_debian.py"
       - "tools/build_platform_index.py"
       - "tools/test_build_platform_index.py"
       - ".github/workflows/successor-runtime-proof.yml"
@@ -31,6 +33,30 @@ jobs:
           python-version: "3.13"
       - name: Synthetic source/path/determinism regressions
         run: python -m unittest discover -s tools -p 'test_self_contained_runtime.py' -v
+      - name: Frozen Debian ABI manifest and tampering regressions
+        run: python -m unittest discover -s tools -p 'test_frozen_runtime_debian.py' -v
+      - name: Download ONLY exact source-reviewed Debian .deb SHA256 bytes using signed apt index
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p runtime-deb-download
+          docker run --rm --network bridge -e DEBIAN_FRONTEND=noninteractive \
+            -v "$PWD/tools/freeze_runtime_debian_closure.py:/freeze.py:ro" \
+            -v "$PWD/platform/runtime/debian:/locks:ro" \
+            -v "$PWD/runtime-deb-download:/out" \
+            --entrypoint python \
+            python:3.13-slim-bookworm@sha256:2325bb286ec344af3e5898cc224b5844e2707ac6e26b1632516fd3edc84a5e26 \
+            /freeze.py fetch --lock-dir /locks --archives /out/debs
+          sudo chown -R "$(id -u):$(id -g)" runtime-deb-download
+          mkdir -p platform/runtime/debian/debs
+          cp runtime-deb-download/debs/*.deb platform/runtime/debian/debs/
+          python - <<'PY'
+          from pathlib import Path
+          from tools.freeze_runtime_debian_closure import load_lock, verify_archives
+          lock_dir=Path('platform/runtime/debian')
+          item=verify_archives(load_lock(lock_dir),lock_dir/'debs')
+          print('Verified pinned Debian package before Docker build:',item.name)
+          PY
       - name: Verify immutable Python/Node digest lock and exact Dockerfile before building
         run: |
           python - <<'PY'
@@ -65,7 +91,20 @@ jobs:
                   assert manifest['packaging_stage'] == 'digest-pinned-upstream-runtime-proof'
                   assert manifest['upstream']['python_image'] == upstream['python_image']
                   assert manifest['upstream']['node_image'] == upstream['node_image']
-                  assert manifest['upstream']['os_packages'] == 'unpinned-debian-bookworm-apt-prototype'
+                  assert manifest['upstream']['os_packages'] == 'sha256-locked-oci-base-abi-prototype'
+                  lock_path=Path(f'platform/runtime/debian/lock-{arch}.json')
+                  debian=json.loads(lock_path.read_text())
+                  evidence=manifest['upstream']['debian_abi']
+                  import hashlib
+                  assert evidence['lock_sha256']==hashlib.sha256(lock_path.read_bytes()).hexdigest()
+                  assert evidence['arch']==arch
+                  assert evidence['abi_versions']==debian['installed_abi_versions']
+                  assert evidence['base_ca_sha256']==debian['base_ca_sha256']
+                  assert evidence['installed_ca_sha256']==debian['installed_ca_sha256']
+                  assert evidence['changed_packages']==[
+                      {key: item[key] for key in ('package','version','sha256','size')}
+                      for item in debian['changed_packages']
+                  ]
                   assert manifest['platform'] == {'os':'linux','arch':arch,'abi':'glibc'}
                   assert manifest['dynamic_loader'] in z.namelist()
                   assert manifest['entrypoint'] in z.namelist()
