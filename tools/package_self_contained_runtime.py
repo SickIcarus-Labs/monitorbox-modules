@@ -158,13 +158,13 @@ def build_runtime(language: str, output: Path, *, extract_to: Path | None = None
                   python_prefix: Path = Path("/usr/local"), node_binary: Path = Path("/opt/upstream/node")) -> dict:
     if language not in LANGUAGES:
         raise RuntimePackagingError("unsupported runtime kind")
+    if output.exists() or output.is_symlink():
+        raise RuntimePackagingError("refusing to overwrite candidate")
     arch = host_arch()
     upstream_bin = python_prefix / "bin/python3.13" if language == "python" else node_binary
     if not upstream_bin.resolve().is_file():
         raise RuntimePackagingError("upstream runtime executable not present")
     version = _version(language, upstream_bin)
-    if output.exists() or output.is_symlink():
-        raise RuntimePackagingError("refusing to overwrite candidate")
     with tempfile.TemporaryDirectory(prefix="mb-runtime-") as tmp:
         root = Path(tmp)
         runtime = root / "runtime"
