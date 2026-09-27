@@ -74,6 +74,46 @@ def _verify_core_or_agent_admission(item: dict[str, Any], payload: bytes) -> Non
         raise PublicationError("Core/Agent internal package identity disagrees with signed catalog candidate")
 
 
+
+def _verify_runtime_or_manager_admission(item: dict[str, Any], payload: bytes) -> None:
+    """Never sign an unapproved runtime or replacement manager executable.
+
+    This validates archive admission and declared identity, not that a binary
+    is self-contained or authorized for a particular production appliance.
+    Those require signed full-generation runtime and physical acceptance.
+    """
+    if item.get("kind") not in {"runtime", "scaffold-manager"}:
+        return
+    try:
+        with zipfile.ZipFile(io.BytesIO(payload)) as archive:
+            entries = archive.namelist()
+            if entries.count("package.json") != 1:
+                raise PublicationError("runtime/manager package needs one package.json")
+            if archive.getinfo("package.json").file_size > 64 * 1024:
+                raise PublicationError("runtime/manager package manifest is oversized")
+            manifest = _parse(archive.read("package.json"))
+            if item["kind"] == "runtime":
+                entry = manifest.get("entrypoint") if isinstance(manifest, dict) else None
+                loader = manifest.get("dynamic_loader") if isinstance(manifest, dict) else None
+                for candidate in (entry, loader):
+                    if (not isinstance(candidate, str) or
+                        not candidate.startswith("runtime/") or
+                        ".." in candidate.split("/") or
+                        candidate not in entries):
+                        raise PublicationError("runtime package missing safe entrypoint or ELF loader")
+                    if archive.getinfo(candidate).file_size < 4 or archive.read(candidate)[:4] != b"\x7fELF":
+                        raise PublicationError("runtime entrypoint/loader must contain ELF data")
+    except (zipfile.BadZipFile, KeyError) as exc:
+        raise PublicationError("runtime/manager is not a valid ZIP") from exc
+    except VerificationError as exc:
+        raise PublicationError("runtime/manager internal JSON is invalid") from exc
+    if not isinstance(manifest, dict) or manifest.get("release_eligible") is not True:
+        raise PublicationError("runtime/manager package is unreleasable or lacks approval")
+    if manifest.get("kind") != item["kind"]:
+        raise PublicationError("runtime/manager kind disagrees with catalog")
+    if any(manifest.get(key) != item.get(key) for key in ("artifact_id", "version", "build")):
+        raise PublicationError("runtime/manager identity disagrees with signed catalog")
+
 def _timestamp(value: datetime) -> datetime:
     if value.tzinfo is None:
         raise PublicationError("generated_at requires explicit timezone")
@@ -131,6 +171,7 @@ def sign_candidate(
         if not payload:
             raise PublicationError("empty packages cannot be published")
         _verify_core_or_agent_admission(item, payload)
+        _verify_runtime_or_manager_admission(item, payload)
         metadata = {k: v for k, v in item.items() if k != "package_file"}
         metadata["package"] = {
             "url": "platform/packages/" + filename,

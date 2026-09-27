@@ -56,6 +56,20 @@ class BuildPlatformIndexTests(unittest.TestCase):
                                                             "fixture_only": True, "entrypoints": {"synthetic": "never-run"}}))
                     z.writestr("app/SYNTHETIC.txt", "NONEXECUTABLE TEST PACKAGE")
                 (self.packages / filename).write_bytes(buffer.getvalue())
+            elif kind in {"runtime", "scaffold-manager"}:
+                buffer = io.BytesIO()
+                with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as z:
+                    manifest = {"schema": 1, "artifact_id": identity, "version":
+                                "3.13.0" if identity.endswith(".runtime.python") else
+                                "24.0.0" if identity.endswith(".runtime.node") else "3.0.0",
+                                "build": 1, "kind": kind, "release_eligible": True}
+                    if kind == "runtime":
+                        manifest.update({"entrypoint": "runtime/usr/local/bin/interpreter",
+                                         "dynamic_loader": "runtime/loader/ld-linux-aarch64.so.1"})
+                        z.writestr("runtime/usr/local/bin/interpreter", b"\x7fELF" + bytes(80))
+                        z.writestr("runtime/loader/ld-linux-aarch64.so.1", b"\x7fELF" + bytes(80))
+                    z.writestr("package.json", json.dumps(manifest))
+                (self.packages / filename).write_bytes(buffer.getvalue())
             else:
                 (self.packages / filename).write_bytes((f"NONEXECUTABLE {identity}\n" * 16).encode())
             arch = "any" if kind == "module" else "arm64"
@@ -170,6 +184,44 @@ class BuildPlatformIndexTests(unittest.TestCase):
                 self.candidate()
         path.write_bytes(original)
         self.assertTrue(self.candidate())
+
+    def test_runtime_and_manager_require_explicit_approval_and_matching_identity(self) -> None:
+        for position in (5, 6, 7):
+            record = self.source["artifacts"][position]
+            artifact = self.packages / record["package_file"]
+            original = artifact.read_bytes()
+            with zipfile.ZipFile(io.BytesIO(original)) as z:
+                base = json.loads(z.read("package.json"))
+            for delta, expected_error in (
+                ({"release_eligible": False}, "unreleasable"),
+                ({"release_eligible": None}, "unreleasable"),
+                ({"artifact_id": "com.sickicarus.monitorbox.other"}, "identity"),
+            ):
+                altered = dict(base, **delta)
+                with zipfile.ZipFile(io.BytesIO(original)) as src, io.BytesIO() as out:
+                    with zipfile.ZipFile(out, "w") as dst:
+                        for name in src.namelist():
+                            dst.writestr(name, json.dumps(altered) if name == "package.json" else src.read(name))
+                    artifact.write_bytes(out.getvalue())
+                with self.assertRaisesRegex(PublicationError, expected_error):
+                    self.candidate()
+            artifact.write_bytes(original)
+        self.assertTrue(self.candidate())
+
+    def test_runtime_missing_loader_and_forged_elf_fail_before_signing(self) -> None:
+        record = self.source["artifacts"][6]
+        artifact = self.packages / record["package_file"]
+        original = artifact.read_bytes()
+        with zipfile.ZipFile(io.BytesIO(original)) as src:
+            manifest = json.loads(src.read("package.json"))
+            with io.BytesIO() as out:
+                with zipfile.ZipFile(out, "w") as dst:
+                    dst.writestr("package.json", json.dumps(manifest))
+                    dst.writestr(manifest["entrypoint"], b"ELF-pretend")
+                artifact.write_bytes(out.getvalue())
+        with self.assertRaisesRegex(PublicationError, "missing safe"):
+            self.candidate()
+        artifact.write_bytes(original)
 
     def test_expiry_and_future_or_invalid_key_rejected(self) -> None:
         raw = self.candidate()
