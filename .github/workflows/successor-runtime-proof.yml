@@ -31,6 +31,15 @@ jobs:
           python-version: "3.13"
       - name: Synthetic source/path/determinism regressions
         run: python -m unittest discover -s tools -p 'test_self_contained_runtime.py' -v
+      - name: Verify immutable Python/Node digest lock and exact Dockerfile before building
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from tools.package_self_contained_runtime import load_upstream_lock, verify_locked_dockerfile
+          lock = load_upstream_lock()
+          verify_locked_dockerfile(Path("platform/runtime/Dockerfile"), lock)
+          print("Pinned Docker Official Images:", lock)
+          PY
       - name: Package architecture-native Python and Node distributions
         run: docker build --file platform/runtime/Dockerfile --target packer --tag mb-runtime-proof:${{ matrix.arch }} .
       - name: Extract candidate ZIPs and isolated scratch roots
@@ -44,6 +53,7 @@ jobs:
           docker cp "$id:/proof" runtime-proof/proof
           python - <<'PY'
           import json, platform, zipfile
+          upstream = json.load(open("platform/runtime/upstream-lock.json"))
           from pathlib import Path
           arch = {'x86_64':'amd64','aarch64':'arm64'}[platform.machine()]
           for name in ('python','node'):
@@ -52,6 +62,10 @@ jobs:
                   assert z.testzip() is None
                   manifest = json.loads(z.read('package.json'))
                   assert manifest['release_eligible'] is False
+                  assert manifest['packaging_stage'] == 'digest-pinned-upstream-runtime-proof'
+                  assert manifest['upstream']['python_image'] == upstream['python_image']
+                  assert manifest['upstream']['node_image'] == upstream['node_image']
+                  assert manifest['upstream']['os_packages'] == 'unpinned-debian-bookworm-apt-prototype'
                   assert manifest['platform'] == {'os':'linux','arch':arch,'abi':'glibc'}
                   assert manifest['dynamic_loader'] in z.namelist()
                   assert manifest['entrypoint'] in z.namelist()
