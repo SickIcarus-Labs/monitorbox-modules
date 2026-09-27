@@ -56,7 +56,8 @@ class SelfContainedRuntimeTests(unittest.TestCase):
             for name in ("one", "two"):
                 with patch.object(pkg, "host_arch", return_value="amd64"), \
                      patch.object(pkg, "_version", return_value="3.13.9"), \
-                     patch.object(pkg, "_ldd_dependencies", return_value={system_loader.name: system_loader.resolve()}):
+                     patch.object(pkg, "_ldd_dependencies", return_value={system_loader.name: system_loader.resolve()}), \
+                     patch.object(pkg, "_resolve_abi_library", return_value=system_loader.resolve()):
                     result = pkg.build_runtime("python", root / f"{name}.zip", python_prefix=base)
                 self.assertFalse(result["release_eligible"])
                 self.assertEqual("com.sickicarus.monitorbox.runtime.python", result["artifact_id"])
@@ -65,6 +66,8 @@ class SelfContainedRuntimeTests(unittest.TestCase):
             with zipfile.ZipFile(root / "one.zip") as archive:
                 self.assertIn("runtime/usr/local/bin/python3.13", archive.namelist())
                 self.assertIn("runtime/usr/local/lib/python3.13/__init__.py", archive.namelist())
+                for support in pkg.ABI_SUPPORT_LIBRARIES:
+                    self.assertIn("runtime/lib/" + support, archive.namelist())
                 self.assertNotIn("runtime/usr/local/lib/python3.13/__pycache__/ignored.pyc", archive.namelist())
                 self.assertNotIn("runtime/usr/local/lib/python3.13/lib-dynload/_tkinter.so", archive.namelist())
                 self.assertNotIn("runtime/usr/local/lib/python3.13/tkinter/__init__.py", archive.namelist())
@@ -86,6 +89,8 @@ class SelfContainedRuntimeTests(unittest.TestCase):
             with patch.object(pkg.platform, "machine", return_value="sparc"):
                 with self.assertRaisesRegex(pkg.RuntimePackagingError, "unsupported build"):
                     pkg.host_arch()
+            with self.assertRaisesRegex(pkg.RuntimePackagingError, "unapproved runtime"):
+                pkg._resolve_abi_library("amd64", "libadversary.so")
             with self.assertRaisesRegex(pkg.RuntimePackagingError, "unsupported runtime"):
                 pkg.build_runtime("rust", root / "unrequested.zip")
 
