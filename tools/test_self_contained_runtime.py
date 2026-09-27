@@ -44,6 +44,10 @@ class SelfContainedRuntimeTests(unittest.TestCase):
             (base / "lib/python3.13/__init__.py").write_text("FAKE = 1\n")
             (base / "lib/python3.13/__pycache__").mkdir()
             (base / "lib/python3.13/__pycache__/ignored.pyc").write_bytes(b"old")
+            (base / "lib/python3.13/lib-dynload").mkdir()
+            (base / "lib/python3.13/lib-dynload/_tkinter.so").write_bytes(b"\\x7fELF FAKE GUI")
+            (base / "lib/python3.13/tkinter").mkdir()
+            (base / "lib/python3.13/tkinter/__init__.py").write_text("GUI ONLY\\n")
             system_loader = Path("/lib64/ld-linux-x86-64.so.2")
             if not system_loader.exists():
                 self.skipTest("x86-64 ELF loader not present in unit environment")
@@ -60,6 +64,8 @@ class SelfContainedRuntimeTests(unittest.TestCase):
                 self.assertIn("runtime/usr/local/bin/python3.13", archive.namelist())
                 self.assertIn("runtime/usr/local/lib/python3.13/__init__.py", archive.namelist())
                 self.assertNotIn("runtime/usr/local/lib/python3.13/__pycache__/ignored.pyc", archive.namelist())
+                self.assertNotIn("runtime/usr/local/lib/python3.13/lib-dynload/_tkinter.so", archive.namelist())
+                self.assertNotIn("runtime/usr/local/lib/python3.13/tkinter/__init__.py", archive.namelist())
                 self.assertTrue(archive.getinfo("runtime/usr/local/bin/python3.13").external_attr >> 16 & stat.S_IXUSR)
                 self.assertEqual(result, json.loads(archive.read("package.json")))
             with self.assertRaisesRegex(pkg.RuntimePackagingError, "overwrite"):
