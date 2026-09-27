@@ -28,7 +28,7 @@ ARCHES = {"x86_64": "amd64", "aarch64": "arm64"}
 LOADER_NAMES = {"amd64": "ld-linux-x86-64.so.2", "arm64": "ld-linux-aarch64.so.1"}
 LANGUAGES = {"python", "node"}
 ZIP_TIME = (1980, 1, 1, 0, 0, 0)
-EXCLUDED = {"__pycache__", ".pytest_cache", "test", "tests"}
+EXCLUDED = {"__pycache__", ".pytest_cache", "test", "tests", "tkinter", "idlelib", "turtledemo"}
 MAX_FILE_SIZE = 150 * 1024 * 1024
 
 
@@ -97,7 +97,8 @@ def _copy_tree(source: Path, dest: Path) -> list[Path]:
     elfs: list[Path] = []
     for item in sorted(source.rglob("*")):
         relative = item.relative_to(source)
-        if EXCLUDED.intersection(relative.parts) or item.name.endswith((".pyc", ".pyo", ".o", ".a", ".h")):
+        if (EXCLUDED.intersection(relative.parts) or item.name.startswith("_tkinter.") or
+            item.name.endswith((".pyc", ".pyo", ".o", ".a", ".h"))):
             continue
         if item.is_dir():
             continue
