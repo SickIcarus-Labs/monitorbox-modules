@@ -13,6 +13,8 @@ COPY platform/runtime/upstream-lock.json /build/upstream-lock.json
 COPY platform/runtime/Dockerfile /build/runtime.Dockerfile
 ENV MONITORBOX_RUNTIME_UPSTREAM_LOCK=/build/upstream-lock.json
 ENV MONITORBOX_RUNTIME_DOCKERFILE=/build/runtime.Dockerfile
+ENV MONITORBOX_RUNTIME_DEBIAN_LOCK_DIR=/build/debian
+ENV MONITORBOX_RUNTIME_DEBIAN_ARCHIVES=/build/debian/debs
 RUN mkdir -p /artifacts /proof \
     && python /build/package_self_contained_runtime.py --language python \
          --output /artifacts/python-candidate.zip --extract-to /proof/python \
