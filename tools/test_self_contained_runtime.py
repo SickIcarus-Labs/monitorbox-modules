@@ -60,6 +60,13 @@ class SelfContainedRuntimeTests(unittest.TestCase):
                      patch.object(pkg, "_resolve_abi_library", return_value=system_loader.resolve()):
                     result = pkg.build_runtime("python", root / f"{name}.zip", python_prefix=base)
                 self.assertFalse(result["release_eligible"])
+                self.assertEqual(result["packaging_stage"], "digest-pinned-upstream-runtime-proof")
+                self.assertEqual(result["upstream"]["python_image"],
+                                 pkg.load_upstream_lock()["python_image"])
+                self.assertEqual(result["upstream"]["node_image"],
+                                 pkg.load_upstream_lock()["node_image"])
+                self.assertEqual(result["upstream"]["os_packages"],
+                                 "unpinned-debian-bookworm-apt-prototype")
                 self.assertEqual("com.sickicarus.monitorbox.runtime.python", result["artifact_id"])
                 self.assertEqual("runtime/loader/ld-linux-x86-64.so.2", result["dynamic_loader"])
             self.assertEqual((root / "one.zip").read_bytes(), (root / "two.zip").read_bytes())
@@ -76,6 +83,49 @@ class SelfContainedRuntimeTests(unittest.TestCase):
             with self.assertRaisesRegex(pkg.RuntimePackagingError, "overwrite"):
                 pkg.build_runtime("python", root / "one.zip", python_prefix=base)
 
+    def test_exact_upstream_lock_rejects_floating_images_drift_and_override(self):
+        source_lock = Path(__file__).resolve().parents[1] / "platform/runtime/upstream-lock.json"
+        source_dockerfile = source_lock.parent / "Dockerfile"
+        upstream = pkg.load_upstream_lock(source_lock)
+        self.assertEqual(
+            upstream["python_image"],
+            "python:3.13-slim-bookworm@sha256:2325bb286ec344af3e5898cc224b5844e2707ac6e26b1632516fd3edc84a5e26",
+        )
+        self.assertEqual(
+            upstream["node_image"],
+            "node:24-bookworm-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6",
+        )
+        pkg.verify_locked_dockerfile(source_dockerfile, upstream)
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            lock = directory / "lock.json"
+            base = json.loads(source_lock.read_text())
+            for label, value in (
+                ("floating-tag", {**base, "python_image": "python:3.13-slim-bookworm"}),
+                ("swapped-runtime", {**base, "node_image": base["python_image"]}),
+                ("malformed-digest", {**base, "node_image": "node:24-bookworm-slim@sha256:" + "z" * 64}),
+                ("missing-arch", {**base, "platforms": ["linux/amd64"]}),
+                ("unexpected-release", {**base, "release_eligible": True}),
+                ("bad-schema", {**base, "schema": True}),
+            ):
+                with self.subTest(label=label):
+                    lock.write_text(json.dumps(value))
+                    with self.assertRaises(pkg.RuntimePackagingError):
+                        pkg.load_upstream_lock(lock)
+            lock.write_text(source_lock.read_text().replace(
+                '"schema": 1,', '"schema": 1, "schema": 1,', 1,
+            ))
+            with self.assertRaisesRegex(pkg.RuntimePackagingError, "duplicate"):
+                pkg.load_upstream_lock(lock)
+            dockerfile = directory / "Dockerfile"
+            dockerfile.write_text(source_dockerfile.read_text().replace(
+                upstream["python_image"], "python:3.13-slim-bookworm",
+            ))
+            with self.assertRaisesRegex(pkg.RuntimePackagingError, "differs"):
+                pkg.verify_locked_dockerfile(dockerfile, upstream)
+            dockerfile.write_text(source_dockerfile.read_text() + "\nARG PYTHON_IMAGE=unsafe\n")
+            with self.assertRaisesRegex(pkg.RuntimePackagingError, "differs"):
+                pkg.verify_locked_dockerfile(dockerfile, upstream)
     def test_invalid_sources_and_unsupported_architecture(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

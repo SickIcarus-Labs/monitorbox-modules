@@ -39,6 +39,67 @@ EXCLUDED = {"__pycache__", ".pytest_cache", "test", "tests", "tkinter", "idlelib
 MAX_FILE_SIZE = 150 * 1024 * 1024
 
 
+PINNED_IMAGE = re.compile(r"^(python:3[.]13-slim-bookworm|node:24-bookworm-slim)@sha256:[0-9a-f]{64}$")
+EXPECTED_ARCHES = ["linux/amd64", "linux/arm64"]
+
+
+def _strict_json_pairs(pairs: list[tuple[str, object]]) -> dict:
+    result: dict = {}
+    for key, value in pairs:
+        if key in result:
+            raise RuntimePackagingError("duplicate immutable upstream lock key")
+        result[key] = value
+    return result
+
+
+def load_upstream_lock(lock_path: Path | None = None) -> dict[str, str]:
+    """Require exact immutable Docker Official Images index digests."""
+    if lock_path is None:
+        lock_path = Path(os.environ.get(
+            "MONITORBOX_RUNTIME_UPSTREAM_LOCK",
+            str(Path(__file__).resolve().parents[1] / "platform/runtime/upstream-lock.json"),
+        ))
+    if lock_path.is_symlink() or not lock_path.is_file():
+        raise RuntimePackagingError("immutable runtime upstream lock is missing or linked")
+    try:
+        manifest = json.loads(lock_path.read_text(encoding="utf-8"),
+                              object_pairs_hook=_strict_json_pairs)
+    except RuntimePackagingError:
+        raise  # Preserve the specific duplicate-key rejection for auditing.
+    except (OSError, UnicodeError, ValueError) as exc:
+        raise RuntimePackagingError("malformed immutable runtime upstream lock") from exc
+    if type(manifest) is not dict or set(manifest) != {
+        "schema", "format", "python_image", "node_image", "platforms"
+    } or type(manifest["schema"]) is not int or manifest["schema"] != 1 or (
+        manifest["format"] != "docker-official-images-multiarch-index"
+    ) or manifest["platforms"] != EXPECTED_ARCHES:
+        raise RuntimePackagingError("unreviewed upstream manifest schema/platforms")
+    for name, repository in (("python_image", "python:3.13-slim-bookworm"),
+                             ("node_image", "node:24-bookworm-slim")):
+        value = manifest[name]
+        if not isinstance(value, str) or not PINNED_IMAGE.fullmatch(value) or (
+            not value.startswith(repository + "@sha256:")
+        ):
+            raise RuntimePackagingError("runtime upstream must use an exact approved digest")
+    return {"python_image": manifest["python_image"],
+            "node_image": manifest["node_image"]}
+
+
+def verify_locked_dockerfile(dockerfile_path: Path, upstream: dict[str, str]) -> None:
+    if dockerfile_path.is_symlink() or not dockerfile_path.is_file():
+        raise RuntimePackagingError("pinned runtime Dockerfile is unavailable or linked")
+    content = dockerfile_path.read_text(encoding="utf-8")
+    from_lines = [
+        line.split() for line in content.splitlines()
+        if line.strip().upper().startswith("FROM ")
+    ]
+    if from_lines != [
+        ["FROM", upstream["node_image"], "AS", "node-upstream"],
+        ["FROM", upstream["python_image"], "AS", "packer"],
+    ] or any(line.strip().startswith("ARG ") for line in content.splitlines()):
+        raise RuntimePackagingError("runtime Dockerfile differs from immutable upstream lock")
+
+
 def host_arch() -> str:
     arch = ARCHES.get(platform.machine())
     if arch is None:
@@ -199,6 +260,12 @@ def build_runtime(language: str, output: Path, *, extract_to: Path | None = None
     if output.exists() or output.is_symlink():
         raise RuntimePackagingError("refusing to overwrite candidate")
     arch = host_arch()
+    upstream = load_upstream_lock()
+    dockerfile = Path(os.environ.get(
+        "MONITORBOX_RUNTIME_DOCKERFILE",
+        str(Path(__file__).resolve().parents[1] / "platform/runtime/Dockerfile"),
+    ))
+    verify_locked_dockerfile(dockerfile, upstream)
     upstream_bin = python_prefix / "bin/python3.13" if language == "python" else node_binary
     if not upstream_bin.resolve().is_file():
         raise RuntimePackagingError("upstream runtime executable not present")
@@ -266,13 +333,13 @@ def build_runtime(language: str, output: Path, *, extract_to: Path | None = None
             "schema": 1, "kind": "runtime",
             "artifact_id": f"com.sickicarus.monitorbox.runtime.{language}",
             "version": version, "build": 1, "release_eligible": False,
-            "packaging_stage": "unpinned-upstream-runtime-proof",
+            "packaging_stage": "digest-pinned-upstream-runtime-proof",
             "platform": {"os": "linux", "arch": arch, "abi": "glibc"},
             "entrypoint": entry, "dynamic_loader": f"runtime/loader/{loader.name}",
             "library_paths": ["runtime/lib", "runtime/usr/local/lib"],
             "environment": smoke, "verified_elf_count": len(included),
             "library_count": len(libraries),
-            "upstream": {"python_image": "python:3.13-slim-bookworm", "node_image": "node:24-bookworm-slim"},
+            "upstream": {**upstream, "os_packages": "unpinned-debian-bookworm-apt-prototype"},
         }
         (root / "package.json").write_text(json.dumps(manifest, sort_keys=True, indent=2) + "\n")
         if extract_to is not None:

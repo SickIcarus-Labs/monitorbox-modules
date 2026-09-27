@@ -1,0 +1,28 @@
+name: Successor runtime upstream digest evidence (unreleaseable)
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/successor-runtime-digest-evidence.yml"
+      - "platform/runtime/**"
+      - "tools/package_self_contained_runtime.py"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  immutable-provenance:
+    name: Inspect upstream multi-architecture runtime manifest digests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - name: Retrieve exact Docker Official Images manifest digests
+        shell: bash
+        run: |
+          set -euo pipefail
+          for upstream in python:3.13-slim-bookworm node:24-bookworm-slim; do
+            evidence=$(docker buildx imagetools inspect "$upstream")
+            digest=$(sed -n 's/^Digest:[[:space:]]*//p' <<< "$evidence" | head -n 1)
+            [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+            echo "OFFICIAL_UPSTREAM_DIGEST $upstream@$digest"
+            printf '%s\n' "$evidence" | grep -E 'linux/(amd64|arm64)' | sort -u
+          done
