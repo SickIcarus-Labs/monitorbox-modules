@@ -153,6 +153,8 @@ def archive():
     digest=hashlib.sha256(payload).hexdigest()
     meta={**ui_stage.ENTRY["manifest"],"version":"1.16.0","build":52,
           "entrypoints":{"webui":"monitorbox_ui_b52:install"}}
+    meta["requires_core"]=">=2.7.0 <3.0.0"
+    assert meta["requires_core"].startswith(">=2.7.0")
     manifest=ModuleManifest(
         module_id=meta["module_id"],display_name=meta["display_name"],
         version=meta["version"],build=meta["build"],
