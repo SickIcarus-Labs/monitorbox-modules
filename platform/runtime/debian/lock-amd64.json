@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "release_eligible": false,
+  "packaging_stage": "sha256-locked-oci-base-debian-abi-proof",
+  "base_image": "python:3.13-slim-bookworm@sha256:2325bb286ec344af3e5898cc224b5844e2707ac6e26b1632516fd3edc84a5e26",
+  "requested": [
+    "libstdc++6",
+    "libgcc-s1",
+    "libatomic1"
+  ],
+  "base_ca_sha256": "714d457d580922dbf1d0be8bd35ba236a842b50b0072ae791582a19adef772a5",
+  "installed_ca_sha256": "714d457d580922dbf1d0be8bd35ba236a842b50b0072ae791582a19adef772a5",
+  "baseline_abi_versions": {
+    "libatomic1": null,
+    "libgcc-s1": "12.2.0-14+deb12u1",
+    "libstdc++6": "12.2.0-14+deb12u1"
+  },
+  "installed_abi_versions": {
+    "libatomic1": "12.2.0-14+deb12u1",
+    "libgcc-s1": "12.2.0-14+deb12u1",
+    "libstdc++6": "12.2.0-14+deb12u1"
+  },
+  "arch": "amd64",
+  "changed_packages": [
+    {
+      "package": "libatomic1",
+      "version": "12.2.0-14+deb12u1",
+      "arch": "amd64",
+      "filename": "libatomic1_12.2.0-14+deb12u1_amd64.deb",
+      "source_path": "pool/main/g/gcc-12/libatomic1_12.2.0-14+deb12u1_amd64.deb",
+      "sha256": "fbd4e154a6b444229ea002cc209df099209c0adc09102e5fd21239a3d2b55e2d",
+      "size": 9376
+    }
+  ]
+}

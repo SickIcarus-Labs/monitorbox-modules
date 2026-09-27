@@ -1,0 +1,55 @@
+name: Successor Debian ABI closure discovery (unreleasable)
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/successor-debian-closure.yml"
+      - "tools/discover_runtime_debian_closure.py"
+      - "platform/runtime/debian/**"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  debian-discovery:
+    name: Discover signed Debian ABI package closure / ${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - name: Discover Debian-signed apt package hashes on digest-pinned native Python image
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p runtime-probe
+          docker run --rm --network bridge \
+            -e DEBIAN_FRONTEND=noninteractive \
+            -v "$PWD/tools/discover_runtime_debian_closure.py:/probe.py:ro" \
+            -v "$PWD/runtime-probe:/out" \
+            --entrypoint python \
+            python:3.13-slim-bookworm@sha256:2325bb286ec344af3e5898cc224b5844e2707ac6e26b1632516fd3edc84a5e26 \
+            /probe.py
+          sudo chown -R "$(id -u):$(id -g)" runtime-probe
+          python - <<'PY'
+          import json,platform
+          from pathlib import Path
+          arch={'x86_64':'amd64','aarch64':'arm64'}[platform.machine()]
+          evidence=json.loads(Path(f'runtime-probe/discovered-{arch}.json').read_text())
+          assert evidence['arch']==arch and evidence['release_eligible'] is False
+          assert 1 <= len(evidence['changed_packages']) <= 20
+          print(f"Verified signed apt closure discovery: {arch},", len(evidence['changed_packages']), "packages")
+          PY
+      - name: Retain SHORT-LIVED unsigned Debian evidence and exact packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: unreleasable-debian-closure-${{ matrix.arch }}-${{ github.sha }}
+          path: runtime-probe
+          retention-days: 2
+          compression-level: 0
+          if-no-files-found: error

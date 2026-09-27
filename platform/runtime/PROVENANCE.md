@@ -31,26 +31,29 @@ Digest discovery continues to record the latest upstream tag versions for
 future *deliberate* lock updates. The runtime Dockerfile does not follow a
 moved tag automatically.
 
-## Explicit remaining mutable supply-chain inputs
+## Exact Debian ABI and CA bytes; remaining mutable metadata
 
-`apt-get update && apt-get install` still resolves Debian Bookworm security
-and ABI support packages at build time, rather than an immutable snapshot with
-individually reviewed .deb SHA-256 digests. CA certificates also originate
-from those mutable package sources. Thus two builds from the same pinned
-upstream OCI indexes at different dates can differ. The generated ZIP is
-deterministic only when all input bytes are identical; pinning both upstream
-OCI indexes alone does **not** qualify a reproducible official release.
+The original Debian apt installation has been replaced by the reviewed
+[architecture-specific native ABI/CA lock](./DEBIAN-ABI-PROVENANCE.md).
+Only `libatomic1` is absent from the fixed Python OCI base image. CI
+downloads the exact native Debian-signed .deb SHA256 on AMD64/ARM64, and the
+runtime Dockerfile verifies its embedded dpkg metadata and SHA256 **before
+any offline installation**. The two other requested ABI distributions are
+already present at the exact expected versions. The pinned OCI base's
+CA-certificate bundle retains the identical reviewed SHA256 before and after
+installation. No runtime Docker stage uses apt or resolves packages online.
 
-The archive manifest explicitly declares
-`packaging_stage: "digest-pinned-upstream-runtime-proof"`,
-`upstream.os_packages: "unpinned-debian-bookworm-apt-prototype"`, and
-`release_eligible: false`. No step in the development workflow may rewrite
-that approval flag, upload an official package, sign with the release root,
-or change Broad Leaf.
+The runtime manifests record the upstream image index digests, the
+source-committed native Debian lock SHA256, installed ABI package versions,
+exact new .deb hash and CA hash. These remain explicitly
+`release_eligible:false` with the
+`sha256-locked-oci-base-abi-prototype` OS package stage.
 
-Before the next publisher acceptance: freeze the complete Debian ABI/CA
-package closure and verify exact checksums for both native architectures,
-review vulnerabilities and update strategy, pin every Core wheel transitively,
-make independently distributable Core and Agent packages, and run full
-signed-package offline install and actual supervised activation with durable
-configuration-plus-software rollback. These are separate release gates.
+**The Debian signed apt index used by CI to retrieve these immutable .deb
+bytes is still live rather than an immutable archived snapshot.** If the
+approved version disappears or the signed metadata differs, the build
+must fail rather than select a newer version. Official reproducible
+publication requires independent archival of the Debian signed index and
+immutable reviewed .deb object storage, plus the independent signed
+Core/Agent package publisher, full appliance and last-known-good rollback
+acceptance. This work does not publish, sign, promote or alter Broad Leaf.
