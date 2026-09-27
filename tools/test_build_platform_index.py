@@ -219,6 +219,17 @@ class BuildPlatformIndexTests(unittest.TestCase):
                     dst.writestr("package.json", json.dumps(manifest))
                     dst.writestr(manifest["entrypoint"], b"ELF-pretend")
                 artifact.write_bytes(out.getvalue())
+        # The first candidate is doubly invalid: forged executable bytes
+        # and an omitted ELF loader. The independent ELF check rejects it.
+        with self.assertRaisesRegex(PublicationError, "ELF data"):
+            self.candidate()
+        # Now include a genuine ELF-marked entrypoint, retaining the missing
+        # loader to prove that *both* required files are enforced.
+        with io.BytesIO() as out:
+            with zipfile.ZipFile(out, "w") as dst:
+                dst.writestr("package.json", json.dumps(manifest))
+                dst.writestr(manifest["entrypoint"], b"\x7fELF" + bytes(80))
+            artifact.write_bytes(out.getvalue())
         with self.assertRaisesRegex(PublicationError, "missing safe"):
             self.candidate()
         artifact.write_bytes(original)
