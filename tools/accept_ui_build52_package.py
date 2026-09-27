@@ -33,7 +33,10 @@ def main():
     previous.TARGET_IMPORT_PACKAGE+"/assets/card-projection.js"]
   ast.parse(assets["__init__.py"].decode())
   ast.parse(assets["bootstrap.py"].decode())
-  assert b"from .bootstrap import automatic_layout_snapshot" in assets["__init__.py"]
+  assert b"from .bootstrap import (automatic_layout_snapshot" in assets["__init__.py"]
+  assert b"register_preference_first_ready" in assets["__init__.py"]
+  assert b"def first_ready_pending(" in assets["bootstrap.py"]
+  assert b"def finalize_first_ready(" in assets["bootstrap.py"]
   assert b"def _automatic_layout_snapshot(app, document, current):" not in assets["__init__.py"]
   assert b"schema_version" in assets["bootstrap.py"]
   assert b"schema_version\":5" in assets["bootstrap.py"]

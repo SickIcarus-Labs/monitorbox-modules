@@ -95,10 +95,15 @@ spec.loader.exec_module(module)
 site=payload["site"]
 live=payload["live"]
 app={"monitorbox.public_state_snapshot":lambda:{"sites":[site]},
-     "monitorbox.ui_live_series_snapshot":lambda:live}
+     "monitorbox.live_series_snapshot":lambda:live}
 document={"sites":[{"id":site["id"]}]}
 rows=module.generate(site,live)
 entry=module.automatic_layout_snapshot(app,document,None)
+assert module.first_ready_pending(entry) is (not bool(live))
+if module.first_ready_pending(entry):
+    final=module.finalize_first_ready(app,document,entry)
+    assert not module.first_ready_pending(final)
+    assert final["data"]["sites"][site["id"]]["cards"]==rows
 old={"schema_version":4,"data":{"sites":{"lab":{
     "mode":"custom","cards":[{"id":"host:a2","visible":True}]}}}}
 assert module.automatic_layout_snapshot(app,document,old) is old
@@ -113,9 +118,12 @@ function comparePython(site,liveRows,jsCards,label){
   assert.deepEqual(result.rows,JSON.parse(JSON.stringify(jsCards)),
     label+' JS/Python first-bootstrap versus Reset differ');
   assert.deepEqual(result.initial,{
-    schema_version:5,data:{sites:{[site.id]:{
-      mode:'auto',cards:JSON.parse(JSON.stringify(jsCards))
-    }}}
+    schema_version:5,data:{
+      sites:{[site.id]:{
+        mode:'auto',cards:JSON.parse(JSON.stringify(jsCards))
+      }},
+      ...(liveRows.length?{}:{bootstrap_pending:true})
+    }
   },label+' Core startup preference schema mismatch');
 }
 comparePython(site,live,fresh,'LIVE available at first readiness');

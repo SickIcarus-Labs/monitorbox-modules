@@ -26,12 +26,12 @@ SOURCE_BLOBS={
   "card-composer.css":"712b527d092c4fe8f1c4a0518d8c17ead248bda0",
   "card-item-registry.js":"d9aa84ce01591b9856f66e2e17e4d2da89edd879",
   "card-layout-editor.html":"024e53bfe4943f2bdc7db8b58aafe05189c97f11",
-  "card-layout-editor.js":"2c759f89d91b2d8617f8f2ba56057f7e43ac53fa",
+  "card-layout-editor.js":"aa26659d88c4d6b088b6bad192484c1a67b3425e",
   "card-layout-policy.js":"3d6eed7ac5a82aabcac23078b40828e209a0f174",
   "card-layout.css":"8d8f71c29d3cfe179e93e73a0d34d0d244fd7a34",
   "card-layout.js":"f293ba09d65aed74160d59d04a0cdcc21302cc9c",
   "live-telemetry.js":"24d723db90cf6dddc8aa4ea241a11ae465e64c4e",
-  "bootstrap.py":"b9ab6ff3885f18a1cd8ac66bbe8006f3192b2b96",
+  "bootstrap.py":"d8355ce261f229f24dd681721b1762ce5a846856",
 }
 def git_sha(data:bytes)->str:
   return hashlib.sha1(f"blob {len(data)}\0".encode()+data).hexdigest()
@@ -79,8 +79,20 @@ def _package_files(root:Path)->dict[str,bytes]:
   if start<0 or end<=start:
     raise SystemExit("UI52 initial preference writer seam changed")
   parent["__init__.py"]=(parent["__init__.py"][:start]+
-    b"from .bootstrap import automatic_layout_snapshot as _automatic_layout_snapshot\n\n"+
+    b"from .bootstrap import (automatic_layout_snapshot as _automatic_layout_snapshot,\n"
+    b"    first_ready_pending as _first_ready_pending,\n"
+    b"    finalize_first_ready as _finalize_first_ready)\n\n"+
     parent["__init__.py"][end:])
+  # UI52 must fail closed on pre-#410 Core. Both initial serialization and
+  # one-time first-ready completion belong to the same module participant.
+  parent["__init__.py"]=_replace_once(
+      parent["__init__.py"],
+      b'    register_provider(app, "com.sickicarus.monitorbox.ui", _automatic_layout_snapshot)'+bytes([10]),
+      b'    register_provider(app, "com.sickicarus.monitorbox.ui", _automatic_layout_snapshot)'+bytes([10])+
+      b'    from monitorbox.v2.module_preferences import register_preference_first_ready'+bytes([10])+
+      b'    register_preference_first_ready(app, "com.sickicarus.monitorbox.ui",'+bytes([10])+
+      b'        _first_ready_pending, _finalize_first_ready)'+bytes([10]),
+      "UI52 Core first-ready contract")
   parent["bootstrap.py"]=bootstrap
   for name,value in sources.items():
     parent["assets/"+name]=value

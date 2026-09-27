@@ -82,6 +82,9 @@
       working.data.sites[siteId]={mode:'custom',cards:rows().map(row=>({...row}))};
     // Explicit edits upgrade historical UI41 v1 layouts, never on read.
     working.schema_version=policy.SCHEMA;
+    // Editing an initial provisional default explicitly claims ownership:
+    // a delayed bootstrap finalizer must never replace this saved draft.
+    delete working.data.bootstrap_pending;
     return working.data.sites[siteId].cards;
   }
   function rowFor(row){
@@ -907,6 +910,9 @@
       fresh+' capability-aware defaults. Other monitoring and graphs are unchanged. Take a full appliance backup before Apply.'))return;
     const next=copy(working);
     next.schema_version=policy.SCHEMA;
+    // Reset uses CURRENT capabilities immediately, without wizard rerun or
+    // re-registering Core's first-ready bootstrap participant.
+    delete next.data.bootstrap_pending;
     for(const site of targets)next.data.sites[site.id]={
       mode:'auto',cards:policy.defaults(site,site.objects||[])};
     try{

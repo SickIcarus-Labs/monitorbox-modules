@@ -276,15 +276,25 @@ def generate(site: Mapping, live_series: list[Mapping] | None = None) -> list[di
     return output
 
 
-def automatic_layout_snapshot(app: Any, document: Mapping, current: dict | None) -> dict:
-    """Core module-preference initializer, with exact existing-schema preservation.
+def first_ready_pending(entry: Mapping) -> bool:
+    """Opaque module-owned opt-in; never replace an edited/restored layout."""
+    if not isinstance(entry,Mapping) or entry.get("schema_version") != 5:
+        return False
+    data=entry.get("data")
+    if not isinstance(data,Mapping) or data.get("bootstrap_pending") is not True:
+        return False
+    sites=data.get("sites")
+    return isinstance(sites,Mapping) and bool(sites) and all(
+        isinstance(row,Mapping) and row.get("mode")=="auto" and
+        row.get("arranged") is not True and
+        all(isinstance(card,Mapping) and not
+            str(card.get("id","")).startswith("custom:")
+            for card in row.get("cards",[]))
+        for row in sites.values()
+    )
 
-    Bootstraps AFTER Core's first canonical authority exists, in pre-serve
-    startup. No public HTTP read or module upgrade rewrites an existing card
-    document; normal site Reset is a separate authenticated user action.
-    """
-    if current is not None:
-        return current
+
+def _fresh(app: Any, document: Mapping, *, pending: bool) -> dict:
     source=app.get("monitorbox.public_state_snapshot")
     if not callable(source):
         raise RuntimeError("UI52 bootstrap cannot initialize without canonical public state")
@@ -297,11 +307,41 @@ def automatic_layout_snapshot(app: Any, document: Mapping, current: dict | None)
         and isinstance(s.get("id"),str)]
     if len(configured)!=len(set(configured)) or any(site not in by_id for site in configured):
         raise RuntimeError("UI52 bootstrap declared sites differ from public authority")
-    live_source=app.get("monitorbox.ui_live_series_snapshot")
-    live=live_source() if callable(live_source) else []
+    live_source=app.get("monitorbox.live_series_snapshot")
+    if not callable(live_source):
+        # A pre-Core-#410 runtime cannot promise first-ready convergence.
+        raise RuntimeError("UI52 requires Core's first-ready LIVE catalogue contract")
+    live=live_source()
     if not isinstance(live,list):
-        raise RuntimeError("UI52 bootstrap live-series hook returned invalid data")
-    return {"schema_version":5,"data":{"sites":{
+        raise RuntimeError("Core first-ready LIVE catalogue returned invalid data")
+    data={"sites":{
         site_id:{"mode":"auto","cards":generate(by_id[site_id],live)}
         for site_id in configured
-    }}}
+    }}
+    if pending and not live:
+        data["bootstrap_pending"]=True
+    return {"schema_version":5,"data":data}
+
+
+def automatic_layout_snapshot(app: Any, document: Mapping, current: dict | None) -> dict:
+    """Capture provisional first-launch preferences through Core's revisioned API.
+
+    No current saved layout is ever rewritten by startup or module upgrade.
+    Core alone may invoke finalize_first_ready once if the pending preference,
+    the full revision/hash and the operator's restored-history pins are intact.
+    """
+    if current is not None:
+        return current
+    return _fresh(app,document,pending=True)
+
+
+def finalize_first_ready(app: Any, document: Mapping, current: dict) -> dict:
+    """One bounded first-ready *or no-producer timeout* conversion to final v5.
+
+    Core verifies this entry is still the exact provisional first-launch
+    preference before invoking us, and performs the atomic canonical CAS.
+    The ordinary Reset button directly uses the JS generator and never waits.
+    """
+    if not first_ready_pending(current):
+        return current
+    return _fresh(app,document,pending=False)

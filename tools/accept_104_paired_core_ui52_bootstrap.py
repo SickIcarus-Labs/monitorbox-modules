@@ -222,11 +222,9 @@ class PairedServer:
                 self.live_payload=live_payload
                 if not self.defer_live_until_bound:
                     bridge.ingest("lab","monitor",live_payload)
-                # The test-only hook returns current advertised series at
-                # startup. Production Core presently exposes no such hook.
-                app["monitorbox.ui_live_series_snapshot"] = (
-                    lambda: [dict(row) for row in bridge.metadata.values()]
-                )
+                # The REAL Core #410 bridge supplies the production
+                # app-scoped live_series_snapshot and change notifier.
+                assert callable(app.get("monitorbox.live_series_snapshot"))
                 self.live_metadata=[dict(row) for row in bridge.metadata.values()]
                 app["monitorbox.public_state_snapshot"] = lambda: {
                     "sites": [self.projection]
@@ -245,7 +243,8 @@ class PairedServer:
                     })
                 app.router.add_get("/api/v2/state",state)
                 app.router.add_get("/api/v2/debug/config",debug)
-                platform=ConfigPlatform(self.root)
+                platform=ConfigPlatform(self.root,
+                    first_ready_timeout=0.8,first_ready_debounce=0.15)
                 platform.install(app)
                 DashboardConfigApi(self.root).install(app)
                 RecoveryApi(platform).install(app)
@@ -337,6 +336,7 @@ def browser_contract(server:PairedServer):
     initial=store.load()
     automatic=deepcopy(initial.data["module_preferences"][UI_ID])
     assert automatic["schema_version"]==5,automatic
+    assert automatic["data"].get("bootstrap_pending") is not True
     site=automatic["data"]["sites"]["lab"]
     assert site["mode"]=="auto" and len(site["cards"])>=5
     assert all(r.get("presentation",{}).get("schema_version")==3
@@ -443,7 +443,7 @@ def browser_contract(server:PairedServer):
 
 def main():
     from monitorbox import __version__
-    assert __version__=="2.6.0","Pin accepted Core 2.6.0"
+    assert __version__=="2.7.0","Pin draft Core #410 candidate 2.7.0"
     blob,artifact,digest=archive()
     with tempfile.TemporaryDirectory(prefix="monitorbox-ui52-paired-") as temp:
         root=Path(temp)
