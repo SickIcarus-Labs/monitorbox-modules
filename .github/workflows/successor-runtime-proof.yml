@@ -55,6 +55,8 @@ jobs:
                   assert manifest['platform'] == {'os':'linux','arch':arch,'abi':'glibc'}
                   assert manifest['dynamic_loader'] in z.namelist()
                   assert manifest['entrypoint'] in z.namelist()
+                  for support in ("libgcc_s.so.1", "libstdc++.so.6", "libatomic.so.1"):
+                      assert "runtime/lib/" + support in z.namelist()
               assert (Path('runtime-proof/proof')/name/'runtime/loader').is_dir()
               print(name, manifest['version'], manifest['platform'])
           PY
@@ -71,7 +73,7 @@ jobs:
             -e SSL_CERT_FILE=/runtime/etc/ssl/certs/ca-certificates.crt \
             --entrypoint "$loader" mb-python-scratch:proof \
             --library-path /runtime/lib:/runtime/usr/local/lib \
-            "$bin" -I -c 'import ssl,sqlite3,ctypes,zlib,hashlib,sys; assert sys.version_info[:2]==(3,13); assert ssl.create_default_context().get_ca_certs(); print("scratch Python3.13 stdlib/SSL/SQLite/ctypes OK")'
+            "$bin" -I -c 'import ssl,sqlite3,ctypes,zlib,hashlib,sys; assert sys.version_info[:2]==(3,13); assert ssl.create_default_context().get_ca_certs(); [ctypes.CDLL("/runtime/lib/"+n) for n in ("libgcc_s.so.1","libstdc++.so.6","libatomic.so.1")]; print("scratch Python3.13 stdlib/SSL/SQLite/ctypes/ABI DSOs OK")'
       - name: Run Node 24 in an otherwise empty scratch image
         shell: bash
         run: |
