@@ -170,7 +170,12 @@ def verify_archives(lock: dict, archives: Path) -> Path:
     deb = entries[0]
     if deb.stat().st_size != record["size"] or sha256(deb) != record["sha256"]:
         raise FrozenDebianError("Debian .deb bytes differ from the signed index + source lock")
-    fields = run("dpkg-deb", "--field", str(deb), "Package", "Version", "Architecture").splitlines()
+    # With multiple names, dpkg-deb -f emits labelled RFC822 fields;
+    # ask each one independently to compare its raw exact value.
+    fields = [
+        run("dpkg-deb", "--field", str(deb), field).strip()
+        for field in ("Package", "Version", "Architecture")
+    ]
     if fields != [record["package"], record["version"], record["arch"]]:
         raise FrozenDebianError("embedded dpkg metadata disagrees with pinned ABI package")
     return deb
