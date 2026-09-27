@@ -93,6 +93,7 @@
       const unit=powerUnit(mapped?.unit||declared);
       let factor=1;
       if(spec.id==='runtime'){
+        if(raw<0)continue;
         if(['min','minute','minutes'].includes(unit))factor=60;
         else if(['s','sec','second','seconds'].includes(unit))factor=1;
         else if(!unit&&(metric==='battery.runtime'||
