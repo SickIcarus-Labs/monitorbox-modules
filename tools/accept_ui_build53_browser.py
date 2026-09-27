@@ -82,6 +82,7 @@ async def power_case(browser,fixture,base,width,height):
     await row.get_by_text("Edit contents").click()
     assert await editor.locator("#contentMembers input:checked").count()==2
     await editor.locator("#addContentItem").click()
+    await editor.locator("#itemPicker").wait_for(state="visible",timeout=15000)
     assert await editor.locator("#pickerAdvanced").is_checked() is False
     assert await editor.locator("#pickerNativeNote").is_visible()
     # Native Power shows both UPSes' charge/runtime/load/input voltage already;
@@ -116,6 +117,7 @@ async def power_case(browser,fixture,base,width,height):
       has=editor.get_by_text("Power",exact=True))
     await row.get_by_text("Edit contents").click()
     await editor.locator("#addContentItem").click()
+    await editor.locator("#itemPicker").wait_for(state="visible",timeout=15000)
     assert await editor.locator("#pickerAdvanced").is_checked() is False
     assert await editor.locator("#pickerGroups label.member-option").filter(
       has_text="driver · parameter · pollfreq").count()==1
@@ -128,6 +130,7 @@ async def power_case(browser,fixture,base,width,height):
     await editor.locator("#newCardTitle").fill("Cross-host power")
     await editor.locator("#saveNewCard").click()
     await editor.locator("#addContentItem").click()
+    await editor.locator("#itemPicker").wait_for(state="visible",timeout=15000)
     network=editor.locator("details.mb-picker-source").filter(
       has=editor.locator("summary").get_by_text("Network UPS",exact=False))
     assert await network.count()==1
