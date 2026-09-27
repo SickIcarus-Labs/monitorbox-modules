@@ -69,6 +69,10 @@ def main() -> None:
     if ROOT.is_symlink() or not ROOT.is_dir():
         raise RuntimeError("output must be real mounted directory")
     before = inventory()
+    base_versions = {}
+    for name in PACKAGES:
+        key = (name, arch)
+        base_versions[name] = before.get(key)
     ca = Path("/etc/ssl/certs/ca-certificates.crt").resolve(strict=True)
     if not ca.is_file():
         raise RuntimeError("base image trusted CA missing")
@@ -105,6 +109,11 @@ def main() -> None:
         "schema": 1, "release_eligible": False,
         "packaging_stage": "discovery-only-unfrozen-debian-apt",
         "arch": arch, "base_ca_sha256": base_ca,
+        "installed_ca_sha256": digest(ca),
+        "baseline_abi_versions": base_versions,
+        "installed_abi_versions": {
+            name: after.get((name, arch)) for name in PACKAGES
+        },
         "base_image": "python:3.13-slim-bookworm@sha256:2325bb286ec344af3e5898cc224b5844e2707ac6e26b1632516fd3edc84a5e26",
         "requested": list(PACKAGES), "changed_packages": records,
     }
