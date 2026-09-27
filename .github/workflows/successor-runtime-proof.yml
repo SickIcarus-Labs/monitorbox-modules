@@ -1,0 +1,93 @@
+name: Successor runtime ABI proof (unreleaseable)
+on:
+  pull_request:
+    paths:
+      - "platform/runtime/**"
+      - "tools/package_self_contained_runtime.py"
+      - "tools/test_self_contained_runtime.py"
+      - "tools/build_platform_index.py"
+      - "tools/test_build_platform_index.py"
+      - ".github/workflows/successor-runtime-proof.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  runtime-proof:
+    name: Scratch Linux ${{ matrix.arch }} Python + Node ABI proof
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 24
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Synthetic source/path/determinism regressions
+        run: python -m unittest discover -s tools -p 'test_self_contained_runtime.py' -v
+      - name: Package architecture-native Python and Node distributions
+        run: docker build --file platform/runtime/Dockerfile --target packer --tag mb-runtime-proof:${{ matrix.arch }} .
+      - name: Extract candidate ZIPs and isolated scratch roots
+        shell: bash
+        run: |
+          set -euo pipefail
+          id=$(docker create mb-runtime-proof:${{ matrix.arch }})
+          trap 'docker rm -f "$id" >/dev/null 2>&1 || true' EXIT
+          mkdir -p runtime-proof
+          docker cp "$id:/artifacts" runtime-proof/artifacts
+          docker cp "$id:/proof" runtime-proof/proof
+          python - <<'PY'
+          import json, platform, zipfile
+          from pathlib import Path
+          arch = {'x86_64':'amd64','aarch64':'arm64'}[platform.machine()]
+          for name in ('python','node'):
+              archive = Path(f'runtime-proof/artifacts/{name}-candidate.zip')
+              with zipfile.ZipFile(archive) as z:
+                  assert z.testzip() is None
+                  manifest = json.loads(z.read('package.json'))
+                  assert manifest['release_eligible'] is False
+                  assert manifest['platform'] == {'os':'linux','arch':arch,'abi':'glibc'}
+                  assert manifest['dynamic_loader'] in z.namelist()
+                  assert manifest['entrypoint'] in z.namelist()
+              assert (Path('runtime-proof/proof')/name/'runtime/loader').is_dir()
+              print(name, manifest['version'], manifest['platform'])
+          PY
+      - name: Run Python 3.13 in an otherwise empty scratch image
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar -C runtime-proof/proof/python -cf - . | docker import - mb-python-scratch:proof
+          loader=$(python -c "import json;print('/'+json.load(open('runtime-proof/proof/python/package.json'))['dynamic_loader'])")
+          bin=$(python -c "import json;print('/'+json.load(open('runtime-proof/proof/python/package.json'))['entrypoint'])")
+          docker run --rm --read-only --user 10001:10001 \
+            -e PYTHONHOME=/runtime/usr/local \
+            -e PYTHONDONTWRITEBYTECODE=1 \
+            -e SSL_CERT_FILE=/runtime/etc/ssl/certs/ca-certificates.crt \
+            --entrypoint "$loader" mb-python-scratch:proof \
+            --library-path /runtime/lib:/runtime/usr/local/lib \
+            "$bin" -I -c 'import ssl,sqlite3,ctypes,zlib,hashlib,sys; assert sys.version_info[:2]==(3,13); assert ssl.create_default_context().get_ca_certs(); print("scratch Python3.13 stdlib/SSL/SQLite/ctypes OK")'
+      - name: Run Node 24 in an otherwise empty scratch image
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar -C runtime-proof/proof/node -cf - . | docker import - mb-node-scratch:proof
+          loader=$(python -c "import json;print('/'+json.load(open('runtime-proof/proof/node/package.json'))['dynamic_loader'])")
+          bin=$(python -c "import json;print('/'+json.load(open('runtime-proof/proof/node/package.json'))['entrypoint'])")
+          docker run --rm --read-only --user 10001:10001 \
+            --entrypoint "$loader" mb-node-scratch:proof \
+            --library-path /runtime/lib:/runtime/usr/local/lib \
+            "$bin" -e 'const c=require("crypto");if(!process.versions.node.startsWith("24."))process.exit(2);if(!c.createHash("sha256").update("ok").digest("hex"))process.exit(3); console.log("scratch Node24 crypto OK")'
+      - name: Retain unreleasable manifest evidence (no signed catalog)
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-proof-${{ matrix.arch }}-${{ github.sha }}
+          path: |
+            runtime-proof/proof/python/package.json
+            runtime-proof/proof/node/package.json
+          retention-days: 5
