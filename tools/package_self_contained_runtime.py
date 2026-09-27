@@ -44,11 +44,16 @@ def _elf(path: Path) -> bool:
         return handle.read(4) == b"\x7fELF"
 
 
-def _ldd_dependencies(binary: Path) -> set[Path]:
+def _ldd_dependencies(binary: Path) -> dict[str, Path]:
+    """Preserve the NEEDED soname, not the canonical target filename.
+
+    For example, libz.so.1 frequently resolves to libz.so.1.2.13: copying
+    only the target basename would break the bundled ELF loader in scratch.
+    """
     result = subprocess.run(["ldd", str(binary)], check=False, capture_output=True, text=True)
     if result.returncode:
         raise RuntimePackagingError(f"ldd failed on {binary.name}: {result.stderr.strip()}")
-    found: set[Path] = set()
+    found: dict[str, Path] = {}
     for line in result.stdout.splitlines():
         line = line.strip()
         if not line or line.startswith("linux-vdso") or "statically linked" in line:
@@ -56,20 +61,27 @@ def _ldd_dependencies(binary: Path) -> set[Path]:
         if "not found" in line:
             raise RuntimePackagingError(f"missing shared library for {binary.name}: {line}")
         if "=>" in line:
-            _, address = line.split("=>", 1)
+            required, address = line.split("=>", 1)
+            required = required.strip()
             address = address.strip().split(" ", 1)[0]
         else:
             address = line.split(" ", 1)[0]
-        if address.startswith("/"):
-            source = Path(address).resolve(strict=True)
-            if not source.is_file() or not _elf(source):
-                raise RuntimePackagingError(f"invalid ELF dependency for {binary.name}")
-            found.add(source)
+            required = Path(address).name
+        if not address.startswith("/"):
+            continue
+        if not re.fullmatch(r"[a-zA-Z0-9._+-]+", required):
+            raise RuntimePackagingError("unsafe shared-library soname")
+        source = Path(address).resolve(strict=True)
+        if not source.is_file() or not _elf(source):
+            raise RuntimePackagingError(f"invalid ELF dependency for {binary.name}")
+        previous = found.get(required)
+        if previous is not None and previous != source:
+            raise RuntimePackagingError("ambiguous ELF dependency soname")
+        found[required] = source
     return found
 
 
 def parse_ldd_for_test(text: str) -> set[str]:
-    """Test helper: same parsing/omission rule without dereferencing host libs."""
     names: set[str] = set()
     for line in text.splitlines():
         line = line.strip()
@@ -77,9 +89,13 @@ def parse_ldd_for_test(text: str) -> set[str]:
             continue
         if "not found" in line:
             raise RuntimePackagingError("missing shared library")
-        piece = line.split("=>", 1)[-1].strip().split(" ", 1)[0]
-        if piece.startswith("/"):
-            names.add(Path(piece).name)
+        if "=>" in line:
+            needed, _ = line.split("=>", 1)
+            names.add(needed.strip())
+        else:
+            item = line.split(" ", 1)[0]
+            if item.startswith("/"):
+                names.add(Path(item).name)
     return names
 
 
@@ -198,16 +214,16 @@ def build_runtime(language: str, output: Path, *, extract_to: Path | None = None
         for source in included:
             if not _elf(source):
                 continue
-            for dependency in _ldd_dependencies(source):
-                if dependency.name.startswith("ld-linux"):
-                    if dependency.name != LOADER_NAMES[arch]:
+            for needed, dependency in _ldd_dependencies(source).items():
+                if needed.startswith("ld-linux"):
+                    if needed != LOADER_NAMES[arch]:
                         raise RuntimePackagingError("unexpected ELF interpreter architecture")
                     loader = dependency
                     continue
-                prev = libraries.get(dependency.name)
+                prev = libraries.get(needed)
                 if prev is not None and hashlib.sha256(prev.read_bytes()).digest() != hashlib.sha256(dependency.read_bytes()).digest():
-                    raise RuntimePackagingError(f"ambiguous library name: {dependency.name}")
-                libraries[dependency.name] = dependency
+                    raise RuntimePackagingError(f"ambiguous library name: {needed}")
+                libraries[needed] = dependency
         if loader is None:
             raise RuntimePackagingError("runtime dynamic loader was not resolved")
         _copy_regular(loader, runtime / "loader" / loader.name)

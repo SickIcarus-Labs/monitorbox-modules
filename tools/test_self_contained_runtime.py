@@ -26,6 +26,8 @@ class SelfContainedRuntimeTests(unittest.TestCase):
         """
         self.assertEqual({"libz.so.1", "libpython3.13.so.1.0", "ld-linux-x86-64.so.2"},
                          pkg.parse_ldd_for_test(listing))
+        self.assertIn("libz.so.1", pkg.parse_ldd_for_test(
+            "libz.so.1 => /lib/x86_64-linux-gnu/libz.so.1.2.13 (0x7f)"))
         with self.assertRaisesRegex(pkg.RuntimePackagingError, "missing shared"):
             pkg.parse_ldd_for_test("libnotpresent.so => not found")
 
@@ -54,7 +56,7 @@ class SelfContainedRuntimeTests(unittest.TestCase):
             for name in ("one", "two"):
                 with patch.object(pkg, "host_arch", return_value="amd64"), \
                      patch.object(pkg, "_version", return_value="3.13.9"), \
-                     patch.object(pkg, "_ldd_dependencies", return_value={system_loader.resolve()}):
+                     patch.object(pkg, "_ldd_dependencies", return_value={system_loader.name: system_loader.resolve()}):
                     result = pkg.build_runtime("python", root / f"{name}.zip", python_prefix=base)
                 self.assertFalse(result["release_eligible"])
                 self.assertEqual("com.sickicarus.monitorbox.runtime.python", result["artifact_id"])
