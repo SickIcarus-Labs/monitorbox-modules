@@ -100,6 +100,51 @@ def verify_locked_dockerfile(dockerfile_path: Path, upstream: dict[str, str]) ->
         raise RuntimePackagingError("runtime Dockerfile differs from immutable upstream lock")
 
 
+
+def verified_debian_abi(upstream: dict[str, str]) -> dict:
+    """Recheck the installed OCI-base and downloaded exact Debian .deb bytes.
+
+    The package builder cannot trust a JSON assertion alone. The separate
+    offline Docker installation already checked before/after dpkg state; this
+    checks that the result and exact approved artifact survive into each
+    packaged Python/Node ZIP, even if the Dockerfile is later modified.
+    """
+    from freeze_runtime_debian_closure import (
+        host_arch as debian_arch, inventory, load_lock, sha256, verify_archives,
+    )
+    directory = Path(os.environ.get(
+        "MONITORBOX_RUNTIME_DEBIAN_LOCK_DIR",
+        str(Path(__file__).resolve().parents[1] / "platform/runtime/debian"),
+    ))
+    archives = Path(os.environ.get(
+        "MONITORBOX_RUNTIME_DEBIAN_ARCHIVES",
+        str(directory / "debs"),
+    ))
+    lock = load_lock(directory)
+    if lock["arch"] != debian_arch() or lock["base_image"] != upstream["python_image"]:
+        raise RuntimePackagingError("Debian lock not bound to exact OCI Python base")
+    installed = inventory()
+    for name, version in lock["installed_abi_versions"].items():
+        if installed.get(name) != version:
+            raise RuntimePackagingError("installed native ABI differs from source lock: " + name)
+    ca = Path("/etc/ssl/certs/ca-certificates.crt").resolve(strict=True)
+    if not ca.is_file() or sha256(ca) != lock["installed_ca_sha256"]:
+        raise RuntimePackagingError("copied runtime CA differs from pinned OCI base")
+    verify_archives(lock, archives)
+    return {
+        "arch": lock["arch"],
+        "lock_sha256": sha256(directory / ("lock-" + lock["arch"] + ".json")),
+        "base_ca_sha256": lock["base_ca_sha256"],
+        "installed_ca_sha256": lock["installed_ca_sha256"],
+        "abi_versions": lock["installed_abi_versions"],
+        "changed_packages": [
+            {"package": item["package"], "version": item["version"],
+             "sha256": item["sha256"], "size": item["size"]}
+            for item in lock["changed_packages"]
+        ],
+    }
+
+
 def host_arch() -> str:
     arch = ARCHES.get(platform.machine())
     if arch is None:
@@ -266,6 +311,7 @@ def build_runtime(language: str, output: Path, *, extract_to: Path | None = None
         str(Path(__file__).resolve().parents[1] / "platform/runtime/Dockerfile"),
     ))
     verify_locked_dockerfile(dockerfile, upstream)
+    debian_abi = verified_debian_abi(upstream)
     upstream_bin = python_prefix / "bin/python3.13" if language == "python" else node_binary
     if not upstream_bin.resolve().is_file():
         raise RuntimePackagingError("upstream runtime executable not present")
@@ -339,7 +385,11 @@ def build_runtime(language: str, output: Path, *, extract_to: Path | None = None
             "library_paths": ["runtime/lib", "runtime/usr/local/lib"],
             "environment": smoke, "verified_elf_count": len(included),
             "library_count": len(libraries),
-            "upstream": {**upstream, "os_packages": "unpinned-debian-bookworm-apt-prototype"},
+            "upstream": {
+                **upstream,
+                "os_packages": "sha256-locked-oci-base-abi-prototype",
+                "debian_abi": debian_abi,
+            },
         }
         (root / "package.json").write_text(json.dumps(manifest, sort_keys=True, indent=2) + "\n")
         if extract_to is not None:
