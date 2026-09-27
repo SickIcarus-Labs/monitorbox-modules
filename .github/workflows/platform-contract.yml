@@ -1,0 +1,30 @@
+name: Successor signed platform contract
+on:
+  pull_request:
+    paths:
+      - "platform/**"
+      - "docs/PLATFORM-PACKAGE-CONTRACT.md"
+      - "tools/verify_platform_index.py"
+      - "tools/test_platform_index.py"
+      - ".github/workflows/platform-contract.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  platform-contract:
+    name: Validate signed successor index and package contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Install isolated verifier dependencies
+        run: python -m pip install "cryptography>=45,<49" "jsonschema>=4,<5"
+      - name: Synthetic-key signature and schema regression tests
+        run: python -m unittest discover -s tools -p "test_platform_index.py" -v
+      - name: Compile verifier
+        run: python -m py_compile tools/verify_platform_index.py
