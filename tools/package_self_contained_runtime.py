@@ -27,11 +27,11 @@ class RuntimePackagingError(ValueError):
 ARCHES = {"x86_64": "amd64", "aarch64": "arm64"}
 LOADER_NAMES = {"amd64": "ld-linux-x86-64.so.2", "arm64": "ld-linux-aarch64.so.1"}
 # Native Python extension modules and Node native addons may depend on these
-# audited compiler-ABI DSOs without the interpreter executable requiring them.
+# audited compiler/glibc ABI compatibility DSOs without the interpreter executable requiring them.
 # Collect them from the architecture-matching trusted builder filesystem, not
 # from a host-mounted path or a runtime network resolver.
 LIBRARY_TRIPLES = {"amd64": "x86_64-linux-gnu", "arm64": "aarch64-linux-gnu"}
-ABI_SUPPORT_LIBRARIES = ("libgcc_s.so.1", "libstdc++.so.6", "libatomic.so.1")
+ABI_SUPPORT_LIBRARIES = ("libgcc_s.so.1", "libstdc++.so.6", "libatomic.so.1", "libpthread.so.0")
 
 LANGUAGES = {"python", "node"}
 ZIP_TIME = (1980, 1, 1, 0, 0, 0)
