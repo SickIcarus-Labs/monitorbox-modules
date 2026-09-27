@@ -184,6 +184,10 @@ class PairedServer:
         self.port=0
         self.projection=site_snapshot()
         self.interest_messages=[]
+        self.defer_live_until_bound=False
+        self.live_bridge=None
+        self.live_payload=None
+        self.live_metadata=[]
 
     def start(self):
         result=queue.Queue()
@@ -204,7 +208,7 @@ class PairedServer:
                 ))
                 bridge.install(app)
                 stamp=datetime.now(timezone.utc).isoformat()
-                bridge.ingest("lab","monitor",{"points":[
+                live_payload={"points":[
                     {"series_id":"a2-cpu-live","check_id":"a2-cpu",
                      "object_id":"arrrrr2","label":"CPU live",
                      "kind":"gauge","unit":"%","timestamp":stamp,
@@ -213,14 +217,17 @@ class PairedServer:
                      "object_id":"goliath","label":"Pool live",
                      "kind":"gauge","unit":"%","timestamp":stamp,
                      "valid":True,"value":62},
-                ]})
-                # Test-only pre-serve LIVE injection. The accepted Core does
-                # not yet advertise a production first-ready hook; proving
-                # that separate lifecycle remains an explicit release gate.
-                self.live_metadata = [dict(row) for row in bridge.metadata.values()]
+                ]}
+                self.live_bridge=bridge
+                self.live_payload=live_payload
+                if not self.defer_live_until_bound:
+                    bridge.ingest("lab","monitor",live_payload)
+                # The test-only hook returns current advertised series at
+                # startup. Production Core presently exposes no such hook.
                 app["monitorbox.ui_live_series_snapshot"] = (
-                    lambda: [dict(row) for row in self.live_metadata]
+                    lambda: [dict(row) for row in bridge.metadata.values()]
                 )
+                self.live_metadata=[dict(row) for row in bridge.metadata.values()]
                 app["monitorbox.public_state_snapshot"] = lambda: {
                     "sites": [self.projection]
                 }
@@ -268,6 +275,26 @@ class PairedServer:
         value=result.get(timeout=30)
         if isinstance(value,BaseException):raise value
         self.runner,self.port,self.loop=value
+
+    def advertise_late(self):
+        """Deliver the FIRST live advertisement only AFTER the HTTP bind."""
+        if not self.defer_live_until_bound or self.loop is None:
+            raise RuntimeError("The late-LIVE test needs a bound, deferred server")
+        completed=threading.Event()
+        def deliver():
+            try:
+                assert self.live_bridge is not None and self.live_payload is not None
+                payload={**self.live_payload,"points":[
+                    {**p,"timestamp":datetime.now(timezone.utc).isoformat()}
+                    for p in self.live_payload["points"]]}
+                self.live_bridge.ingest("lab","monitor",payload)
+                self.live_metadata=[dict(row) for row in self.live_bridge.metadata.values()]
+            finally:
+                completed.set()
+        self.loop.call_soon_threadsafe(deliver)
+        if not completed.wait(timeout=5):
+            raise RuntimeError("Late LIVE publisher did not run")
+        assert self.live_metadata,"Late LIVE publisher exposed no metadata"
 
     def stop(self):
         if self.runner and self.loop:
