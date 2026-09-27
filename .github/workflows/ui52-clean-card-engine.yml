@@ -48,28 +48,9 @@ jobs:
           node-version: "22"
       - name: Exact source and deterministic TEST-ONLY UI52 package
         run: python tools/accept_ui_build52_package.py
-  paired-real-core:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/checkout@v4
-        with:
-          repository: SickIcarus-Labs/monitorbox
-          ref: b08f787e6275b74f6a5128f9ae9cd27b3a776a2a
-          path: accepted-core
-          persist-credentials: false
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-      - name: Install accepted unchanged Core and disposable Chromium
-        run: |
-          python -m pip install --disable-pip-version-check ./accepted-core playwright==1.55.0
-          python -m playwright install --with-deps chromium
-      - name: Managed UI52 first-bootstrap writer, same-configuration Reset, genuine Core A/B
-        run: |
-          export MONITORBOX_PAIRED_MODULES_ROOT="$PWD"
-          python tools/accept_104_paired_core_ui52_bootstrap.py
+  # The accepted Core repository is private: Modules' GITHUB_TOKEN cannot
+  # checkout it. The exact paired gate runs in private Core draft PR #409,
+  # using its own repository-scoped CI token. No production Core is modified.
   synthetic-browser:
     runs-on: ubuntu-latest
     timeout-minutes: 25

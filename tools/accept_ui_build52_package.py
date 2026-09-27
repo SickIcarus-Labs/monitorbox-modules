@@ -25,6 +25,7 @@ def main():
   assert b"function nativeContents" in assets["assets/card-composer-renderer.js"]
   assert b"measuredHeight(site,object" in assets["assets/card-composer-renderer.js"]
   assert b"card-generation.js" in assets["assets/dashboard.html"]
+  assert b'"card-generation.js": "text/javascript"' in assets["__init__.py"],("Managed UI must explicitly register its new JS route")
   assert b"card-generation.js" in assets["assets/card-layout-editor.html"]
   assert b"monitorbox:state" in assets["assets/dashboard.js"]
   assert b"siteEpoch === startedEpoch" in assets["assets/app-shell.js"]

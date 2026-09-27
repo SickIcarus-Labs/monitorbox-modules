@@ -61,6 +61,14 @@ def _package_files(root:Path)->dict[str,bytes]:
   for name,value in list(parent.items()):
     parent[name]=value.replace(PARENT_GENERATION.encode(),UI_GENERATION.encode()).replace(
       PARENT_IMPORT_PACKAGE.encode(),TARGET_IMPORT_PACKAGE.encode())
+  # New JS engine is a real managed /static resource, not merely a ZIP asset.
+  # The synthetic browser fixture serves every ZIP file directly and therefore
+  # cannot catch omissions from the actual managed UI ASSETS allowlist.
+  parent["__init__.py"]=_replace_once(
+      parent["__init__.py"],b"ASSETS = {"+bytes([10]),
+      b'ASSETS = {'+bytes([10])+
+      b'    "card-generation.js": "text/javascript",'+bytes([10]),
+      "UI52 managed generator route")
   sources=_sources(root)
   bootstrap=sources.pop("bootstrap.py")
   # Eliminate UI41's shadow schema-v1 writer from the *new* UI52 module.

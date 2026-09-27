@@ -342,7 +342,7 @@ def browser_contract(server:PairedServer):
         page.on("pageerror",lambda e:errors.append(str(e)))
         try:
             page.goto(base+"/",wait_until="domcontentloaded")
-            page.wait_for_function("""()=>MonitorBoxCardLayout?.state().loaded===true &&
+            page.wait_for_function("""()=>globalThis.MonitorBoxCardLayout?.state().loaded===true &&
                 app.liveTelemetry?.series?.length>=2""",timeout=20000)
             computed=page.evaluate("""site=>{
               MonitorBoxCardItems.setLiveSeries(app.liveTelemetry);
