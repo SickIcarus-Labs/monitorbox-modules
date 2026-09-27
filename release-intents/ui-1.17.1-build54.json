@@ -6,7 +6,7 @@
   "change_class": "patch-polish",
   "source_prefix": "sources/ui/",
   "issue": 104,
-  "summary": "UI54 patch: Cameras members show name left and health right; UPS high/low transfer thresholds are Advanced-only; secondary UPS voltage/power readings have human labels. All UI53 monitoring, bootstrap/Reset, saved diagnostics and snapshots preserved; dev-only physical acceptance.",
+  "summary": "UI54 camera name-left/health-right consistency and Advanced-only high/low UPS transfer thresholds, with human-readable secondary UPS telemetry. Preserve immutable signed UI53, existing layout, saved raw metric selections, monitoring and UI52 clean Reset semantics. Dev-only physical acceptance; no automatic dashboard reset or beta/stable promotion.",
   "stager": "tools/stage_104_ui_build54.py",
   "builder": "tools/build_first_party_ui_build54.py",
   "supersedes_dev": {
