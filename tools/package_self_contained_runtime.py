@@ -64,6 +64,8 @@ def load_upstream_lock(lock_path: Path | None = None) -> dict[str, str]:
     try:
         manifest = json.loads(lock_path.read_text(encoding="utf-8"),
                               object_pairs_hook=_strict_json_pairs)
+    except RuntimePackagingError:
+        raise  # Preserve the specific duplicate-key rejection for auditing.
     except (OSError, UnicodeError, ValueError) as exc:
         raise RuntimePackagingError("malformed immutable runtime upstream lock") from exc
     if type(manifest) is not dict or set(manifest) != {
