@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """WIP UI52 exact-source package gate. No signed release is produced."""
 from pathlib import Path
-import ast,hashlib,subprocess,tempfile
+import ast,copy,hashlib,json,subprocess,tempfile
 import build_first_party_ui as stable
 import build_first_party_ui_build51 as previous
 import build_first_party_ui_build52 as candidate
+import stage_104_ui_build52 as staging
 
 ROOT=Path(__file__).resolve().parent.parent
 SIGNED51="5de2e866b5d39186036bed1979a296542673a77a2cad2ac5aa01a0b0a2622379"
@@ -40,7 +41,13 @@ def main():
   assert b"def _automatic_layout_snapshot(app, document, current):" not in assets["__init__.py"]
   assert b"schema_version" in assets["bootstrap.py"]
   assert b"schema_version\":5" in assets["bootstrap.py"]
+  assert staging.ENTRY['manifest']['requires_core']=='>=2.7.0 <3.0.0'
   with tempfile.TemporaryDirectory(prefix="ui52-wip-") as raw:
+    disposable=Path(raw)/'catalog.json'
+    disposable.write_text(json.dumps({'modules':[copy.deepcopy(staging.UI48_ENTRY)]}))
+    assert staging.stage(disposable) is True
+    assert staging.stage(disposable) is False
+    assert json.loads(disposable.read_text())['modules'][1]==staging.ENTRY
     a=candidate.build(ROOT,Path(raw)/"a").read_bytes()
     b=candidate.build(ROOT,Path(raw)/"b").read_bytes()
     assert a==b
