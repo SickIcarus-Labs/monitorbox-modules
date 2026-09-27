@@ -1,0 +1,51 @@
+name: "UI53 Power semantic capability and Advanced picker (#104)"
+on:
+  push:
+    branches: [feature/104-ui53-power-capabilities]
+    paths:
+      - "sources/ui/1.17.0-build53/**"
+      - "tools/*ui_build53*"
+      - "tools/accept_ui_build53_*"
+      - "docs/104-ui53-power-curation.md"
+      - ".github/workflows/ui53-power-curation.yml"
+  pull_request:
+    paths:
+      - "sources/ui/1.17.0-build53/**"
+      - "tools/*ui_build53*"
+      - "tools/accept_ui_build53_*"
+      - "docs/104-ui53-power-curation.md"
+      - ".github/workflows/ui53-power-curation.yml"
+permissions:
+  contents: read
+jobs:
+  power-source-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Verify immutable signed UI52, exact UI53 package and JS syntax
+        run: python tools/accept_ui_build53_package.py
+      - name: Provider-neutral UPS units, native roles and raw diagnostics
+        run: node tools/accept_ui_build53_power.mjs
+      - name: UI52 clean generator and unchanged first-ready bootstrap parity
+        run: node tools/accept_ui_build52_generator.mjs
+  real-homepage-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install disposable Chromium
+        run: |
+          python -m pip install --disable-pip-version-check aiohttp==3.11.16 playwright==1.55.0
+          python -m playwright install --with-deps chromium
+      - name: Same 3/2/1 homepage and Arrange, scoped Reset, Power picker on iPad
+        run: python tools/accept_ui_build53_browser.py

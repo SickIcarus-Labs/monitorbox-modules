@@ -1,0 +1,21 @@
+# UI50 #104 physical correction — clean-bootstrap dashboard experiment
+2026-09-26. Explicit operator direction supersedes UI49's previous preservation-of-manual-layout assumption.
+
+## Pre-implementation module-touch scope
+**Primary:** modules #104 — actual card preview fidelity and variable-height arrangement.
+**Dividend:** modules #103 — shared canonical header convergence, implemented in signed UI49, inherited unchanged and regression-tested as part of this UI50 visit.
+Adjacent UI backlog previously scanned in PR #105. UI50 is a corrective continuation of the same scope, not a second unplanned module visit. The physical screenshot showed a 13-member Network proxy in Arrange versus six actual rendered names, plus Power dimension mismatch.
+
+## Authorized experiment: start over as if bootstrap just completed
+Operator instruction: "For this next version, nuke it. Regenerate the cards as if this were the end of a bootstrap. Let’s see where we end up ... auto-populate and auto-placement."
+
+- **All UI dashboard card definitions and layout** are disposable for this **explicit one-time experiment**, including manual host CPU/memory rows, selected/hidden Network members, any custom rows that may exist, ordering, pinned columns and the UI49 arrangement. No card or position is grandfathered in. This does not remove canonical host/site monitoring, provider data, agents, source health, graph widgets or unrelated module preferences.
+- Generate **exactly the cards and selection/order a fresh supported post-bootstrap site would produce**, via a *single shared default function* used by new installations, the reset editor, and the homepage (not a special product-site migration). No user-specific host/camera/UPS roster in code. The baseline must reveal current auto-population and the original UI48 automatic shortest-column packing.
+- Reset all selected sites, not just the first visible site. One authenticated current-revision/hash Validate/Preview/Apply transaction writes the complete replacement preference section, creates one recoverable canonical configuration revision. **Do not reset automatically on module import, server start, background dashboard load, refresh or snapshot restore**: backup/restore must remain exact and this is a controlled production-destructive action. On first UI50 editor view, explicitly present a one-step `Rebuild from clean bootstrap` control showing counts and requiring operator confirmation. The operator has authorized the change but installation alone may never silently mutate protected production. Reset is all-or-nothing with collision/409 fail-closed.
+- Old snapshots remain unmodified and restorable, including legacy v1–v4; restored snapshots must not trigger another reset. On a fresh install with no saved card preferences, the same baseline is automatic. Normal post-reset operator edits are retained; do not re-reset during a subsequent module update.
+
+## Preview contract
+- UI49's visually inaccurate separate pseudo-card contents must go. Arrange preview should be the actual homepage renderer, with the same scoped CSS, selected/hidden native items, member subset, typography, card min-height, natural wrap and 3/2/1 width rules. Editor adds only handles and placement controls **outside** the card surface.
+- If exact same-renderer integration is blocked, **show honest schematic tiles without fake row lists** and retain #104 as blocked; never label approximate inventory heights as a pixel-faithful preview.
+- Automated regression must check actual versus editor visible content, order and geometry with all-members Network input vs summarized displayed Network, UPS, Cameras and host 0/4/24 readings, all supported breakpoints, direct touch-pointer move, Undo, Cancel, canonical v4 snapshot A/B, and dividend #103.
+- Do not modify Core, providers, production systems, authenticated configuration or stable/beta/latest via cloud agents. UI49 signed bytes remain immutable. Create UI **1.14.0 build50** as a new signed official-dev successor only after exact-head gates. Operator performs a fresh full appliance backup and the production-side intentional reset/physical iPad acceptance. No stable/beta promotion or merge before operator signoff.

@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "module_id": "com.sickicarus.monitorbox.ui",
+  "version": "1.17.1",
+  "build": 54,
+  "change_class": "patch-polish",
+  "source_prefix": "sources/ui/",
+  "issue": 104,
+  "summary": "UI54 camera name-left/health-right consistency and Advanced-only high/low UPS transfer thresholds, with human-readable secondary UPS telemetry. Preserve immutable signed UI53, existing layout, saved raw metric selections, monitoring and UI52 clean Reset semantics. Dev-only physical acceptance; no automatic dashboard reset or beta/stable promotion.",
+  "stager": "tools/stage_104_ui_build54.py",
+  "builder": "tools/build_first_party_ui_build54.py",
+  "supersedes_dev": {
+    "version": "1.17.0",
+    "build": 53,
+    "sha256": "684aeb5b324daeac82066bf6547e4c64d48ee808db4811ecbf0b802af6f86986",
+    "authority_commit": "19952e9f297954a1a5dd7bdff5310cdcc152ce8e"
+  }
+}
