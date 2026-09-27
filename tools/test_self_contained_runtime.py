@@ -57,7 +57,8 @@ class SelfContainedRuntimeTests(unittest.TestCase):
                 with patch.object(pkg, "host_arch", return_value="amd64"), \
                      patch.object(pkg, "_version", return_value="3.13.9"), \
                      patch.object(pkg, "_ldd_dependencies", return_value={system_loader.name: system_loader.resolve()}), \
-                     patch.object(pkg, "_resolve_abi_library", return_value=system_loader.resolve()):
+                     patch.object(pkg, "_resolve_abi_library", return_value=system_loader.resolve()), \
+                     patch.object(pkg, "verified_debian_abi", return_value={"proof": "synthetic-test-only"}):
                     result = pkg.build_runtime("python", root / f"{name}.zip", python_prefix=base)
                 self.assertFalse(result["release_eligible"])
                 self.assertEqual(result["packaging_stage"], "digest-pinned-upstream-runtime-proof")
@@ -66,7 +67,8 @@ class SelfContainedRuntimeTests(unittest.TestCase):
                 self.assertEqual(result["upstream"]["node_image"],
                                  pkg.load_upstream_lock()["node_image"])
                 self.assertEqual(result["upstream"]["os_packages"],
-                                 "unpinned-debian-bookworm-apt-prototype")
+                                 "sha256-locked-oci-base-abi-prototype")
+                self.assertEqual(result["upstream"]["debian_abi"], {"proof": "synthetic-test-only"})
                 self.assertEqual("com.sickicarus.monitorbox.runtime.python", result["artifact_id"])
                 self.assertEqual("runtime/loader/ld-linux-x86-64.so.2", result["dynamic_loader"])
             self.assertEqual((root / "one.zip").read_bytes(), (root / "two.zip").read_bytes())
