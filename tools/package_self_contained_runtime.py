@@ -26,6 +26,13 @@ class RuntimePackagingError(ValueError):
 
 ARCHES = {"x86_64": "amd64", "aarch64": "arm64"}
 LOADER_NAMES = {"amd64": "ld-linux-x86-64.so.2", "arm64": "ld-linux-aarch64.so.1"}
+# Native Python extension modules and Node native addons may depend on these
+# audited compiler-ABI DSOs without the interpreter executable requiring them.
+# Collect them from the architecture-matching trusted builder filesystem, not
+# from a host-mounted path or a runtime network resolver.
+LIBRARY_TRIPLES = {"amd64": "x86_64-linux-gnu", "arm64": "aarch64-linux-gnu"}
+ABI_SUPPORT_LIBRARIES = ("libgcc_s.so.1", "libstdc++.so.6", "libatomic.so.1")
+
 LANGUAGES = {"python", "node"}
 ZIP_TIME = (1980, 1, 1, 0, 0, 0)
 EXCLUDED = {"__pycache__", ".pytest_cache", "test", "tests", "tkinter", "idlelib", "turtledemo"}
@@ -79,6 +86,20 @@ def _ldd_dependencies(binary: Path) -> dict[str, Path]:
             raise RuntimePackagingError("ambiguous ELF dependency soname")
         found[required] = source
     return found
+
+
+def _resolve_abi_library(arch: str, name: str) -> Path:
+    if arch not in LIBRARY_TRIPLES or name not in ABI_SUPPORT_LIBRARIES:
+        raise RuntimePackagingError("unapproved runtime compiler-ABI library")
+    triple = LIBRARY_TRIPLES[arch]
+    for root in (Path("/lib"), Path("/usr/lib")):
+        candidate = root / triple / name
+        if candidate.is_file():
+            source = candidate.resolve(strict=True)
+            if not _elf(source):
+                raise RuntimePackagingError("compiler-ABI dependency is not ELF")
+            return source
+    raise RuntimePackagingError("required compiler-ABI library absent from trusted builder: " + name)
 
 
 def parse_ldd_for_test(text: str) -> set[str]:
@@ -210,6 +231,14 @@ def build_runtime(language: str, output: Path, *, extract_to: Path | None = None
             smoke = {}
 
         libraries: dict[str, Path] = {}
+        # The Python interpreter and stdlib's DT_NEEDED closure is not enough:
+        # cryptography's Rust wheel needs libgcc_s.so.1 even though CPython
+        # itself does not. Resolve a narrow, reviewed ABI base and recurse
+        # through those ELFs' own loader dependencies.
+        for name in ABI_SUPPORT_LIBRARIES:
+            source = _resolve_abi_library(arch, name)
+            libraries[name] = source
+            included.append(source)
         loader: Path | None = None
         for source in included:
             if not _elf(source):
