@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """UI53 candidate fingerprint, signed predecessor, managed package and immutable UI52 gate."""
 from __future__ import annotations
-import ast,hashlib,subprocess,tempfile
+import ast,copy,hashlib,json,subprocess,tempfile
 from pathlib import Path
 import build_first_party_ui as stable
 import build_first_party_ui_build52 as predecessor
 import build_first_party_ui_build53 as candidate
+import stage_104_ui_build53 as staging
 
 ROOT=Path(__file__).resolve().parent.parent
 def main():
@@ -33,7 +34,13 @@ def main():
         predecessor.TARGET_IMPORT_PACKAGE+"/assets/card-projection.js"]
     ast.parse(assets["__init__.py"].decode())
     ast.parse(assets["bootstrap.py"].decode())
+    assert staging.ENTRY["manifest"]["requires_core"]==">=2.7.0 <3.0.0"
     with tempfile.TemporaryDirectory(prefix="ui53-") as d:
+        disposable=Path(d)/"catalog.json"
+        disposable.write_text(json.dumps({"modules":[copy.deepcopy(staging.UI48_ENTRY)]}))
+        assert staging.stage(disposable) is True
+        assert staging.stage(disposable) is False
+        assert json.loads(disposable.read_text())["modules"][1]==staging.ENTRY
         a=candidate.build(ROOT,Path(d)/"a").read_bytes()
         b=candidate.build(ROOT,Path(d)/"b").read_bytes()
         assert a==b
