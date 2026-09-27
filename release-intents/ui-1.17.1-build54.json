@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "module_id": "com.sickicarus.monitorbox.ui",
+  "version": "1.17.1",
+  "build": 54,
+  "change_class": "patch-polish",
+  "source_prefix": "sources/ui/",
+  "issue": 104,
+  "summary": "UI54 patch: Cameras members show name left and health right; UPS high/low transfer thresholds are Advanced-only; secondary UPS voltage/power readings have human labels. All UI53 monitoring, bootstrap/Reset, saved diagnostics and snapshots preserved; dev-only physical acceptance.",
+  "stager": "tools/stage_104_ui_build54.py",
+  "builder": "tools/build_first_party_ui_build54.py",
+  "supersedes_dev": {
+    "version": "1.17.0",
+    "build": 53,
+    "sha256": "684aeb5b324daeac82066bf6547e4c64d48ee808db4811ecbf0b802af6f86986",
+    "authority_commit": "19952e9f297954a1a5dd7bdff5310cdcc152ce8e"
+  }
+}
