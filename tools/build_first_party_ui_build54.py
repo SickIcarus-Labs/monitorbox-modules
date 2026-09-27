@@ -33,7 +33,7 @@ def blob_sha(payload:bytes)->str:
     return hashlib.sha1(f"blob {len(payload)}\0".encode()+payload).hexdigest()
 
 def _sources(root:Path)->dict[str,bytes]:
-    folder=root/"sources/ui/1.17.0-build54"
+    folder=root/"sources/ui/1.17.1-build54"
     if {p.name for p in folder.iterdir() if p.is_file()}!=set(SOURCE_BLOBS):
         raise SystemExit("UI54 unexpected source inventory")
     data={}
