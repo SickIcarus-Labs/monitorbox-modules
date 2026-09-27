@@ -97,7 +97,7 @@ def _copy_tree(source: Path, dest: Path) -> list[Path]:
     elfs: list[Path] = []
     for item in sorted(source.rglob("*")):
         relative = item.relative_to(source)
-        if EXCLUDED.intersection(relative.parts) or item.name.endswith((".pyc", ".pyo")):
+        if EXCLUDED.intersection(relative.parts) or item.name.endswith((".pyc", ".pyo", ".o", ".a", ".h")):
             continue
         if item.is_dir():
             continue
