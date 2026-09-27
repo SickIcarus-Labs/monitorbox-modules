@@ -12,6 +12,8 @@ import json
 import os
 import re
 import sys
+import io
+import zipfile
 import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -40,6 +42,36 @@ def _safe_package_path(root: Path, filename: str) -> Path:
     if source.is_symlink() or not source.is_file():
         raise PublicationError(f"missing or linked package: {filename}")
     return source
+
+
+EXECUTABLE_MODULE_IDS = frozenset({
+    "com.sickicarus.monitorbox.core", "com.sickicarus.monitorbox.agent",
+})
+
+
+def _verify_core_or_agent_admission(item: dict[str, Any], payload: bytes) -> None:
+    """Don't accidentally sign the explicitly unreleasable 2.x source proof.
+
+    This is a publisher admission gate, not a claim that a signed package is
+    executable: full dependency/runtime and process readiness are separate.
+    """
+    if item.get("artifact_id") not in EXECUTABLE_MODULE_IDS:
+        return
+    try:
+        with zipfile.ZipFile(io.BytesIO(payload)) as archive:
+            if "package.json" not in archive.namelist():
+                raise PublicationError("Core/Agent package lacks package.json")
+            if archive.getinfo("package.json").file_size > 64 * 1024:
+                raise PublicationError("Core/Agent manifest exceeds size limit")
+            manifest = _parse(archive.read("package.json"))
+    except (zipfile.BadZipFile, KeyError) as exc:
+        raise PublicationError("Core/Agent package is not a valid module ZIP") from exc
+    except VerificationError as exc:
+        raise PublicationError("invalid internal Core/Agent JSON manifest") from exc
+    if not isinstance(manifest, dict) or manifest.get("release_eligible") is not True:
+        raise PublicationError("Core/Agent package is explicitly unreleasable or lacks approval")
+    if any(manifest.get(key) != item.get(key) for key in ("artifact_id", "version", "build")):
+        raise PublicationError("Core/Agent internal package identity disagrees with signed catalog candidate")
 
 
 def _timestamp(value: datetime) -> datetime:
@@ -98,6 +130,7 @@ def sign_candidate(
         payload = file_path.read_bytes()
         if not payload:
             raise PublicationError("empty packages cannot be published")
+        _verify_core_or_agent_admission(item, payload)
         metadata = {k: v for k, v in item.items() if k != "package_file"}
         metadata["package"] = {
             "url": "platform/packages/" + filename,

@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import io
+import zipfile
 import json
 import os
 import tempfile
@@ -47,7 +49,15 @@ class BuildPlatformIndexTests(unittest.TestCase):
         self.source = {"schema": 1, "repository_id": "official-platform", "artifacts": []}
         for n, (identity, kind) in enumerate(ESSENTIALS):
             filename = f"synthetic-{n}.zip"
-            (self.packages / filename).write_bytes((f"NONEXECUTABLE {identity}\n" * 16).encode())
+            if identity in {"com.sickicarus.monitorbox.core", "com.sickicarus.monitorbox.agent"}:
+                buffer = io.BytesIO()
+                with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as z:
+                    z.writestr("package.json", json.dumps({"artifact_id": identity, "version": "3.0.0", "build": 1, "release_eligible": True,
+                                                            "fixture_only": True, "entrypoints": {"synthetic": "never-run"}}))
+                    z.writestr("app/SYNTHETIC.txt", "NONEXECUTABLE TEST PACKAGE")
+                (self.packages / filename).write_bytes(buffer.getvalue())
+            else:
+                (self.packages / filename).write_bytes((f"NONEXECUTABLE {identity}\n" * 16).encode())
             arch = "any" if kind == "module" else "arm64"
             abi = "pure" if arch == "any" else "static"
             dependencies = []
@@ -140,6 +150,26 @@ class BuildPlatformIndexTests(unittest.TestCase):
         path.write_bytes(path.read_bytes() + b"tamper")
         with self.assertRaisesRegex(VerificationError, "digest"):
             verify_package(a, self.root, self.keys)
+
+    def test_unreleaseable_core_source_and_false_identity_rejected(self) -> None:
+        core = self.source["artifacts"][0]
+        path = self.packages / core["package_file"]
+        original = path.read_bytes()
+        for release_eligible, artifact_id, error in (
+            (False, core["artifact_id"], "unreleasable"),
+            (None, core["artifact_id"], "unreleasable"),
+            (True, "com.sickicarus.monitorbox.other", "identity"),
+        ):
+            buffer = io.BytesIO()
+            with zipfile.ZipFile(buffer, "w") as z:
+                z.writestr("package.json", json.dumps({"artifact_id": artifact_id,
+                    "version": core["version"], "build": core["build"],
+                    "release_eligible": release_eligible}))
+            path.write_bytes(buffer.getvalue())
+            with self.assertRaisesRegex(PublicationError, error):
+                self.candidate()
+        path.write_bytes(original)
+        self.assertTrue(self.candidate())
 
     def test_expiry_and_future_or_invalid_key_rejected(self) -> None:
         raw = self.candidate()

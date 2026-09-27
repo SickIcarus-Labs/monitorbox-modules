@@ -25,6 +25,9 @@ A typical synthetic Core source artifact is:
 
 The example is **not** an accepted real Core build. The actual Core implementation/runtime ABI and compatible first-party module releases remain gated by Core #416 and modules #114. Native Python/Node packages must be self-contained for the scratch platform, not merely distro-linked binaries.
 
+
+**Core/Agent release-admission safeguard:** these two executable module identities must now be ZIPs with a bounded internal `package.json`, explicit `release_eligible: true`, and an `artifact_id`/`version`/`build` exactly matching the candidate catalog metadata. A transitional Core source ZIP from Core PR #429 deliberately has `release_eligible: false` and is rejected by this signer; being able to stage it with an ephemeral *test* key does not make it an approved release. The unit tests' ZIPs are clearly synthetic and do not exercise runtime execution. Actual eligibility also requires the protected signing workflow, complete Python/wheel runtime closure, independent process/readiness checks and #421 physical acceptance.
+
 ## Signing interface
 
 The isolated publisher receives a 32-byte Ed25519 private seed **via an environment variable**, never from an argv secret or committed file. Candidate output uses a new path and refuses to overwrite an existing signed index. The signing service chooses an explicitly approved channel (`stable`, `beta`, or `dev`), monotonic sequence and expiry window. The returned signed index binds channel, generated/expiry timestamps, package manifest, digest, package signature and envelope signature in the same canonical JSON format as the existing 2.x signer.
