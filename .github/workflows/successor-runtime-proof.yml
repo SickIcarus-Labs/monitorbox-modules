@@ -83,6 +83,14 @@ jobs:
             --entrypoint "$loader" mb-node-scratch:proof \
             --library-path /runtime/lib:/runtime/usr/local/lib \
             "$bin" -e 'const c=require("crypto");if(!process.versions.node.startsWith("24."))process.exit(2);if(!c.createHash("sha256").update("ok").digest("hex"))process.exit(3); console.log("scratch Node24 crypto OK")'
+      - name: Retain short-lived UNRELEASABLE runtime ZIP proof for scaffold integration
+        uses: actions/upload-artifact@v4
+        with:
+          name: unreleaseable-runtime-zips-${{ matrix.arch }}-${{ github.sha }}
+          path: runtime-proof/artifacts/*-candidate.zip
+          retention-days: 2
+          compression-level: 0
+          if-no-files-found: error
       - name: Retain unreleasable manifest evidence (no signed catalog)
         uses: actions/upload-artifact@v4
         with:
