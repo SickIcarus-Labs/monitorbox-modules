@@ -258,6 +258,12 @@ def build_runtime(language: str, output: Path, *, extract_to: Path | None = None
     if output.exists() or output.is_symlink():
         raise RuntimePackagingError("refusing to overwrite candidate")
     arch = host_arch()
+    upstream = load_upstream_lock()
+    dockerfile = Path(os.environ.get(
+        "MONITORBOX_RUNTIME_DOCKERFILE",
+        str(Path(__file__).resolve().parents[1] / "platform/runtime/Dockerfile"),
+    ))
+    verify_locked_dockerfile(dockerfile, upstream)
     upstream_bin = python_prefix / "bin/python3.13" if language == "python" else node_binary
     if not upstream_bin.resolve().is_file():
         raise RuntimePackagingError("upstream runtime executable not present")
@@ -325,13 +331,13 @@ def build_runtime(language: str, output: Path, *, extract_to: Path | None = None
             "schema": 1, "kind": "runtime",
             "artifact_id": f"com.sickicarus.monitorbox.runtime.{language}",
             "version": version, "build": 1, "release_eligible": False,
-            "packaging_stage": "unpinned-upstream-runtime-proof",
+            "packaging_stage": "digest-pinned-upstream-runtime-proof",
             "platform": {"os": "linux", "arch": arch, "abi": "glibc"},
             "entrypoint": entry, "dynamic_loader": f"runtime/loader/{loader.name}",
             "library_paths": ["runtime/lib", "runtime/usr/local/lib"],
             "environment": smoke, "verified_elf_count": len(included),
             "library_count": len(libraries),
-            "upstream": {"python_image": "python:3.13-slim-bookworm", "node_image": "node:24-bookworm-slim"},
+            "upstream": {**upstream, "os_packages": "unpinned-debian-bookworm-apt-prototype"},
         }
         (root / "package.json").write_text(json.dumps(manifest, sort_keys=True, indent=2) + "\n")
         if extract_to is not None:
