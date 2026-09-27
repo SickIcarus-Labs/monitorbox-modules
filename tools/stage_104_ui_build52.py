@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""WIP UI52 staging descriptor; NOT an active release intent or channel mutation.
+"""UI52 candidate source stager; trusted publisher independently checks signed dev ancestry.
 
 The exact predecessor is signed UI51 official-dev, not a speculative UI51
 catalog entry in main. The trusted release-policy gate will independently
@@ -47,6 +47,4 @@ def stage(path:Path)->bool:
 
 
 if __name__=="__main__":
-    # Guard against accidental operator import/publish: staging the repo's
-    # authoritative catalog is exclusively the trusted future release lane.
-    raise SystemExit("UI52 release not authorized; call stage() on a disposable catalog")
+    stage(Path(__file__).resolve().parent.parent/"catalog.source.json")

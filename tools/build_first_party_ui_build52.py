@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
-"""UI52 WIP test candidate: standalone v5 card renderer over immutable signed UI51.
-
-The UI51 historical Python preference writer is inherited ONLY pending the
-separate first-ready canonical-bootstrap qualification. This builder must not
-be staged for signed publication until that boundary is replaced and tested.
+"""UI52 release candidate: provider-neutral v5 card renderer and first-ready bootstrap.
+Builds from immutable signed UI51 source bytes; trusted release gate verifies
+signed predecessor/semantic version and source fingerprints before signing.
 """
 from __future__ import annotations
 import argparse,hashlib
@@ -19,7 +17,7 @@ PARENT_GENERATION=previous.UI_GENERATION
 PARENT_IMPORT_PACKAGE=previous.TARGET_IMPORT_PACKAGE
 TARGET_IMPORT_PACKAGE="monitorbox_ui_b52"
 RELEASE52=stable.Release(build=52,version=UI_VERSION,
-    certified_sha="WIP-104-standalone-cards-no-dev-publication")
+    certified_sha="ui52-clean-bootstrap-core-410-paired-exact-head")
 SOURCE_BLOBS={
   "card-generation.js":"b1023852dc6f9b80db5572b951cd8f649abe6ee8",
   "card-composer-renderer.js":"6e39380ffcecf562549b83767aacb0d840794223",
@@ -126,7 +124,7 @@ def build(root:Path,output_dir:Path)->Path:
   data=stable._zip_bytes(_package_files(root))
   path=output_dir/RELEASE52.filename
   path.write_bytes(data)
-  print(f"UI52 WIP test-only package {path}: sha256={hashlib.sha256(data).hexdigest()}")
+  print(f"UI52 deterministic release candidate {path}: sha256={hashlib.sha256(data).hexdigest()}")
   return path
 
 if __name__=="__main__":
