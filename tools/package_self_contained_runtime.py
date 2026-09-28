@@ -131,7 +131,25 @@ def verified_debian_abi(upstream: dict[str, str]) -> dict:
     if not ca.is_file() or sha256(ca) != lock["installed_ca_sha256"]:
         raise RuntimePackagingError("copied runtime CA differs from pinned OCI base")
     verify_archives(lock, archives)
+    from discover_archived_debian import load_approved_snapshot
+    approved_snapshot_file = directory / ("snapshot-" + lock["arch"] + ".json")
+    approved_snapshot = load_approved_snapshot(approved_snapshot_file, lock["arch"])
+    record = lock["changed_packages"][0]
+    if (approved_snapshot["deb"]["sha256"] != record["sha256"] or
+            approved_snapshot["deb"]["size"] != record["size"] or
+            approved_snapshot["deb"]["source_path"] != record["source_path"]):
+        raise RuntimePackagingError("archived Debian signed index differs from installed exact native ABI package")
     return {
+        "snapshot": {
+            "source_lock_sha256": sha256(approved_snapshot_file),
+            "checkpoint": approved_snapshot["checkpoint"],
+            "debian_keyring_sha256": approved_snapshot["keyring_sha256"],
+            "signed_inrelease_sha256": approved_snapshot["inrelease"]["sha256"],
+            "signed_packages_sha256": approved_snapshot["packages"]["sha256"],
+            "signed_packages_path": approved_snapshot["packages"]["path"],
+            "package_sha256": approved_snapshot["deb"]["sha256"],
+            "provenance": "independently-verified-external-Debian-snapshot-prototype",
+        },
         "arch": lock["arch"],
         "lock_sha256": sha256(directory / ("lock-" + lock["arch"] + ".json")),
         "base_ca_sha256": lock["base_ca_sha256"],
@@ -387,7 +405,7 @@ def build_runtime(language: str, output: Path, *, extract_to: Path | None = None
             "library_count": len(libraries),
             "upstream": {
                 **upstream,
-                "os_packages": "sha256-locked-oci-base-abi-prototype",
+                "os_packages": "snapshot-locked-oci-base-abi-prototype",
                 "debian_abi": debian_abi,
             },
         }

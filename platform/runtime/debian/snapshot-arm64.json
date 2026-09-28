@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "release_eligible": false,
+  "packaging_stage": "snapshot-debian-signed-index-discovery-only",
+  "checkpoint": "20260926T000000Z",
+  "source": "debian",
+  "suite": "bookworm",
+  "keyring_sha256": "506b815cbb32d9b6066b4a2aa524071e071761e7e7f68c3ac74f3061ba852017",
+  "inrelease": {
+    "sha256": "77737fa4b34f2693e982cc9ee35736816c35a7778fc2d326cc1bbf5b301fe1aa",
+    "size": 151075,
+    "signed_date": "2026-07-11T10:16:37+00:00",
+    "url": "https://snapshot.debian.org/archive/debian/20260926T000000Z/dists/bookworm/InRelease"
+  },
+  "arch": "arm64",
+  "packages": {
+    "path": "main/binary-arm64/Packages.xz",
+    "sha256": "2ddb1737692e8c45c53e8d57c0ce4cd21c78c5703b830c3226b1423566a06c00",
+    "size": 8689464,
+    "uncompressed_sha256": "c7c883a61f348283050d3a754e7c8119117c4019bf65da804c78fdae315866f1"
+  },
+  "deb": {
+    "source_path": "pool/main/g/gcc-12/libatomic1_12.2.0-14+deb12u1_arm64.deb",
+    "sha256": "1693aa13ce2b30d061a519fc28b77b9bab8c8e45804ced5969d99821e1bc2159",
+    "size": 9568
+  }
+}

@@ -67,7 +67,7 @@ class SelfContainedRuntimeTests(unittest.TestCase):
                 self.assertEqual(result["upstream"]["node_image"],
                                  pkg.load_upstream_lock()["node_image"])
                 self.assertEqual(result["upstream"]["os_packages"],
-                                 "sha256-locked-oci-base-abi-prototype")
+                                 "snapshot-locked-oci-base-abi-prototype")
                 self.assertEqual(result["upstream"]["debian_abi"], {"proof": "synthetic-test-only"})
                 self.assertEqual("com.sickicarus.monitorbox.runtime.python", result["artifact_id"])
                 self.assertEqual("runtime/loader/ld-linux-x86-64.so.2", result["dynamic_loader"])
