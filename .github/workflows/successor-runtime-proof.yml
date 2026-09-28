@@ -7,6 +7,8 @@ on:
       - "tools/test_self_contained_runtime.py"
       - "tools/freeze_runtime_debian_closure.py"
       - "tools/test_frozen_runtime_debian.py"
+      - "tools/discover_archived_debian.py"
+      - "tools/test_archived_debian.py"
       - "tools/build_platform_index.py"
       - "tools/test_build_platform_index.py"
       - ".github/workflows/successor-runtime-proof.yml"
@@ -35,27 +37,38 @@ jobs:
         run: python -m unittest discover -s tools -p 'test_self_contained_runtime.py' -v
       - name: Frozen Debian ABI manifest and tampering regressions
         run: python -m unittest discover -s tools -p 'test_frozen_runtime_debian.py' -v
-      - name: Download ONLY exact source-reviewed Debian .deb SHA256 bytes using signed apt index
+      - name: Offline source-reviewed Debian signed snapshot regression tests
+        run: python -m unittest discover -s tools -p 'test_archived_debian.py' -v
+      - name: Obtain the Debian archive keyring from the exact pinned Python OCI
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p runtime-deb-download
-          docker run --rm --network bridge -e DEBIAN_FRONTEND=noninteractive \
-            -v "$PWD/tools/freeze_runtime_debian_closure.py:/freeze.py:ro" \
-            -v "$PWD/platform/runtime/debian:/locks:ro" \
-            -v "$PWD/runtime-deb-download:/out" \
-            --entrypoint python \
-            python:3.13-slim-bookworm@sha256:2325bb286ec344af3e5898cc224b5844e2707ac6e26b1632516fd3edc84a5e26 \
-            /freeze.py fetch --lock-dir /locks --archives /out/debs
-          sudo chown -R "$(id -u):$(id -g)" runtime-deb-download
+          id=$(docker create python:3.13-slim-bookworm@sha256:2325bb286ec344af3e5898cc224b5844e2707ac6e26b1632516fd3edc84a5e26)
+          trap 'docker rm -f "$id" >/dev/null 2>&1 || true' EXIT
+          docker cp "$id:/usr/share/keyrings/debian-archive-keyring.gpg" "$RUNNER_TEMP/debian-archive-keyring.gpg"
+          echo "506b815cbb32d9b6066b4a2aa524071e071761e7e7f68c3ac74f3061ba852017  $RUNNER_TEMP/debian-archive-keyring.gpg" | sha256sum --check --status
+      - name: Fetch ONLY immutable reviewed snapshot InRelease/Packages and native .deb, verify all signatures/hashes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/discover_archived_debian.py \
+            --arch ${{ matrix.arch }} \
+            --keyring "$RUNNER_TEMP/debian-archive-keyring.gpg" \
+            --approved-lock "platform/runtime/debian/snapshot-${{ matrix.arch }}.json" \
+            --output runtime-deb-download
           mkdir -p platform/runtime/debian/debs
-          cp runtime-deb-download/debs/*.deb platform/runtime/debian/debs/
+          cp runtime-deb-download/libatomic1*.deb platform/runtime/debian/debs/
           python - <<'PY'
+          import json, platform
           from pathlib import Path
-          from tools.freeze_runtime_debian_closure import load_lock, verify_archives
-          lock_dir=Path('platform/runtime/debian')
-          item=verify_archives(load_lock(lock_dir),lock_dir/'debs')
-          print('Verified pinned Debian package before Docker build:',item.name)
+          from tools.freeze_runtime_debian_closure import load_lock,verify_archives
+          cpu={"x86_64":"amd64","aarch64":"arm64"}[platform.machine()]
+          native=Path("platform/runtime/debian")
+          approved=json.loads((native/f"snapshot-{cpu}.json").read_text())
+          actual=json.loads((Path("runtime-deb-download")/f"snapshot-proof-{cpu}.json").read_text())
+          assert actual==approved, "source-reviewed signed snapshot changed"
+          package=verify_archives(load_lock(native),native/"debs")
+          print("Source-reviewed snapshot InRelease/Packages and exact offline native Debian ABI:", package.name)
           PY
       - name: Verify immutable Python/Node digest lock and exact Dockerfile before building
         run: |
