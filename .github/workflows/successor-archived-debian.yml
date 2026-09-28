@@ -44,6 +44,7 @@ jobs:
           python tools/discover_archived_debian.py \
             --arch ${{ matrix.arch }} \
             --keyring "$RUNNER_TEMP/debian-archive-keyring.gpg" \
+            --approved-lock "platform/runtime/debian/snapshot-${{ matrix.arch }}.json" \
             --output snapshot-proof
           test -s "snapshot-proof/snapshot-proof-${{ matrix.arch }}.json"
       - name: Retain ONLY unreleaseable signed-index snapshot discovery bytes (not an official release)
