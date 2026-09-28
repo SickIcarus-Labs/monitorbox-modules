@@ -171,14 +171,80 @@ def selected_paragraph(expanded: bytes, arch: str) -> dict[str, str] | None:
     return result[0] if result else None
 
 
-def run_probe(arch: str, keyring: pathlib.Path, out: pathlib.Path) -> dict:
+# Source-reviewed immutable evidence captured independently in native CI run
+# 36361576510. A maintainer must deliberately change BOTH code policy
+# constants and the committed lock for any future Debian snapshot refresh.
+APPROVED_KEYRING = "506b815cbb32d9b6066b4a2aa524071e071761e7e7f68c3ac74f3061ba852017"
+APPROVED_RELEASE = "77737fa4b34f2693e982cc9ee35736816c35a7778fc2d326cc1bbf5b301fe1aa"
+APPROVED_PACKAGE_INDEX = {
+    "amd64": ("9e0b5aabb2465b3d2e7a7fe27f9913846277833f7a2826e7767acccff5b588c5",
+              8790396,
+              "515e692f2c4121c6fcec444ef100cc18f79a991910615f3a88c8b7becfc94d2f"),
+    "arm64": ("2ddb1737692e8c45c53e8d57c0ce4cd21c78c5703b830c3226b1423566a06c00",
+              8689464,
+              "c7c883a61f348283050d3a754e7c8119117c4019bf65da804c78fdae315866f1"),
+}
+
+
+def strict_pairs(pairs: list[tuple[str, object]]) -> dict:
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise SnapshotError("duplicate snapshot provenance lock key")
+        result[key] = value
+    return result
+
+
+def load_approved_snapshot(source: pathlib.Path, arch: str) -> dict:
+    if arch not in APPROVED or source.is_symlink() or not source.is_file() or source.stat().st_size > 4096:
+        raise SnapshotError("missing/unsafe reviewed native Debian snapshot source lock")
+    try:
+        actual = json.loads(source.read_text(encoding="utf-8"),
+                            object_pairs_hook=strict_pairs)
+    except SnapshotError:
+        raise
+    except (OSError, UnicodeError, ValueError) as exc:
+        raise SnapshotError("malformed committed Debian snapshot lock") from exc
+    index_hash, index_size, uncompressed_hash = APPROVED_PACKAGE_INDEX[arch]
+    expected_deb, expected_deb_size = APPROVED[arch]
+    expected = {
+        "schema": 1, "release_eligible": False,
+        "packaging_stage": "snapshot-debian-signed-index-discovery-only",
+        "arch": arch, "source": "debian", "suite": "bookworm", "checkpoint": STAMP,
+        "keyring_sha256": APPROVED_KEYRING,
+        "inrelease": {
+            "url": f"{HOST}/archive/debian/{STAMP}/dists/bookworm/InRelease",
+            "sha256": APPROVED_RELEASE, "size": 151075,
+            "signed_date": "2026-07-11T10:16:37+00:00",
+        },
+        "packages": {
+            "path": f"main/binary-{arch}/Packages.xz",
+            "sha256": index_hash, "size": index_size,
+            "uncompressed_sha256": uncompressed_hash,
+        },
+        "deb": {
+            "source_path": f"pool/main/g/gcc-12/libatomic1_{TARGET_VERSION}_{arch}.deb",
+            "sha256": expected_deb, "size": expected_deb_size,
+        },
+    }
+    if type(actual) is not dict or type(actual.get("schema")) is not int or actual != expected:
+        raise SnapshotError("snapshot lock disagrees with independently reviewed native signed-index source")
+    return expected
+
+
+def run_probe(arch: str, keyring: pathlib.Path, out: pathlib.Path, approved: dict | None = None) -> dict:
     if arch not in APPROVED:
         raise SnapshotError("unsupported approved Debian CPU")
     if out.is_symlink() or (out.exists() and list(out.iterdir())):
         raise SnapshotError("refusing reused or linked signed Debian evidence")
     out.mkdir(mode=0o700, parents=True, exist_ok=True)
     expected_deb, expected_bytes = APPROVED[arch]
-    for archive, suite in SUITES:
+    if approved is not None and (
+        approved["arch"] != arch or sha(keyring.read_bytes()) != approved["keyring_sha256"]
+    ):
+        raise SnapshotError("snapshot signer keyring differs from source-reviewed pinned OCI image")
+    suites = ((approved["source"], approved["suite"]),) if approved is not None else SUITES
+    for archive, suite in suites:
         base = f"{HOST}/archive/{archive}/{STAMP}"
         release_url = f"{base}/dists/{suite}/InRelease"
         try:
@@ -186,6 +252,12 @@ def run_probe(arch: str, keyring: pathlib.Path, out: pathlib.Path) -> dict:
         except SnapshotError as exc:
             print("Unavailable immutable suite:", archive, suite, str(exc)[:150], flush=True)
             continue
+        if approved is not None and (
+            sha(raw) != approved["inrelease"]["sha256"] or
+            len(raw) != approved["inrelease"]["size"] or
+            release_url != approved["inrelease"]["url"]
+        ):
+            raise SnapshotError("immutable Debian InRelease bytes differ from source-reviewed signature")
         source = out / f"{archive}-{suite}-InRelease"
         _, signed = verified_release(raw, keyring, source)
         index_path = f"main/binary-{arch}/Packages.xz"
@@ -194,6 +266,12 @@ def run_probe(arch: str, keyring: pathlib.Path, out: pathlib.Path) -> dict:
             print("No signed xz index:", archive, suite, flush=True)
             continue
         index_hash, index_size = entry
+        if approved is not None and (
+            approved["packages"]["sha256"] != index_hash or
+            approved["packages"]["size"] != index_size or
+            approved["packages"]["path"] != index_path
+        ):
+            raise SnapshotError("signed Debian Packages index differs from reviewed native lock")
         if index_size > MAX_INDEX:
             raise SnapshotError("signed Debian index larger than approved budget")
         compressed = download(f"{base}/dists/{suite}/{index_path}", MAX_INDEX)
@@ -202,6 +280,8 @@ def run_probe(arch: str, keyring: pathlib.Path, out: pathlib.Path) -> dict:
         expanded = lzma.decompress(compressed, memlimit=256 << 20)
         if len(expanded) > MAX_EXPANDED:
             raise SnapshotError("oversized fully authenticated Debian index")
+        if approved is not None and sha(expanded) != approved["packages"]["uncompressed_sha256"]:
+            raise SnapshotError("authenticated native Debian Packages uncompressed bytes changed")
         record = selected_paragraph(expanded, arch)
         if record is None:
             print("Reviewed Debian ABI package not in immutable suite:", archive, suite, flush=True)
@@ -236,6 +316,8 @@ def run_probe(arch: str, keyring: pathlib.Path, out: pathlib.Path) -> dict:
                 "sha256": expected_deb, "size": expected_bytes,
             },
         }
+        if approved is not None and proof != approved:
+            raise SnapshotError("dated signed Debian Release/index/package proof changed")
         evidence = out / f"snapshot-proof-{arch}.json"
         evidence.write_text(json.dumps(proof, indent=2, sort_keys=True) + "\n")
         print("BEGIN_SIGNED_DEBIAN_SNAPSHOT_" + arch)
@@ -250,8 +332,11 @@ def main() -> None:
     parser.add_argument("--arch", required=True, choices=APPROVED)
     parser.add_argument("--keyring", type=pathlib.Path, required=True)
     parser.add_argument("--output", type=pathlib.Path, required=True)
+    parser.add_argument("--approved-lock", type=pathlib.Path,
+                        help="require EXACT source-reviewed dated snapshot; never fall back to live apt")
     args = parser.parse_args()
-    run_probe(args.arch, args.keyring, args.output)
+    reviewed = load_approved_snapshot(args.approved_lock, args.arch) if args.approved_lock else None
+    run_probe(args.arch, args.keyring, args.output, reviewed)
 
 
 if __name__ == "__main__":
