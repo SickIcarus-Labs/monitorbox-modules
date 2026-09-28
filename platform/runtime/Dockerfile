@@ -5,6 +5,8 @@ FROM python:3.13-slim-bookworm@sha256:2325bb286ec344af3e5898cc224b5844e2707ac6e2
 # CI obtains exact .deb bytes using Debian-signed index SHA256, but Docker
 # only installs reviewed local bytes. No apt update/install/network in builder.
 COPY tools/freeze_runtime_debian_closure.py /build/freeze_runtime_debian_closure.py
+# Offline check of the reviewed Debian-signed archive source lock.
+COPY tools/discover_archived_debian.py /build/discover_archived_debian.py
 COPY platform/runtime/debian/ /build/debian/
 RUN python /build/freeze_runtime_debian_closure.py install --lock-dir /build/debian --archives /build/debian/debs
 COPY --from=node-upstream /usr/local/bin/node /opt/upstream/node
