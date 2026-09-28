@@ -22,6 +22,7 @@ import re
 import subprocess
 import urllib.error
 import urllib.request
+import urllib.parse
 
 HOST = "https://snapshot.debian.org"
 STAMP = "20260926T000000Z"
@@ -62,10 +63,20 @@ def download(url: str, limit: int) -> bytes:
                 "Accept-Encoding": "identity",
             })
             with urllib.request.urlopen(request, timeout=45) as response:
-                if (not response.url.startswith(HOST + "/archive/") or
-                        response.status != 200 or
+                final = urllib.parse.urlsplit(response.url)
+                # snapshot.debian.org redirects a dated /archive/ URL to
+                # immutable /file/<content-digest> objects. Permit exactly
+                # those same-origin HTTPS content-addressed objects, never
+                # generic redirects/cross-domain hosts or arbitrary paths.
+                if (final.scheme != "https" or final.hostname != "snapshot.debian.org" or
+                        final.username is not None or final.password is not None or
+                        not final.path.startswith(("/archive/", "/file/")) or
+                        final.fragment or response.status != 200 or
                         int(response.headers.get("Content-Length", "0")) > limit):
-                    raise SnapshotError("Debian snapshot redirected or oversized")
+                    raise SnapshotError(
+                        "Debian snapshot unsafe redirect or oversized response: " +
+                        final.scheme + "://" + str(final.hostname) + final.path[:100]
+                    )
                 payload = response.read(limit + 1)
             if len(payload) > limit:
                 raise SnapshotError("Debian snapshot member exceeds strict byte bound")
