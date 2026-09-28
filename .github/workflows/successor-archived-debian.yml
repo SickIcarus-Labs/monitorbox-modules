@@ -27,6 +27,8 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
+      - name: Offline adversarial signed snapshot lock/parser regression tests
+        run: python -m unittest discover -s tools -p 'test_archived_debian.py' -v
       - name: Extract real Debian signed-archive keyring from approved pinned Python OCI
         shell: bash
         run: |
