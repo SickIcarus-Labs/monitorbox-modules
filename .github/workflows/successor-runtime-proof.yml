@@ -104,7 +104,7 @@ jobs:
                   assert manifest['packaging_stage'] == 'digest-pinned-upstream-runtime-proof'
                   assert manifest['upstream']['python_image'] == upstream['python_image']
                   assert manifest['upstream']['node_image'] == upstream['node_image']
-                  assert manifest['upstream']['os_packages'] == 'sha256-locked-oci-base-abi-prototype'
+                  assert manifest['upstream']['os_packages'] == 'snapshot-locked-oci-base-abi-prototype'
                   lock_path=Path(f'platform/runtime/debian/lock-{arch}.json')
                   debian=json.loads(lock_path.read_text())
                   evidence=manifest['upstream']['debian_abi']
@@ -118,6 +118,17 @@ jobs:
                       {key: item[key] for key in ('package','version','sha256','size')}
                       for item in debian['changed_packages']
                   ]
+                  snap=Path(f'platform/runtime/debian/snapshot-{arch}.json')
+                  reviewed_snapshot=json.loads(snap.read_text())
+                  approved=evidence['snapshot']
+                  assert approved['source_lock_sha256']==hashlib.sha256(snap.read_bytes()).hexdigest()
+                  assert approved['checkpoint']=='20260926T000000Z'
+                  assert approved['debian_keyring_sha256']==reviewed_snapshot['keyring_sha256']
+                  assert approved['signed_inrelease_sha256']==reviewed_snapshot['inrelease']['sha256']
+                  assert approved['signed_packages_sha256']==reviewed_snapshot['packages']['sha256']
+                  assert approved['signed_packages_path']==reviewed_snapshot['packages']['path']
+                  assert approved['package_sha256']==debian['changed_packages'][0]['sha256']
+                  assert approved['provenance']=='independently-verified-external-Debian-snapshot-prototype'
                   assert manifest['platform'] == {'os':'linux','arch':arch,'abi':'glibc'}
                   assert manifest['dynamic_loader'] in z.namelist()
                   assert manifest['entrypoint'] in z.namelist()
