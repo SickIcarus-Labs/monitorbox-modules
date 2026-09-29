@@ -121,6 +121,16 @@ def verify_index(
         api = artifact["requires_scaffold_api"]
         if api["minimum"] >= api["maximum_exclusive"]:
             raise VerificationError("invalid scaffold API interval")
+        portable = artifact.get("portable_config")
+        if artifact["kind"] == "module":
+            if portable is None:
+                raise VerificationError("module lacks signed portable configuration capability")
+            if portable["protocol"] != 1:
+                raise VerificationError("unsupported portable configuration protocol")
+            if portable["current_settings_schema"] in portable["accepted_source_schemas"]:
+                raise VerificationError("current settings schema duplicated as migration source")
+        elif portable is not None:
+            raise VerificationError("portable configuration capability is module-only")
         identity = (
             artifact["artifact_id"], artifact["version"], artifact["build"],
             platform["os"], platform["arch"], platform["abi"],
