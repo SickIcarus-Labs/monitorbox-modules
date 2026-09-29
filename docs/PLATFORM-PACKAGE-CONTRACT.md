@@ -18,6 +18,8 @@ New initial IDs: com.sickicarus.monitorbox.core, com.sickicarus.monitorbox.agent
 
 A **critical dependency**: the existing immutable 2.x modules often declare requires_core below 3.0.0. They are not magically eligible for a successor v3 Core. Publish compatible independent builds or prove compatible version/API contracts. Never bypass manifest compatibility merely to make the bootstrap appear successful. Full resolution of Core, Agent, essential UI/Bootstrap/Backup modules, runtime packages and selected providers must occur before a generation is activated.
 
+Every successor `kind=module` artifact also requires package-owned portable-configuration authority. The module ZIP contains exactly one signed-by-package `portable-config.json`, and the signed platform index carries the corresponding `portable_config` capability derived from that member. The unsigned publisher source inventory cannot assert or override this capability. See `docs/PORTABLE-CONTRACTS.md` and modules #120. Runtime and scaffold-manager artifacts must not carry module portable capability.
+
 ## Self-contained runtime requirement
 
 The permanent platform image does not bundle Python or Node. Architecture-specific signed runtime packages must carry their interpreter plus a verified, self-contained userland dynamic dependency closure (including loader and shared libraries as needed); a glibc-linked host binary cannot assume glibc exists in a scratch platform image. Test package activation on native Linux/amd64 and Linux/arm64 images. The first-stage launcher stays statically linked.
