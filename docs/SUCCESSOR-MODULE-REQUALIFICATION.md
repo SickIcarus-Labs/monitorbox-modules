@@ -6,7 +6,7 @@ Tracks [modules #114](https://github.com/SickIcarus-Labs/monitorbox-modules/issu
 
 The accepted Broad Leaf package set contains ten independently managed application modules whose immutable 2.x manifests all exclude Core 3.0.0. Those existing signed ZIPs remain valid historical 2.x artifacts and must never be relabeled, edited or re-signed as successor releases.
 
-The successor therefore creates **new package identities** by retaining each accepted version and incrementing its independent build number. The accepted 2.x ZIP is a cryptographically pinned read-only implementation input. The successor wrapper preserves every predecessor member byte-for-byte and adds only the new successor authority members:
+The successor therefore creates **new package identities** by retaining each accepted version and incrementing its independent build number. The accepted 2.x ZIP is a cryptographically pinned read-only implementation input. The successor wrapper preserves every predecessor implementation-file payload byte-for-byte, retains safe predecessor directory entries, and adds only the new successor authority members:
 
 - `package.json`: exact successor artifact identity, Core/Module Runtime compatibility, existing module entrypoint contract and predecessor provenance;
 - `portable-config.json`: exact package-owned portable configuration authority from #120.
