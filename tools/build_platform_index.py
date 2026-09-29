@@ -49,6 +49,20 @@ EXECUTABLE_MODULE_IDS = frozenset({
     "com.sickicarus.monitorbox.core", "com.sickicarus.monitorbox.agent",
 })
 
+FIRST_PARTY_APPLICATION_MODULE_IDS = frozenset({
+    "com.sickicarus.monitorbox.backup-restore",
+    "com.sickicarus.monitorbox.configuration-bootstrap",
+    "com.sickicarus.monitorbox.http",
+    "com.sickicarus.monitorbox.nut",
+    "com.sickicarus.monitorbox.portainer",
+    "com.sickicarus.monitorbox.scrypted",
+    "com.sickicarus.monitorbox.snmp",
+    "com.sickicarus.monitorbox.ui",
+    "com.sickicarus.monitorbox.unifi",
+    "com.sickicarus.monitorbox.wol",
+})
+
+
 
 def _verify_core_or_agent_admission(item: dict[str, Any], payload: bytes) -> None:
     """Don't accidentally sign the explicitly unreleasable 2.x source proof.
@@ -74,6 +88,103 @@ def _verify_core_or_agent_admission(item: dict[str, Any], payload: bytes) -> Non
     if any(manifest.get(key) != item.get(key) for key in ("artifact_id", "version", "build")):
         raise PublicationError("Core/Agent internal package identity disagrees with signed catalog candidate")
 
+
+
+def _verify_first_party_application_module_admission(
+    item: dict[str, Any], payload: bytes
+) -> None:
+    """Require a qualified Core3 runtime manifest for the ten first-party app modules."""
+    artifact_id = item.get("artifact_id")
+    if artifact_id not in FIRST_PARTY_APPLICATION_MODULE_IDS:
+        return
+    if item.get("kind") != "module":
+        raise PublicationError("first-party application artifact must be kind=module")
+    try:
+        with zipfile.ZipFile(io.BytesIO(payload)) as archive:
+            names = archive.namelist()
+            if names.count("package.json") != 1:
+                raise PublicationError(
+                    "first-party application module requires exactly one package.json"
+                )
+            member = archive.getinfo("package.json")
+            if member.file_size > 64 * 1024:
+                raise PublicationError("first-party application module manifest is oversized")
+            manifest = _parse(archive.read(member))
+    except (zipfile.BadZipFile, KeyError) as exc:
+        raise PublicationError(
+            "first-party application module is not a valid successor ZIP"
+        ) from exc
+    except VerificationError as exc:
+        raise PublicationError(
+            "invalid first-party application module JSON manifest"
+        ) from exc
+
+    required = {
+        "schema", "artifact_id", "kind", "version", "build",
+        "release_eligible", "packaging_stage", "module_runtime", "provenance",
+    }
+    if not isinstance(manifest, dict) or set(manifest) != required:
+        raise PublicationError("first-party application module manifest shape is invalid")
+    if manifest.get("schema") != 1 or manifest.get("kind") != "module":
+        raise PublicationError("unsupported first-party application module manifest")
+    if manifest.get("release_eligible") is not True:
+        raise PublicationError(
+            "first-party application module is unreleasable or lacks qualification"
+        )
+    if manifest.get("packaging_stage") != "successor-module-requalification":
+        raise PublicationError("unexpected first-party application packaging stage")
+    if any(
+        manifest.get(key) != item.get(key)
+        for key in ("artifact_id", "version", "build")
+    ):
+        raise PublicationError(
+            "first-party application module identity disagrees with signed catalog"
+        )
+
+    runtime = manifest.get("module_runtime")
+    if not isinstance(runtime, dict):
+        raise PublicationError("first-party module_runtime must be an object")
+    if (
+        runtime.get("module_id") != artifact_id
+        or runtime.get("version") != item.get("version")
+        or runtime.get("build") != item.get("build")
+        or runtime.get("schema") != 1
+        or runtime.get("requires_core") != ">=3.0.0 <4.0.0"
+        or runtime.get("requires_runtime_api") != ">=1 <2"
+    ):
+        raise PublicationError("first-party module_runtime identity/API contract is invalid")
+    entrypoints = runtime.get("entrypoints")
+    if (
+        not isinstance(entrypoints, dict)
+        or not entrypoints
+        or any(
+            not isinstance(name, str)
+            or not name
+            or not isinstance(target, str)
+            or not re.fullmatch(
+                r"[A-Za-z_][A-Za-z0-9_.]*:[A-Za-z_][A-Za-z0-9_]*",
+                target,
+            )
+            for name, target in entrypoints.items()
+        )
+    ):
+        raise PublicationError("first-party module_runtime entrypoints are invalid")
+
+    provenance = manifest.get("provenance")
+    if (
+        not isinstance(provenance, dict)
+        or set(provenance) != {
+            "source", "predecessor_filename", "predecessor_sha256"
+        }
+        or provenance.get("source") != "immutable-signed-2.x-package"
+        or not isinstance(provenance.get("predecessor_filename"), str)
+        or Path(provenance["predecessor_filename"]).name
+            != provenance["predecessor_filename"]
+        or not re.fullmatch(
+            r"[0-9a-f]{64}", str(provenance.get("predecessor_sha256", ""))
+        )
+    ):
+        raise PublicationError("first-party module provenance is invalid")
 
 
 def _verify_module_portable_contract(
@@ -206,6 +317,7 @@ def sign_candidate(
         if not payload:
             raise PublicationError("empty packages cannot be published")
         portable_config = _verify_module_portable_contract(item, payload)
+        _verify_first_party_application_module_admission(item, payload)
         _verify_core_or_agent_admission(item, payload)
         _verify_runtime_or_manager_admission(item, payload)
         metadata = {k: v for k, v in item.items() if k != "package_file"}

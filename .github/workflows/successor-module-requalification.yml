@@ -1,0 +1,60 @@
+name: Successor first-party module packaging
+
+on:
+  pull_request:
+    paths:
+      - "platform/modules/first-party-successor-v1.json"
+      - "platform/portable/first-party-contracts-v1.json"
+      - "tools/build_successor_first_party_modules.py"
+      - "tools/test_successor_first_party_modules.py"
+      - "tools/qualify_successor_module_api.py"
+      - "tools/build_platform_index.py"
+      - "tools/portable_contracts.py"
+      - ".github/workflows/successor-module-requalification.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  requalify:
+    name: Build 10 deterministic successor first-party modules
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout Modules candidate
+        uses: actions/checkout@v6
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Verify deterministic successor wrapping
+        run: python -m unittest discover -s tools -p "test_successor_first_party_modules.py" -v
+
+      - name: Build isolated successor candidates twice
+        run: |
+          rm -rf /tmp/monitorbox-successor-a /tmp/monitorbox-successor-b
+          python tools/build_successor_first_party_modules.py --output-dir /tmp/monitorbox-successor-a
+          python tools/build_successor_first_party_modules.py --output-dir /tmp/monitorbox-successor-b
+          diff -rq /tmp/monitorbox-successor-a /tmp/monitorbox-successor-b
+
+      - name: Prove candidates remain intentionally unsigned/unreleaseable
+        run: |
+          python - <<'PY'
+          import json
+          import pathlib
+          import zipfile
+
+          root = pathlib.Path("/tmp/monitorbox-successor-a")
+          packages = sorted(root.glob("*.zip"))
+          assert len(packages) == 10, len(packages)
+          for package in packages:
+              with zipfile.ZipFile(package) as archive:
+                  manifest = json.loads(archive.read("package.json"))
+                  assert manifest["release_eligible"] is False, package
+                  assert manifest["packaging_stage"] == "successor-module-requalification", package
+                  assert archive.namelist().count("portable-config.json") == 1, package
+          print("10/10 candidates are qualified package shapes but remain release_eligible=false")
+          PY
