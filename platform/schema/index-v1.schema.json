@@ -149,26 +149,6 @@
         "artifact_id",
         "version_range"
       ],
-      "allOf": [
-        {
-          "if": {
-            "properties": {
-              "kind": {
-                "const": "module"
-              }
-            },
-            "required": ["kind"]
-          },
-          "then": {
-            "required": ["portable_config"]
-          },
-          "else": {
-            "not": {
-              "required": ["portable_config"]
-            }
-          }
-        }
-      ],
       "properties": {
         "artifact_id": {
           "type": "string",
@@ -226,6 +206,26 @@
         "requires_scaffold_api",
         "dependencies",
         "package"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "module"
+              }
+            },
+            "required": ["kind"]
+          },
+          "then": {
+            "required": ["portable_config"]
+          },
+          "else": {
+            "not": {
+              "required": ["portable_config"]
+            }
+          }
+        }
       ],
       "properties": {
         "artifact_id": {
