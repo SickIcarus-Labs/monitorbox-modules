@@ -172,7 +172,7 @@ def _safe_member(name: str) -> bool:
     return all(part not in {"", ".", ".."} for part in parts)
 
 
-def _predecessor_members(record: dict[str, Any]) -> dict[str, bytes]:
+def _predecessor_members(record: dict[str, Any]) -> dict[str, bytes | None]:
     package = PREDECESSOR_ROOT / record["predecessor"]["filename"]
     try:
         raw = package.read_bytes()
@@ -195,19 +195,25 @@ def _predecessor_members(record: dict[str, Any]) -> dict[str, bytes]:
             raise SuccessorModuleError("predecessor package member count is invalid")
         seen: set[str] = set()
         total = 0
-        result: dict[str, bytes] = {}
+        result: dict[str, bytes | None] = {}
         for info in infos:
             name = info.filename
             if (
                 name in seen
-                or not _safe_member(name)
+                or not _safe_member(name.rstrip("/"))
                 or name in {"package.json", "portable-config.json"}
-                or info.is_dir()
                 or info.file_size > MAX_MEMBER_BYTES
             ):
                 raise SuccessorModuleError(f"unsafe predecessor member {name!r}")
             mode = (info.external_attr >> 16) & 0xFFFF
-            if mode and not stat.S_ISREG(mode):
+            kind = stat.S_IFMT(mode)
+            if info.is_dir():
+                if not name.endswith("/") or info.file_size != 0 or kind not in {0, stat.S_IFDIR}:
+                    raise SuccessorModuleError(f"unsafe predecessor directory {name!r}")
+                seen.add(name)
+                result[name] = None
+                continue
+            if kind not in {0, stat.S_IFREG}:
                 raise SuccessorModuleError(f"non-regular predecessor member {name!r}")
             total += info.file_size
             if total > MAX_TOTAL_BYTES:
@@ -262,9 +268,14 @@ def build_package(
             info = zipfile.ZipInfo(name, date_time=FIXED_ZIP_TIME)
             info.compress_type = zipfile.ZIP_DEFLATED
             info.create_system = 3
+            payload = files[name]
+            if payload is None:
+                info.external_attr = (stat.S_IFDIR | 0o755) << 16
+                archive.writestr(info, b"")
+                continue
             info.external_attr = (stat.S_IFREG | 0o444) << 16
             archive.writestr(
-                info, files[name],
+                info, payload,
                 compress_type=zipfile.ZIP_DEFLATED,
                 compresslevel=9,
             )
