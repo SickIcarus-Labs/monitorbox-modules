@@ -22,6 +22,7 @@ from build_platform_index import (
     write_candidate,
 )
 from verify_platform_index import VerificationError, verify_index, verify_package
+from portable_contracts import materialize_contract
 
 
 ESSENTIALS = (
@@ -49,40 +50,79 @@ class BuildPlatformIndexTests(unittest.TestCase):
         self.source = {"schema": 1, "repository_id": "official-platform", "artifacts": []}
         for n, (identity, kind) in enumerate(ESSENTIALS):
             filename = f"synthetic-{n}.zip"
-            if identity in {"com.sickicarus.monitorbox.core", "com.sickicarus.monitorbox.agent"}:
+            version = (
+                "3.13.0" if identity.endswith(".runtime.python")
+                else "24.0.0" if identity.endswith(".runtime.node")
+                else "3.0.0"
+            )
+            if kind == "module":
                 buffer = io.BytesIO()
                 with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as z:
-                    z.writestr("package.json", json.dumps({"artifact_id": identity, "version": "3.0.0", "build": 1, "release_eligible": True,
-                                                            "fixture_only": True, "entrypoints": {"synthetic": "never-run"}}))
+                    if identity in {
+                        "com.sickicarus.monitorbox.core",
+                        "com.sickicarus.monitorbox.agent",
+                    }:
+                        z.writestr(
+                            "package.json",
+                            json.dumps({
+                                "artifact_id": identity,
+                                "version": version,
+                                "build": 1,
+                                "release_eligible": True,
+                                "fixture_only": True,
+                                "entrypoints": {"synthetic": "never-run"},
+                            }),
+                        )
+                    z.writestr(
+                        "portable-config.json",
+                        materialize_contract(identity, version, 1),
+                    )
                     z.writestr("app/SYNTHETIC.txt", "NONEXECUTABLE TEST PACKAGE")
                 (self.packages / filename).write_bytes(buffer.getvalue())
             elif kind in {"runtime", "scaffold-manager"}:
                 buffer = io.BytesIO()
                 with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as z:
-                    manifest = {"schema": 1, "artifact_id": identity, "version":
-                                "3.13.0" if identity.endswith(".runtime.python") else
-                                "24.0.0" if identity.endswith(".runtime.node") else "3.0.0",
-                                "build": 1, "kind": kind, "release_eligible": True}
+                    manifest = {
+                        "schema": 1,
+                        "artifact_id": identity,
+                        "version": version,
+                        "build": 1,
+                        "kind": kind,
+                        "release_eligible": True,
+                    }
                     if kind == "runtime":
-                        manifest.update({"entrypoint": "runtime/usr/local/bin/interpreter",
-                                         "dynamic_loader": "runtime/loader/ld-linux-aarch64.so.1"})
-                        z.writestr("runtime/usr/local/bin/interpreter", b"\x7fELF" + bytes(80))
-                        z.writestr("runtime/loader/ld-linux-aarch64.so.1", b"\x7fELF" + bytes(80))
+                        manifest.update({
+                            "entrypoint": "runtime/usr/local/bin/interpreter",
+                            "dynamic_loader": "runtime/loader/ld-linux-aarch64.so.1",
+                        })
+                        z.writestr(
+                            "runtime/usr/local/bin/interpreter",
+                            b"\x7fELF" + bytes(80),
+                        )
+                        z.writestr(
+                            "runtime/loader/ld-linux-aarch64.so.1",
+                            b"\x7fELF" + bytes(80),
+                        )
                     z.writestr("package.json", json.dumps(manifest))
                 (self.packages / filename).write_bytes(buffer.getvalue())
-            else:
-                (self.packages / filename).write_bytes((f"NONEXECUTABLE {identity}\n" * 16).encode())
+
             arch = "any" if kind == "module" else "arm64"
             abi = "pure" if arch == "any" else "static"
             dependencies = []
             if identity.endswith(".core"):
-                dependencies = [{"artifact_id": "com.sickicarus.monitorbox.runtime.python", "version_range": ">=3.13.0 <3.14.0"}]
+                dependencies = [{
+                    "artifact_id": "com.sickicarus.monitorbox.runtime.python",
+                    "version_range": ">=3.13.0 <3.14.0",
+                }]
             self.source["artifacts"].append({
-                "artifact_id": identity, "kind": kind,
-                "version": "3.13.0" if identity.endswith(".runtime.python") else "24.0.0" if identity.endswith(".runtime.node") else "3.0.0",
-                "build": 1, "platform": {"os": "linux", "arch": arch, "abi": abi},
+                "artifact_id": identity,
+                "kind": kind,
+                "version": version,
+                "build": 1,
+                "platform": {"os": "linux", "arch": arch, "abi": abi},
                 "requires_scaffold_api": {"minimum": 1, "maximum_exclusive": 2},
-                "dependencies": dependencies, "package_file": filename,
+                "dependencies": dependencies,
+                "package_file": filename,
             })
 
     def candidate(self, **overrides) -> bytes:
@@ -102,6 +142,11 @@ class BuildPlatformIndexTests(unittest.TestCase):
                          [a["artifact_id"] for a in signed["artifacts"]])
         for artifact in signed["artifacts"]:
             verify_package(artifact, self.root, self.keys)
+            if artifact["kind"] == "module":
+                self.assertEqual(1, artifact["portable_config"]["protocol"])
+                self.assertEqual([], artifact["portable_config"]["accepted_source_schemas"])
+            else:
+                self.assertNotIn("portable_config", artifact)
         self.assertEqual(raw, self.candidate(), "fixed timestamp and key must sign deterministically")
         with self.assertRaisesRegex(VerificationError, "regressed"):
             verify_index(raw, keys=self.keys, channel="dev", now=self.clock, min_sequence=18)
@@ -138,6 +183,10 @@ class BuildPlatformIndexTests(unittest.TestCase):
         with self.assertRaisesRegex(PublicationError, "duplicate"):
             self.candidate()
         self.source["artifacts"].pop()
+        self.source["artifacts"][0]["portable_config"] = {"protocol": 1}
+        with self.assertRaisesRegex(PublicationError, "source inventory"):
+            self.candidate()
+        self.source["artifacts"][0].pop("portable_config")
         self.source["unexpected"] = "unsafe"
         with self.assertRaisesRegex(PublicationError, "only"):
             self.candidate()
@@ -153,7 +202,7 @@ class BuildPlatformIndexTests(unittest.TestCase):
             self.candidate()
         self.source["artifacts"][0]["platform"]["abi"] = "pure"
         self.source["artifacts"][0]["artifact_id"] = "UPPERCASE!"
-        with self.assertRaisesRegex(PublicationError, "schema"):
+        with self.assertRaisesRegex(PublicationError, "identity"):
             self.candidate()
 
     def test_tampered_bytes_cannot_restore_or_verify(self) -> None:
@@ -169,6 +218,8 @@ class BuildPlatformIndexTests(unittest.TestCase):
         core = self.source["artifacts"][0]
         path = self.packages / core["package_file"]
         original = path.read_bytes()
+        with zipfile.ZipFile(io.BytesIO(original)) as source:
+            portable = source.read("portable-config.json")
         for release_eligible, artifact_id, error in (
             (False, core["artifact_id"], "unreleasable"),
             (None, core["artifact_id"], "unreleasable"),
@@ -176,12 +227,53 @@ class BuildPlatformIndexTests(unittest.TestCase):
         ):
             buffer = io.BytesIO()
             with zipfile.ZipFile(buffer, "w") as z:
-                z.writestr("package.json", json.dumps({"artifact_id": artifact_id,
-                    "version": core["version"], "build": core["build"],
-                    "release_eligible": release_eligible}))
+                z.writestr("package.json", json.dumps({
+                    "artifact_id": artifact_id,
+                    "version": core["version"],
+                    "build": core["build"],
+                    "release_eligible": release_eligible,
+                }))
+                z.writestr("portable-config.json", portable)
             path.write_bytes(buffer.getvalue())
             with self.assertRaisesRegex(PublicationError, error):
                 self.candidate()
+        path.write_bytes(original)
+        self.assertTrue(self.candidate())
+
+    def test_module_contract_missing_duplicate_or_identity_mismatch_rejected(self) -> None:
+        core = self.source["artifacts"][0]
+        path = self.packages / core["package_file"]
+        original = path.read_bytes()
+        with zipfile.ZipFile(io.BytesIO(original)) as source:
+            package_manifest = source.read("package.json")
+            portable = source.read("portable-config.json")
+
+        with io.BytesIO() as out:
+            with zipfile.ZipFile(out, "w") as z:
+                z.writestr("package.json", package_manifest)
+            path.write_bytes(out.getvalue())
+        with self.assertRaisesRegex(PublicationError, "exactly one"):
+            self.candidate()
+
+        with io.BytesIO() as out:
+            with zipfile.ZipFile(out, "w") as z:
+                z.writestr("package.json", package_manifest)
+                z.writestr("portable-config.json", portable)
+                z.writestr("portable-config.json", portable)
+            path.write_bytes(out.getvalue())
+        with self.assertRaisesRegex(PublicationError, "exactly one"):
+            self.candidate()
+
+        altered = json.loads(portable)
+        altered["version"] = "3.0.1"
+        with io.BytesIO() as out:
+            with zipfile.ZipFile(out, "w") as z:
+                z.writestr("package.json", package_manifest)
+                z.writestr("portable-config.json", json.dumps(altered))
+            path.write_bytes(out.getvalue())
+        with self.assertRaisesRegex(PublicationError, "package identity"):
+            self.candidate()
+
         path.write_bytes(original)
         self.assertTrue(self.candidate())
 

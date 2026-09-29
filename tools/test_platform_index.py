@@ -33,7 +33,13 @@ class PlatformContractTests(unittest.TestCase):
             "version": "3.0.0", "build": 1,
             "platform": {"os": "linux", "arch": "any", "abi": "pure"},
             "requires_scaffold_api": {"minimum": 1, "maximum_exclusive": 2},
-            "dependencies": [], "package": self.pkg,
+            "dependencies": [],
+            "portable_config": {
+                "protocol": 1,
+                "current_settings_schema": "com.sickicarus.monitorbox.core.settings/v1",
+                "accepted_source_schemas": [],
+            },
+            "package": self.pkg,
         }
         self.now = datetime(2026, 9, 27, tzinfo=timezone.utc)
         self.signed = {
@@ -102,6 +108,23 @@ class PlatformContractTests(unittest.TestCase):
     def test_architecture_neutral_must_be_pure(self):
         self.artifact["platform"]["abi"] = "static"
         with self.assertRaisesRegex(VerificationError, "architecture-neutral"):
+            self.verify()
+
+    def test_every_module_requires_portable_capability(self):
+        self.artifact.pop("portable_config")
+        with self.assertRaises(VerificationError):
+            self.verify()
+
+    def test_portable_capability_is_module_only(self):
+        self.artifact["kind"] = "runtime"
+        with self.assertRaises(VerificationError):
+            self.verify()
+
+    def test_current_schema_cannot_repeat_as_migration_source(self):
+        self.artifact["portable_config"]["accepted_source_schemas"] = [
+            self.artifact["portable_config"]["current_settings_schema"]
+        ]
+        with self.assertRaisesRegex(VerificationError, "duplicated"):
             self.verify()
 
 

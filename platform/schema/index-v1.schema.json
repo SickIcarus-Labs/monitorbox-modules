@@ -163,6 +163,37 @@
         }
       }
     },
+    "portable_config": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocol",
+        "current_settings_schema",
+        "accepted_source_schemas"
+      ],
+      "properties": {
+        "protocol": {
+          "const": 1
+        },
+        "current_settings_schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$"
+        },
+        "accepted_source_schemas": {
+          "type": "array",
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$"
+          }
+        }
+      }
+    },
     "artifact": {
       "type": "object",
       "additionalProperties": false,
@@ -175,6 +206,26 @@
         "requires_scaffold_api",
         "dependencies",
         "package"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "module"
+              }
+            },
+            "required": ["kind"]
+          },
+          "then": {
+            "required": ["portable_config"]
+          },
+          "else": {
+            "not": {
+              "required": ["portable_config"]
+            }
+          }
+        }
       ],
       "properties": {
         "artifact_id": {
@@ -222,6 +273,9 @@
           "items": {
             "$ref": "#/$defs/dependency"
           }
+        },
+        "portable_config": {
+          "$ref": "#/$defs/portable_config"
         },
         "package": {
           "$ref": "#/$defs/package"

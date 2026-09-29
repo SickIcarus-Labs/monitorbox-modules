@@ -23,6 +23,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from jsonschema import Draft202012Validator, FormatChecker
 
 from verify_platform_index import SCHEMA, VerificationError, _parse, canonical, verify_index, verify_package
+from portable_contracts import ContractError, MAX_CONTRACT_BYTES, verify_embedded_contract
 
 
 class PublicationError(ValueError):
@@ -73,6 +74,40 @@ def _verify_core_or_agent_admission(item: dict[str, Any], payload: bytes) -> Non
     if any(manifest.get(key) != item.get(key) for key in ("artifact_id", "version", "build")):
         raise PublicationError("Core/Agent internal package identity disagrees with signed catalog candidate")
 
+
+
+def _verify_module_portable_contract(
+    item: dict[str, Any], payload: bytes
+) -> dict[str, Any] | None:
+    """Require package-owned first-party portable authority before signing."""
+    if item.get("kind") != "module":
+        return None
+    if "portable_config" in item:
+        raise PublicationError(
+            "source inventory may not supply portable_config; capability is package-derived"
+        )
+    try:
+        with zipfile.ZipFile(io.BytesIO(payload)) as archive:
+            names = archive.namelist()
+            if names.count("portable-config.json") != 1:
+                raise PublicationError(
+                    "module package requires exactly one portable-config.json"
+                )
+            member = archive.getinfo("portable-config.json")
+            if member.file_size > MAX_CONTRACT_BYTES:
+                raise PublicationError("module portable-config.json exceeds size limit")
+            raw = archive.read(member)
+    except (zipfile.BadZipFile, KeyError) as exc:
+        raise PublicationError("module package is not a valid portable-contract ZIP") from exc
+    try:
+        return verify_embedded_contract(
+            raw,
+            artifact_id=item.get("artifact_id"),
+            version=item.get("version"),
+            build=item.get("build"),
+        )
+    except ContractError as exc:
+        raise PublicationError("module portable contract rejected: " + str(exc)) from exc
 
 
 def _verify_runtime_or_manager_admission(item: dict[str, Any], payload: bytes) -> None:
@@ -170,9 +205,12 @@ def sign_candidate(
         payload = file_path.read_bytes()
         if not payload:
             raise PublicationError("empty packages cannot be published")
+        portable_config = _verify_module_portable_contract(item, payload)
         _verify_core_or_agent_admission(item, payload)
         _verify_runtime_or_manager_admission(item, payload)
         metadata = {k: v for k, v in item.items() if k != "package_file"}
+        if portable_config is not None:
+            metadata["portable_config"] = portable_config
         metadata["package"] = {
             "url": "platform/packages/" + filename,
             "sha256": hashlib.sha256(payload).hexdigest(),
