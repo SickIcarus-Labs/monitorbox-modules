@@ -73,6 +73,47 @@ class BuildPlatformIndexTests(unittest.TestCase):
                                 "entrypoints": {"synthetic": "never-run"},
                             }),
                         )
+                    else:
+                        module_type = {
+                            "com.sickicarus.monitorbox.ui": "ui",
+                            "com.sickicarus.monitorbox.configuration-bootstrap": "configuration",
+                            "com.sickicarus.monitorbox.backup-restore": "recovery",
+                        }[identity]
+                        z.writestr(
+                            "package.json",
+                            json.dumps({
+                                "schema": 1,
+                                "artifact_id": identity,
+                                "kind": "module",
+                                "version": version,
+                                "build": 1,
+                                "release_eligible": True,
+                                "packaging_stage": "successor-module-requalification",
+                                "module_runtime": {
+                                    "module_id": identity,
+                                    "display_name": "Synthetic first-party module",
+                                    "version": version,
+                                    "build": 1,
+                                    "schema": 1,
+                                    "state_schema": 1,
+                                    "module_type": module_type,
+                                    "entrypoints": {
+                                        "synthetic": "synthetic_module:entry"
+                                    },
+                                    "requires_core": ">=3.0.0 <4.0.0",
+                                    "requires_runtime_api": ">=1 <2",
+                                    "dependencies": [],
+                                    "publisher_id": "com.sickicarus",
+                                    "permissions": [],
+                                    "lifecycle_policy": "required",
+                                },
+                                "provenance": {
+                                    "source": "immutable-signed-2.x-package",
+                                    "predecessor_filename": "synthetic-predecessor.zip",
+                                    "predecessor_sha256": "0" * 64,
+                                },
+                            }),
+                        )
                     z.writestr(
                         "portable-config.json",
                         materialize_contract(identity, version, 1),
@@ -273,6 +314,47 @@ class BuildPlatformIndexTests(unittest.TestCase):
             path.write_bytes(out.getvalue())
         with self.assertRaisesRegex(PublicationError, "package identity"):
             self.candidate()
+
+        path.write_bytes(original)
+        self.assertTrue(self.candidate())
+
+    def test_first_party_application_module_requires_qualified_runtime_manifest(self) -> None:
+        record = next(
+            item for item in self.source["artifacts"]
+            if item["artifact_id"] == "com.sickicarus.monitorbox.ui"
+        )
+        path = self.packages / record["package_file"]
+        original = path.read_bytes()
+        with zipfile.ZipFile(io.BytesIO(original)) as source:
+            portable = source.read("portable-config.json")
+            manifest = json.loads(source.read("package.json"))
+
+        cases = [
+            ("unqualified", {"release_eligible": False}, "unreleasable"),
+            ("wrong-core", {
+                "module_runtime": dict(
+                    manifest["module_runtime"],
+                    requires_core=">=2.7.0 <3.0.0",
+                )
+            }, "identity/API"),
+            ("wrong-identity", {
+                "module_runtime": dict(
+                    manifest["module_runtime"],
+                    module_id="com.sickicarus.monitorbox.other",
+                )
+            }, "identity/API"),
+        ]
+        for _, delta, error in cases:
+            altered = dict(manifest)
+            altered.update(delta)
+            with io.BytesIO() as out:
+                with zipfile.ZipFile(out, "w") as z:
+                    z.writestr("package.json", json.dumps(altered))
+                    z.writestr("portable-config.json", portable)
+                    z.writestr("app/SYNTHETIC.txt", "NONEXECUTABLE TEST PACKAGE")
+                path.write_bytes(out.getvalue())
+            with self.assertRaisesRegex(PublicationError, error):
+                self.candidate()
 
         path.write_bytes(original)
         self.assertTrue(self.candidate())
