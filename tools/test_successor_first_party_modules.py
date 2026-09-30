@@ -28,11 +28,32 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
             self.assertEqual(">=3.0.0 <4.0.0", runtime["requires_core"])
             self.assertEqual(">=1 <2", runtime["requires_runtime_api"])
             self.assertEqual(
-                [{
-                    "artifact_id": "com.sickicarus.monitorbox.core",
-                    "version_range": ">=3.0.0 <4.0.0",
-                }],
+                subject._expected_platform_dependencies(artifact_id),
                 record["platform"]["dependencies"],
+            )
+
+    def test_scrypted_requires_node24_but_other_modules_do_not(self) -> None:
+        scrypted = self.records[subject.SCRYPTED_ID]
+        self.assertEqual(8, scrypted["build"])
+        self.assertEqual(
+            [
+                {
+                    "artifact_id": subject.CORE_ID,
+                    "version_range": ">=3.0.0 <4.0.0",
+                },
+                {
+                    "artifact_id": subject.NODE_RUNTIME_ID,
+                    "version_range": ">=24.0.0 <25.0.0",
+                },
+            ],
+            scrypted["platform"]["dependencies"],
+        )
+        for artifact_id, record in self.records.items():
+            if artifact_id == subject.SCRYPTED_ID:
+                continue
+            self.assertNotIn(
+                subject.NODE_RUNTIME_ID,
+                {item["artifact_id"] for item in record["platform"]["dependencies"]},
             )
 
     def test_authority_pins_exact_accepted_predecessor_digests(self) -> None:
@@ -80,7 +101,23 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
                         sorted(new_names),
                     )
                     for name in old_names:
-                        self.assertEqual(old.read(name), new.read(name), name)
+                        if (
+                            artifact_id == subject.SCRYPTED_ID
+                            and name == subject.SCRYPTED_RUNTIME_MEMBER
+                        ):
+                            predecessor_runtime = old.read(name)
+                            successor_runtime = new.read(name)
+                            self.assertNotEqual(predecessor_runtime, successor_runtime)
+                            decoded = successor_runtime.decode("utf-8")
+                            self.assertIn("MONITORBOX_MODULE_NODE_LOADER", decoded)
+                            self.assertIn("MONITORBOX_MODULE_NODE_LIBRARY_PATH", decoded)
+                            self.assertIn("*node_command", decoded)
+                            self.assertIn(
+                                'shutil.which(os.environ.get("MONITORBOX_MODULE_NODE", "node"))',
+                                decoded,
+                            )
+                        else:
+                            self.assertEqual(old.read(name), new.read(name), name)
 
                     manifest = json.loads(new.read("package.json"))
                     self.assertFalse(manifest["release_eligible"])
