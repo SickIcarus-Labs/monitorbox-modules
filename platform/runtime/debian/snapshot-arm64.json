@@ -19,9 +19,27 @@
     "size": 8689464,
     "uncompressed_sha256": "c7c883a61f348283050d3a754e7c8119117c4019bf65da804c78fdae315866f1"
   },
-  "deb": {
-    "source_path": "pool/main/g/gcc-12/libatomic1_12.2.0-14+deb12u1_arm64.deb",
-    "sha256": "1693aa13ce2b30d061a519fc28b77b9bab8c8e45804ced5969d99821e1bc2159",
-    "size": 9568
-  }
+  "debs": [
+    {
+      "package": "iputils-ping",
+      "version": "3:20221126-1+deb12u1",
+      "source_path": "pool/main/i/iputils/iputils-ping_20221126-1+deb12u1_arm64.deb",
+      "sha256": "590a9f9226ed2c7fc71132d84d5eff8cf0e932f3744b42cbd02712ba7c9a2aca",
+      "size": 46144
+    },
+    {
+      "package": "libatomic1",
+      "version": "12.2.0-14+deb12u1",
+      "source_path": "pool/main/g/gcc-12/libatomic1_12.2.0-14+deb12u1_arm64.deb",
+      "sha256": "1693aa13ce2b30d061a519fc28b77b9bab8c8e45804ced5969d99821e1bc2159",
+      "size": 9568
+    },
+    {
+      "package": "libcap2-bin",
+      "version": "1:2.66-4+deb12u3+b1",
+      "source_path": "pool/main/libc/libcap2/libcap2-bin_2.66-4+deb12u3+b1_arm64.deb",
+      "sha256": "139adf54b27522e838f3ce895c10d27a5fb406809b7b12d477dd5c13d2b2d286",
+      "size": 34452
+    }
+  ]
 }
