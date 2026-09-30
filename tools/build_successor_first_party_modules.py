@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 """Build deterministic successor-requalified first-party application modules.
 
-These candidates preserve the exact accepted 2.x implementation bytes as
-immutable provenance, but wrap them in a new independently versioned successor
-package with:
+These candidates use the exact accepted 2.x package bytes as immutable
+provenance and wrap them in a new independently versioned successor package.
+Bytes are preserved exactly except for explicitly reviewed successor-only
+runtime-boundary overlays (currently Scrypted's signed Node launcher contract).
+Each package carries:
 - one strict package.json application-module runtime contract;
 - one exact portable-config.json contract from #120;
 - a truthful Core >=3,<4 compatibility claim that remains release-ineligible
   until the cross-repository Core3 qualification gate is complete.
 
-Existing 2.x package bytes are read-only inputs and are never rewritten.
+Existing 2.x package files remain read-only inputs and are never modified in
+place; any successor overlay exists only in the newly built candidate ZIP.
 """
 from __future__ import annotations
 
@@ -36,6 +39,20 @@ MAX_MEMBERS = 5000
 MAX_MEMBER_BYTES = 32 << 20
 MAX_TOTAL_BYTES = 128 << 20
 
+CORE_ID = "com.sickicarus.monitorbox.core"
+SCRYPTED_ID = "com.sickicarus.monitorbox.scrypted"
+NODE_RUNTIME_ID = "com.sickicarus.monitorbox.runtime.node"
+SCRYPTED_RUNTIME_MEMBER = "monitorbox_scrypted_v230_b6/runtime.py"
+
+_CORE_DEPENDENCY = {
+    "artifact_id": CORE_ID,
+    "version_range": ">=3.0.0 <4.0.0",
+}
+_NODE24_DEPENDENCY = {
+    "artifact_id": NODE_RUNTIME_ID,
+    "version_range": ">=24.0.0 <25.0.0",
+}
+
 FIRST_PARTY_IDS = frozenset({
     "com.sickicarus.monitorbox.backup-restore",
     "com.sickicarus.monitorbox.configuration-bootstrap",
@@ -56,6 +73,13 @@ _ENTRYPOINT = re.compile(r"^[A-Za-z_][A-Za-z0-9_.]*:[A-Za-z_][A-Za-z0-9_]*$")
 
 class SuccessorModuleError(ValueError):
     pass
+
+
+def _expected_platform_dependencies(artifact_id: str) -> list[dict[str, str]]:
+    result = [dict(_CORE_DEPENDENCY)]
+    if artifact_id == SCRYPTED_ID:
+        result.append(dict(_NODE24_DEPENDENCY))
+    return result
 
 
 def _parse_authority() -> dict[str, dict[str, Any]]:
@@ -154,11 +178,10 @@ def _parse_authority() -> dict[str, dict[str, Any]]:
         if api != {"minimum": 1, "maximum_exclusive": 2}:
             raise SuccessorModuleError("unexpected scaffold API range")
         deps = platform["dependencies"]
-        if deps != [{
-            "artifact_id": "com.sickicarus.monitorbox.core",
-            "version_range": ">=3.0.0 <4.0.0",
-        }]:
-            raise SuccessorModuleError("successor module lacks exact Core3 platform dependency")
+        if deps != _expected_platform_dependencies(artifact_id):
+            raise SuccessorModuleError(
+                "successor module platform dependency closure is invalid"
+            )
         result[artifact_id] = item
     if set(result) != FIRST_PARTY_IDS:
         raise SuccessorModuleError("successor authority is not the exact 10-module set")
@@ -226,6 +249,82 @@ def _predecessor_members(record: dict[str, Any]) -> dict[str, bytes | None]:
         return result
 
 
+def _successor_runtime_overlays(
+    record: dict[str, Any],
+    files: dict[str, bytes | None],
+) -> None:
+    """Apply narrowly bounded successor-only runtime contracts.
+
+    Scrypted 2.x located Node from the container PATH. Successor Agent3 must
+    instead launch the exact signed Node runtime selected by the scaffold,
+    including its reviewed ELF loader and library closure. The legacy fallback
+    remains available only when no scaffold artifact identity is present.
+    """
+
+    if record["artifact_id"] != SCRYPTED_ID:
+        return
+    payload = files.get(SCRYPTED_RUNTIME_MEMBER)
+    if not isinstance(payload, bytes):
+        raise SuccessorModuleError("Scrypted predecessor runtime member is missing")
+    try:
+        text = payload.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise SuccessorModuleError("Scrypted predecessor runtime is not UTF-8") from exc
+
+    old_lookup = '''        node = shutil.which(os.environ.get("MONITORBOX_MODULE_NODE", "node"))
+        if node is None:
+            raise RuntimeError("Node.js runtime is unavailable for the Scrypted module")
+'''
+    new_lookup = '''        scaffolded = bool(os.environ.get("MONITORBOX_ARTIFACT_ID"))
+        if scaffolded:
+            node = os.environ.get("MONITORBOX_MODULE_NODE", "")
+            node_loader = os.environ.get("MONITORBOX_MODULE_NODE_LOADER", "")
+            node_library_path = os.environ.get(
+                "MONITORBOX_MODULE_NODE_LIBRARY_PATH", ""
+            )
+            if not all(
+                isinstance(value, str)
+                and value.startswith("/")
+                and "\\x00" not in value
+                for value in (node, node_loader, node_library_path)
+            ):
+                raise RuntimeError(
+                    "signed Node runtime launch contract is unavailable for Scrypted"
+                )
+            node_command = [
+                node_loader,
+                "--library-path",
+                node_library_path,
+                node,
+            ]
+        else:
+            node = shutil.which(os.environ.get("MONITORBOX_MODULE_NODE", "node"))
+            if node is None:
+                raise RuntimeError("Node.js runtime is unavailable for the Scrypted module")
+            node_command = [node]
+'''
+    old_exec = '''        process = await asyncio.create_subprocess_exec(
+            node,
+            str(self._bridge_root / "server.mjs"),
+            cwd=str(self._bridge_root),
+            env=environment,
+        )
+'''
+    new_exec = '''        process = await asyncio.create_subprocess_exec(
+            *node_command,
+            str(self._bridge_root / "server.mjs"),
+            cwd=str(self._bridge_root),
+            env=environment,
+        )
+'''
+    if text.count(old_lookup) != 1 or text.count(old_exec) != 1:
+        raise SuccessorModuleError(
+            "Scrypted predecessor Node launch boundary changed unexpectedly"
+        )
+    text = text.replace(old_lookup, new_lookup, 1).replace(old_exec, new_exec, 1)
+    files[SCRYPTED_RUNTIME_MEMBER] = text.encode("utf-8")
+
+
 def package_manifest(record: dict[str, Any], *, release_eligible: bool) -> bytes:
     document = {
         "schema": 1,
@@ -255,6 +354,7 @@ def build_package(
     release_eligible: bool,
 ) -> Path:
     files = _predecessor_members(record)
+    _successor_runtime_overlays(record, files)
     files["package.json"] = package_manifest(record, release_eligible=release_eligible)
     files["portable-config.json"] = materialize_contract(
         record["artifact_id"], record["version"], record["build"]
