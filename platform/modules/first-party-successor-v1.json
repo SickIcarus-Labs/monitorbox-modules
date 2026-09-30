@@ -339,7 +339,7 @@
     {
       "artifact_id": "com.sickicarus.monitorbox.scrypted",
       "version": "2.3.0",
-      "build": 7,
+      "build": 8,
       "predecessor": {
         "filename": "com.sickicarus.monitorbox.scrypted-2.3.0-build6.zip",
         "sha256": "dda9f03c0ed02d15a5237aeffbe7b7435cdf05c928cf431c3a53c3a2aba898d9"
@@ -349,7 +349,7 @@
         "display_name": "Scrypted Integration",
         "description": "Monitors Scrypted service health and camera availability, snapshots, and streams.",
         "version": "2.3.0",
-        "build": 7,
+        "build": 8,
         "schema": 1,
         "state_schema": 1,
         "module_type": "integration",
@@ -431,6 +431,10 @@
           {
             "artifact_id": "com.sickicarus.monitorbox.core",
             "version_range": ">=3.0.0 <4.0.0"
+          },
+          {
+            "artifact_id": "com.sickicarus.monitorbox.runtime.node",
+            "version_range": ">=24.0.0 <25.0.0"
           }
         ]
       }
