@@ -6,22 +6,34 @@
   "requested": [
     "libstdc++6",
     "libgcc-s1",
-    "libatomic1"
+    "libatomic1",
+    "iputils-ping"
   ],
   "base_ca_sha256": "714d457d580922dbf1d0be8bd35ba236a842b50b0072ae791582a19adef772a5",
   "installed_ca_sha256": "714d457d580922dbf1d0be8bd35ba236a842b50b0072ae791582a19adef772a5",
   "baseline_abi_versions": {
+    "iputils-ping": null,
     "libatomic1": null,
     "libgcc-s1": "12.2.0-14+deb12u1",
     "libstdc++6": "12.2.0-14+deb12u1"
   },
   "installed_abi_versions": {
+    "iputils-ping": "3:20221126-1+deb12u1",
     "libatomic1": "12.2.0-14+deb12u1",
     "libgcc-s1": "12.2.0-14+deb12u1",
     "libstdc++6": "12.2.0-14+deb12u1"
   },
   "arch": "amd64",
   "changed_packages": [
+    {
+      "package": "iputils-ping",
+      "version": "3:20221126-1+deb12u1",
+      "arch": "amd64",
+      "filename": "iputils-ping_3%3a20221126-1+deb12u1_amd64.deb",
+      "source_path": "pool/main/i/iputils/iputils-ping_20221126-1+deb12u1_amd64.deb",
+      "sha256": "5a206d74e2147990e08b89d09a4655e59a17222e0513a309a48e16ed2281589b",
+      "size": 47172
+    },
     {
       "package": "libatomic1",
       "version": "12.2.0-14+deb12u1",
@@ -30,6 +42,15 @@
       "source_path": "pool/main/g/gcc-12/libatomic1_12.2.0-14+deb12u1_amd64.deb",
       "sha256": "fbd4e154a6b444229ea002cc209df099209c0adc09102e5fd21239a3d2b55e2d",
       "size": 9376
+    },
+    {
+      "package": "libcap2-bin",
+      "version": "1:2.66-4+deb12u3+b1",
+      "arch": "amd64",
+      "filename": "libcap2-bin_1%3a2.66-4+deb12u3+b1_amd64.deb",
+      "source_path": "pool/main/libc/libcap2/libcap2-bin_2.66-4+deb12u3+b1_amd64.deb",
+      "sha256": "e7e14ebae53ef34c881a557e0a6d125b5e6721b692999045cf6af962daebe8d6",
+      "size": 35220
     }
   ]
 }

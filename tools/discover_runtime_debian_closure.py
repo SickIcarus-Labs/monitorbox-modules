@@ -14,7 +14,12 @@ import subprocess
 from pathlib import Path
 
 ARCH = {"x86_64": "amd64", "aarch64": "arm64"}
-PACKAGES = ("libstdc++6", "libgcc-s1", "libatomic1")
+# The Agent's ICMP adapters execute the iputils ping binary. Include the
+# package in discovery so apt's signed dependency solver exposes the exact
+# additional native package closure relative to the digest-pinned Python base.
+# The discovery output is evidence only; immutable snapshot locks remain the
+# release/runtime authority and are updated only after independent review.
+PACKAGES = ("libstdc++6", "libgcc-s1", "libatomic1", "iputils-ping")
 SHA = re.compile(r"^[a-f0-9]{64}$")
 ROOT = Path("/out")
 
