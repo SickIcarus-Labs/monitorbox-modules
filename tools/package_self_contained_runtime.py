@@ -134,11 +134,25 @@ def verified_debian_abi(upstream: dict[str, str]) -> dict:
     from discover_archived_debian import load_approved_snapshot
     approved_snapshot_file = directory / ("snapshot-" + lock["arch"] + ".json")
     approved_snapshot = load_approved_snapshot(approved_snapshot_file, lock["arch"])
-    record = lock["changed_packages"][0]
-    if (approved_snapshot["deb"]["sha256"] != record["sha256"] or
-            approved_snapshot["deb"]["size"] != record["size"] or
-            approved_snapshot["deb"]["source_path"] != record["source_path"]):
-        raise RuntimePackagingError("archived Debian signed index differs from installed exact native ABI package")
+    approved_records = {
+        item["package"]: item for item in approved_snapshot["debs"]
+    }
+    if set(approved_records) != {item["package"] for item in lock["changed_packages"]}:
+        raise RuntimePackagingError(
+            "archived Debian signed index omits part of the installed runtime closure"
+        )
+    for record in lock["changed_packages"]:
+        approved = approved_records[record["package"]]
+        if (
+            approved["version"] != record["version"]
+            or approved["sha256"] != record["sha256"]
+            or approved["size"] != record["size"]
+            or approved["source_path"] != record["source_path"]
+        ):
+            raise RuntimePackagingError(
+                "archived Debian signed index differs from installed exact runtime package"
+            )
+    first_record = lock["changed_packages"][0]
     return {
         "snapshot": {
             "source_lock_sha256": sha256(approved_snapshot_file),
@@ -147,7 +161,7 @@ def verified_debian_abi(upstream: dict[str, str]) -> dict:
             "signed_inrelease_sha256": approved_snapshot["inrelease"]["sha256"],
             "signed_packages_sha256": approved_snapshot["packages"]["sha256"],
             "signed_packages_path": approved_snapshot["packages"]["path"],
-            "package_sha256": approved_snapshot["deb"]["sha256"],
+            "package_sha256": first_record["sha256"],
             "provenance": "independently-verified-external-Debian-snapshot-prototype",
         },
         "arch": lock["arch"],
@@ -338,6 +352,7 @@ def build_runtime(language: str, output: Path, *, extract_to: Path | None = None
         root = Path(tmp)
         runtime = root / "runtime"
         included: list[Path] = []
+        tools: dict[str, str] = {}
         if language == "python":
             binary = runtime / "usr/local/bin/python3.13"
             _copy_regular(upstream_bin, binary)
@@ -351,6 +366,12 @@ def build_runtime(language: str, output: Path, *, extract_to: Path | None = None
             if not stdlib.is_dir():
                 raise RuntimePackagingError("Python 3.13 stdlib is missing")
             included += _copy_tree(stdlib, runtime / "usr/local/lib/python3.13")
+            ping = Path("/usr/bin/ping").resolve(strict=True)
+            if not ping.is_file() or not os.access(ping, os.X_OK) or not _elf(ping):
+                raise RuntimePackagingError("reviewed ICMP runtime executable is unavailable")
+            _copy_regular(ping, runtime / "usr/bin/ping")
+            included.append(ping)
+            tools["ping"] = "runtime/usr/bin/ping"
             entry = "runtime/usr/local/bin/python3.13"
             smoke = {"PYTHONHOME": "/runtime/usr/local", "PYTHONDONTWRITEBYTECODE": "1",
                      "SSL_CERT_FILE": "/runtime/etc/ssl/certs/ca-certificates.crt"}
@@ -401,6 +422,7 @@ def build_runtime(language: str, output: Path, *, extract_to: Path | None = None
             "platform": {"os": "linux", "arch": arch, "abi": "glibc"},
             "entrypoint": entry, "dynamic_loader": f"runtime/loader/{loader.name}",
             "library_paths": ["runtime/lib", "runtime/usr/local/lib"],
+            "tools": tools,
             "environment": smoke, "verified_elf_count": len(included),
             "library_count": len(libraries),
             "upstream": {
