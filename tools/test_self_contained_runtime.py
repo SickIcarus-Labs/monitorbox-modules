@@ -53,13 +53,19 @@ class SelfContainedRuntimeTests(unittest.TestCase):
             system_loader = Path("/lib64/ld-linux-x86-64.so.2")
             if not system_loader.exists():
                 self.skipTest("x86-64 ELF loader not present in unit environment")
+            ping = root / "fake-ping"
+            ping.write_bytes(b"\x7fELF FAKE PING")
+            ping.chmod(0o755)
             for name in ("one", "two"):
                 with patch.object(pkg, "host_arch", return_value="amd64"), \
                      patch.object(pkg, "_version", return_value="3.13.9"), \
                      patch.object(pkg, "_ldd_dependencies", return_value={system_loader.name: system_loader.resolve()}), \
                      patch.object(pkg, "_resolve_abi_library", return_value=system_loader.resolve()), \
                      patch.object(pkg, "verified_debian_abi", return_value={"proof": "synthetic-test-only"}):
-                    result = pkg.build_runtime("python", root / f"{name}.zip", python_prefix=base)
+                    result = pkg.build_runtime(
+                        "python", root / f"{name}.zip",
+                        python_prefix=base, ping_binary=ping,
+                    )
                 self.assertFalse(result["release_eligible"])
                 self.assertEqual(result["packaging_stage"], "digest-pinned-upstream-runtime-proof")
                 self.assertEqual(result["upstream"]["python_image"],
@@ -71,10 +77,15 @@ class SelfContainedRuntimeTests(unittest.TestCase):
                 self.assertEqual(result["upstream"]["debian_abi"], {"proof": "synthetic-test-only"})
                 self.assertEqual("com.sickicarus.monitorbox.runtime.python", result["artifact_id"])
                 self.assertEqual("runtime/loader/ld-linux-x86-64.so.2", result["dynamic_loader"])
+                self.assertEqual({"ping": "runtime/usr/bin/ping"}, result["tools"])
             self.assertEqual((root / "one.zip").read_bytes(), (root / "two.zip").read_bytes())
             with zipfile.ZipFile(root / "one.zip") as archive:
                 self.assertIn("runtime/usr/local/bin/python3.13", archive.namelist())
                 self.assertIn("runtime/usr/local/lib/python3.13/__init__.py", archive.namelist())
+                self.assertIn("runtime/usr/bin/ping", archive.namelist())
+                self.assertTrue(
+                    archive.getinfo("runtime/usr/bin/ping").external_attr >> 16 & stat.S_IXUSR
+                )
                 for support in pkg.ABI_SUPPORT_LIBRARIES:
                     self.assertIn("runtime/lib/" + support, archive.namelist())
                 self.assertNotIn("runtime/usr/local/lib/python3.13/__pycache__/ignored.pyc", archive.namelist())
@@ -83,7 +94,9 @@ class SelfContainedRuntimeTests(unittest.TestCase):
                 self.assertTrue(archive.getinfo("runtime/usr/local/bin/python3.13").external_attr >> 16 & stat.S_IXUSR)
                 self.assertEqual(result, json.loads(archive.read("package.json")))
             with self.assertRaisesRegex(pkg.RuntimePackagingError, "overwrite"):
-                pkg.build_runtime("python", root / "one.zip", python_prefix=base)
+                pkg.build_runtime(
+                    "python", root / "one.zip", python_prefix=base, ping_binary=ping
+                )
 
     def test_exact_upstream_lock_rejects_floating_images_drift_and_override(self):
         source_lock = Path(__file__).resolve().parents[1] / "platform/runtime/upstream-lock.json"
