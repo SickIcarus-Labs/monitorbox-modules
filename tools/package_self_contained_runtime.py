@@ -331,7 +331,9 @@ def _write_deterministic_zip(root: Path, output: Path) -> None:
 
 
 def build_runtime(language: str, output: Path, *, extract_to: Path | None = None,
-                  python_prefix: Path = Path("/usr/local"), node_binary: Path = Path("/opt/upstream/node")) -> dict:
+                  python_prefix: Path = Path("/usr/local"),
+                  node_binary: Path = Path("/opt/upstream/node"),
+                  ping_binary: Path = Path("/usr/bin/ping")) -> dict:
     if language not in LANGUAGES:
         raise RuntimePackagingError("unsupported runtime kind")
     if output.exists() or output.is_symlink():
@@ -366,7 +368,7 @@ def build_runtime(language: str, output: Path, *, extract_to: Path | None = None
             if not stdlib.is_dir():
                 raise RuntimePackagingError("Python 3.13 stdlib is missing")
             included += _copy_tree(stdlib, runtime / "usr/local/lib/python3.13")
-            ping = Path("/usr/bin/ping").resolve(strict=True)
+            ping = ping_binary.resolve(strict=True)
             if not ping.is_file() or not os.access(ping, os.X_OK) or not _elf(ping):
                 raise RuntimePackagingError("reviewed ICMP runtime executable is unavailable")
             _copy_regular(ping, runtime / "usr/bin/ping")
