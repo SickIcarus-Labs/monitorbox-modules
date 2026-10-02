@@ -442,7 +442,8 @@ def run_probe(
                 raise SnapshotError(
                     f"immutable archived Debian .deb changed: {name}"
                 )
-            (out / pathlib.Path(expected["source_path"]).name).write_bytes(deb)
+            filename = f"{name}_{TARGETS[name].replace(':', '%3a')}_{arch}.deb"
+            (out / filename).write_bytes(deb)
             proof_debs.append(dict(expected))
 
         (out / f"{archive}-{suite}-Packages.xz").write_bytes(compressed)
