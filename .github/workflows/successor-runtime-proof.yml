@@ -57,7 +57,7 @@ jobs:
             --approved-lock "platform/runtime/debian/snapshot-${{ matrix.arch }}.json" \
             --output runtime-deb-download
           mkdir -p platform/runtime/debian/debs
-          cp runtime-deb-download/libatomic1*.deb platform/runtime/debian/debs/
+          cp runtime-deb-download/*.deb platform/runtime/debian/debs/
           python - <<'PY'
           import json, platform
           from pathlib import Path
@@ -67,8 +67,11 @@ jobs:
           approved=json.loads((native/f"snapshot-{cpu}.json").read_text())
           actual=json.loads((Path("runtime-deb-download")/f"snapshot-proof-{cpu}.json").read_text())
           assert actual==approved, "source-reviewed signed snapshot changed"
-          package=verify_archives(load_lock(native),native/"debs")
-          print("Source-reviewed snapshot InRelease/Packages and exact offline native Debian ABI:", package.name)
+          packages=verify_archives(load_lock(native),native/"debs")
+          print(
+              "Source-reviewed snapshot InRelease/Packages and exact offline runtime closure:",
+              ",".join(package.name for package in packages),
+          )
           PY
       - name: Verify immutable Python/Node digest lock and exact Dockerfile before building
         run: |
@@ -132,6 +135,11 @@ jobs:
                   assert manifest['platform'] == {'os':'linux','arch':arch,'abi':'glibc'}
                   assert manifest['dynamic_loader'] in z.namelist()
                   assert manifest['entrypoint'] in z.namelist()
+                  if name == 'python':
+                      assert manifest['tools'] == {'ping': 'runtime/usr/bin/ping'}
+                      assert 'runtime/usr/bin/ping' in z.namelist()
+                  else:
+                      assert manifest['tools'] == {}
                   for support in ("libgcc_s.so.1", "libstdc++.so.6", "libatomic.so.1", "libpthread.so.0"):
                       assert "runtime/lib/" + support in z.namelist()
               assert (Path('runtime-proof/proof')/name/'runtime/loader').is_dir()
@@ -151,6 +159,17 @@ jobs:
             --entrypoint "$loader" mb-python-scratch:proof \
             --library-path /runtime/lib:/runtime/usr/local/lib \
             "$bin" -I -c 'import ssl,sqlite3,ctypes,zlib,hashlib,sys; assert sys.version_info[:2]==(3,13); assert ssl.create_default_context().get_ca_certs(); [ctypes.CDLL("/runtime/lib/"+n) for n in ("libgcc_s.so.1","libstdc++.so.6","libatomic.so.1","libpthread.so.0")]; print("scratch Python3.13 stdlib/SSL/SQLite/ctypes/ABI DSOs OK")'
+      - name: Run packaged ping as non-root with only NET_RAW
+        shell: bash
+        run: |
+          set -euo pipefail
+          loader=$(python -c "import json;print('/'+json.load(open('runtime-proof/proof/python/package.json'))['dynamic_loader'])")
+          ping=$(python -c "import json;print('/'+json.load(open('runtime-proof/proof/python/package.json'))['tools']['ping'])")
+          docker run --rm --read-only --user 10001:10001 \
+            --cap-drop ALL --cap-add NET_RAW --security-opt no-new-privileges \
+            --entrypoint "$loader" mb-python-scratch:proof \
+            --library-path /runtime/lib:/runtime/usr/local/lib \
+            "$ping" -n -c 1 -W 2 127.0.0.1
       - name: Run Node 24 in an otherwise empty scratch image
         shell: bash
         run: |
