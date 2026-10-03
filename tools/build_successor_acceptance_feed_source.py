@@ -19,6 +19,7 @@ from typing import Any
 ARTIFACT_ID = re.compile(r"^[a-z0-9][a-z0-9.-]+$")
 SEMVER = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 DIGEST = re.compile(r"^[0-9a-f]{64}$")
+GIT_SHA = re.compile(r"^[0-9a-f]{40}$")
 CORE = "com.sickicarus.monitorbox.core"
 AGENT = "com.sickicarus.monitorbox.agent"
 PYTHON = "com.sickicarus.monitorbox.runtime.python"
@@ -123,7 +124,14 @@ def _base_record(
     }
 
 
-def build_source(package_root: Path, module_authority: Path) -> dict[str, Any]:
+def build_source(
+    package_root: Path,
+    module_authority: Path,
+    *,
+    core_source_sha: str,
+) -> dict[str, Any]:
+    if not isinstance(core_source_sha, str) or not GIT_SHA.fullmatch(core_source_sha):
+        raise FeedSourceError("exact MonitorBox Core source SHA is invalid")
     if package_root.is_symlink() or not package_root.is_dir():
         raise FeedSourceError("package root is missing or linked")
     authority = _load_module_authority(module_authority)
@@ -171,8 +179,14 @@ def build_source(package_root: Path, module_authority: Path) -> dict[str, Any]:
             ))
         elif artifact_id == MANAGER:
             platform = manifest.get("platform")
-            if kind != "scaffold-manager" or not isinstance(platform, dict):
-                raise FeedSourceError("scaffold-manager manifest is invalid")
+            if (
+                kind != "scaffold-manager"
+                or not isinstance(platform, dict)
+                or manifest.get("git_sha") != core_source_sha
+            ):
+                raise FeedSourceError(
+                    "scaffold-manager manifest is not bound to exact Core source"
+                )
             records.append(_base_record(
                 artifact_id=artifact_id, kind=kind, version=str(version), build=build,
                 platform=dict(platform), dependencies=[], filename=path.name,
@@ -182,11 +196,14 @@ def build_source(package_root: Path, module_authority: Path) -> dict[str, Any]:
             wheel_ref = manifest.get("wheelhouse")
             if (
                 kind != "module"
+                or manifest.get("git_sha") != core_source_sha
                 or manifest.get("packaging_stage") != "qualified-interpreted"
                 or not isinstance(runtime_ref, dict)
                 or not isinstance(wheel_ref, dict)
             ):
-                raise FeedSourceError("Core/Agent interpreted package manifest is invalid")
+                raise FeedSourceError(
+                    "Core/Agent interpreted package manifest is invalid or source-unbound"
+                )
             runtime_digest = runtime_ref.get("sha256")
             wheel_digest = wheel_ref.get("sha256")
             if runtime_digest not in by_digest or wheel_digest not in by_digest:
@@ -311,10 +328,15 @@ def main() -> int:
         type=Path,
         default=Path("platform/modules/first-party-successor-v1.json"),
     )
+    parser.add_argument("--core-source-sha", required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     try:
-        source = build_source(args.package_root, args.module_authority)
+        source = build_source(
+            args.package_root,
+            args.module_authority,
+            core_source_sha=args.core_source_sha,
+        )
         if args.output.exists() or args.output.is_symlink():
             raise FeedSourceError("refusing existing output")
         args.output.parent.mkdir(parents=True, exist_ok=True)
