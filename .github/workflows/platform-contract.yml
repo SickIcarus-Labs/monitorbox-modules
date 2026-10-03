@@ -16,6 +16,8 @@ on:
       - "tools/test_build_successor_acceptance_feed_source.py"
       - "tools/successor_feed_server.go"
       - "platform/acceptance-feed.Dockerfile"
+      - ".github/workflows/successor-acceptance-feed.yml"
+      - "tools/test_successor_acceptance_publish_contract.py"
       - "tools/portable_contracts.py"
       - "tools/test_portable_contracts.py"
       - ".github/workflows/platform-contract.yml"
@@ -46,7 +48,7 @@ jobs:
         run: python -m unittest discover -s tools -p "test_portable_contracts.py" -v
       - name: Acceptance feed qualification and exact closure
         run: |
-          PYTHONPATH=tools python -m pytest -q             tools/test_qualify_successor_runtime_artifacts.py             tools/test_build_successor_acceptance_feed_source.py
+          PYTHONPATH=tools python -m pytest -q             tools/test_qualify_successor_runtime_artifacts.py             tools/test_build_successor_acceptance_feed_source.py             tools/test_successor_acceptance_publish_contract.py
       - name: Compile verifier and acceptance feed builders
         run: |
           python -m py_compile             tools/verify_platform_index.py             tools/build_platform_index.py             tools/portable_contracts.py             tools/qualify_successor_runtime_artifacts.py             tools/build_successor_acceptance_feed_source.py
