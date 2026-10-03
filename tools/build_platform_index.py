@@ -15,6 +15,7 @@ import sys
 import io
 import zipfile
 import tempfile
+import struct
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -367,6 +368,51 @@ def _verify_runtime_or_manager_admission(item: dict[str, Any], payload: bytes) -
         raise PublicationError("runtime/manager kind disagrees with catalog")
     if any(manifest.get(key) != item.get(key) for key in ("artifact_id", "version", "build")):
         raise PublicationError("runtime/manager identity disagrees with signed catalog")
+
+    if item["kind"] == "scaffold-manager":
+        platform = item.get("platform")
+        entrypoint = manifest.get("entrypoint")
+        if (
+            manifest.get("packaging_stage") != "successor-scaffold-manager"
+            or manifest.get("platform") != platform
+            or not isinstance(platform, dict)
+            or platform.get("os") != "linux"
+            or platform.get("arch") not in {"amd64", "arm64"}
+            or platform.get("abi") != "static"
+            or entrypoint != "bin/monitorbox-scaffold"
+            or entries.count(entrypoint) != 1
+            or set(entries) != {"package.json", entrypoint}
+        ):
+            raise PublicationError("scaffold-manager package contract is invalid")
+        try:
+            manager = archive.read(entrypoint)
+        except KeyError as exc:
+            raise PublicationError("scaffold-manager executable is missing") from exc
+        if (
+            len(manager) < 64
+            or manager[:4] != b"\\x7fELF"
+            or manager[4] != 2
+            or manager[5] != 1
+        ):
+            raise PublicationError("scaffold-manager executable is not little-endian ELF64")
+        machine = struct.unpack_from("<H", manager, 18)[0]
+        expected_machine = {"amd64": 62, "arm64": 183}[platform["arch"]]
+        if machine != expected_machine:
+            raise PublicationError("scaffold-manager ELF architecture disagrees with catalog")
+        phoff = struct.unpack_from("<Q", manager, 32)[0]
+        phentsize = struct.unpack_from("<H", manager, 54)[0]
+        phnum = struct.unpack_from("<H", manager, 56)[0]
+        if (
+            phnum > 4096
+            or (phnum and phentsize < 56)
+            or phoff > len(manager)
+            or phoff + phentsize * phnum > len(manager)
+        ):
+            raise PublicationError("scaffold-manager ELF program headers are invalid")
+        for index in range(phnum):
+            p_type = struct.unpack_from("<I", manager, phoff + index * phentsize)[0]
+            if p_type == 3:
+                raise PublicationError("scaffold-manager executable is dynamically linked")
 
 def _timestamp(value: datetime) -> datetime:
     if value.tzinfo is None:
