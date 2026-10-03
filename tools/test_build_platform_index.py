@@ -144,6 +144,23 @@ class BuildPlatformIndexTests(unittest.TestCase):
                             "runtime/loader/ld-linux-aarch64.so.1",
                             b"\x7fELF" + bytes(80),
                         )
+                    else:
+                        # Minimal synthetic ELF64/AArch64 static executable
+                        # shape for trusted publisher admission.
+                        elf = bytearray(64)
+                        elf[:4] = b"\x7fELF"
+                        elf[4] = 2
+                        elf[5] = 1
+                        elf[18:20] = (183).to_bytes(2, "little")
+                        elf[32:40] = (64).to_bytes(8, "little")
+                        elf[54:56] = (56).to_bytes(2, "little")
+                        elf[56:58] = (0).to_bytes(2, "little")
+                        manifest.update({
+                            "packaging_stage": "successor-scaffold-manager",
+                            "platform": {"os": "linux", "arch": "arm64", "abi": "static"},
+                            "entrypoint": "bin/monitorbox-scaffold",
+                        })
+                        z.writestr("bin/monitorbox-scaffold", bytes(elf))
                     z.writestr("package.json", json.dumps(manifest))
                 (self.packages / filename).write_bytes(buffer.getvalue())
 
@@ -436,6 +453,36 @@ class BuildPlatformIndexTests(unittest.TestCase):
                     self.candidate()
             artifact.write_bytes(original)
         self.assertTrue(self.candidate())
+
+    def test_scaffold_manager_wrong_arch_or_dynamic_elf_fails_before_signing(self) -> None:
+        record = self.source["artifacts"][5]
+        artifact = self.packages / record["package_file"]
+        original = artifact.read_bytes()
+        with zipfile.ZipFile(io.BytesIO(original)) as src:
+            manifest = json.loads(src.read("package.json"))
+            binary = bytearray(src.read("bin/monitorbox-scaffold"))
+
+        binary[18:20] = (62).to_bytes(2, "little")
+        with io.BytesIO() as out:
+            with zipfile.ZipFile(out, "w") as dst:
+                dst.writestr("package.json", json.dumps(manifest))
+                dst.writestr("bin/monitorbox-scaffold", binary)
+            artifact.write_bytes(out.getvalue())
+        with self.assertRaisesRegex(PublicationError, "architecture"):
+            self.candidate()
+
+        binary = bytearray(zipfile.ZipFile(io.BytesIO(original)).read("bin/monitorbox-scaffold"))
+        binary[56:58] = (1).to_bytes(2, "little")
+        binary.extend(bytes(56))
+        binary[64:68] = (3).to_bytes(4, "little")
+        with io.BytesIO() as out:
+            with zipfile.ZipFile(out, "w") as dst:
+                dst.writestr("package.json", json.dumps(manifest))
+                dst.writestr("bin/monitorbox-scaffold", binary)
+            artifact.write_bytes(out.getvalue())
+        with self.assertRaisesRegex(PublicationError, "dynamically linked"):
+            self.candidate()
+        artifact.write_bytes(original)
 
     def test_runtime_missing_loader_and_forged_elf_fail_before_signing(self) -> None:
         record = self.source["artifacts"][6]
