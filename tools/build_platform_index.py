@@ -385,8 +385,9 @@ def _verify_runtime_or_manager_admission(item: dict[str, Any], payload: bytes) -
         ):
             raise PublicationError("scaffold-manager package contract is invalid")
         try:
-            manager = archive.read(entrypoint)
-        except KeyError as exc:
+            with zipfile.ZipFile(io.BytesIO(payload)) as manager_archive:
+                manager = manager_archive.read(entrypoint)
+        except (zipfile.BadZipFile, KeyError) as exc:
             raise PublicationError("scaffold-manager executable is missing") from exc
         if (
             len(manager) < 64
