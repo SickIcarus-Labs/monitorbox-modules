@@ -48,6 +48,7 @@ def _safe_package_path(root: Path, filename: str) -> Path:
 EXECUTABLE_MODULE_IDS = frozenset({
     "com.sickicarus.monitorbox.core", "com.sickicarus.monitorbox.agent",
 })
+WHEELHOUSE_ID = "com.sickicarus.monitorbox.core.wheels"
 
 FIRST_PARTY_APPLICATION_MODULE_IDS = frozenset({
     "com.sickicarus.monitorbox.backup-restore",
@@ -221,6 +222,113 @@ def _verify_module_portable_contract(
         raise PublicationError("module portable contract rejected: " + str(exc)) from exc
 
 
+def _verify_wheelhouse_admission(item: dict[str, Any], payload: bytes) -> None:
+    """Admit the sealed architecture-specific Core wheel closure.
+
+    The wheelhouse is catalogued as kind=runtime so the resolver can enforce an
+    exact mandatory dependency edge, but unlike Python/Node it intentionally has
+    no package.json or executable ELF entrypoint. Its own signed inner authority
+    is wheelhouse.json plus the complete hash-locked wheel set.
+    """
+    if item.get("artifact_id") != WHEELHOUSE_ID:
+        return
+    if (
+        item.get("kind") != "runtime"
+        or item.get("version") != "1.0.0"
+        or item.get("build") != 1
+        or item.get("platform", {}).get("os") != "linux"
+        or item.get("platform", {}).get("abi") != "glibc"
+        or item.get("platform", {}).get("arch") not in {"amd64", "arm64"}
+    ):
+        raise PublicationError("Core wheelhouse catalog identity/platform is invalid")
+    try:
+        with zipfile.ZipFile(io.BytesIO(payload)) as archive:
+            names = archive.namelist()
+            if names.count("wheelhouse.json") != 1 or names.count("requirements.lock") != 1:
+                raise PublicationError("Core wheelhouse requires exact metadata and lock files")
+            if len(names) < 3 or len(names) > 130 or len(names) != len(set(names)):
+                raise PublicationError("Core wheelhouse member set is invalid")
+            manifest_member = archive.getinfo("wheelhouse.json")
+            if manifest_member.file_size > 64 * 1024:
+                raise PublicationError("Core wheelhouse manifest is oversized")
+            manifest = _parse(archive.read(manifest_member))
+            if not isinstance(manifest, dict):
+                raise PublicationError("Core wheelhouse manifest must be an object")
+            required = {
+                "schema", "artifact_id", "packaging_stage", "release_eligible",
+                "platform", "direct_requirements", "wheels",
+            }
+            if set(manifest) != required:
+                raise PublicationError("Core wheelhouse manifest shape is invalid")
+            platform = manifest.get("platform")
+            if (
+                manifest.get("schema") != 1
+                or manifest.get("artifact_id") != WHEELHOUSE_ID
+                or manifest.get("packaging_stage") != "qualified-wheel-closure"
+                or manifest.get("release_eligible") is not True
+                or not isinstance(platform, dict)
+                or platform != {
+                    "os": "linux",
+                    "arch": item["platform"]["arch"],
+                    "python": "cp313",
+                }
+            ):
+                raise PublicationError("Core wheelhouse inner authority is ineligible or mismatched")
+            wheels = manifest.get("wheels")
+            direct = manifest.get("direct_requirements")
+            if (
+                not isinstance(wheels, list) or not 1 <= len(wheels) <= 128
+                or not isinstance(direct, list) or not direct
+            ):
+                raise PublicationError("Core wheelhouse dependency closure is empty or excessive")
+            expected_names = {"wheelhouse.json", "requirements.lock"}
+            seen_dist: set[str] = set()
+            for record in wheels:
+                if not isinstance(record, dict) or set(record) != {
+                    "filename", "name", "version", "sha256", "size"
+                }:
+                    raise PublicationError("Core wheelhouse record shape is invalid")
+                filename = record.get("filename")
+                name = record.get("name")
+                version = record.get("version")
+                digest = record.get("sha256")
+                size = record.get("size")
+                if (
+                    not isinstance(filename, str)
+                    or not re.fullmatch(r"[A-Za-z0-9_.+-]+[.]whl", filename)
+                    or not isinstance(name, str) or not name
+                    or not isinstance(version, str) or not version
+                    or not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest)
+                    or type(size) is not int or size < 1 or size > 80 << 20
+                ):
+                    raise PublicationError("Core wheelhouse record is invalid")
+                normalized = re.sub(r"[-_.]+", "-", name).lower()
+                if normalized in seen_dist:
+                    raise PublicationError("Core wheelhouse repeats a distribution")
+                seen_dist.add(normalized)
+                member_name = "wheels/" + filename
+                expected_names.add(member_name)
+                try:
+                    member = archive.getinfo(member_name)
+                except KeyError as exc:
+                    raise PublicationError("Core wheelhouse is missing declared wheel bytes") from exc
+                raw = archive.read(member)
+                if len(raw) != size or hashlib.sha256(raw).hexdigest() != digest:
+                    raise PublicationError("Core wheelhouse wheel bytes differ from manifest")
+            if set(names) != expected_names:
+                raise PublicationError("Core wheelhouse contains undeclared members")
+            for requirement in direct:
+                if (
+                    not isinstance(requirement, str)
+                    or not re.fullmatch(r"[A-Za-z0-9_.-]+==[0-9][A-Za-z0-9_.+!]*", requirement)
+                ):
+                    raise PublicationError("Core wheelhouse direct requirements are not exact pins")
+    except (zipfile.BadZipFile, KeyError) as exc:
+        raise PublicationError("Core wheelhouse is not a valid sealed ZIP") from exc
+    except VerificationError as exc:
+        raise PublicationError("Core wheelhouse inner JSON is invalid") from exc
+
+
 def _verify_runtime_or_manager_admission(item: dict[str, Any], payload: bytes) -> None:
     """Never sign an unapproved runtime or replacement manager executable.
 
@@ -228,6 +336,8 @@ def _verify_runtime_or_manager_admission(item: dict[str, Any], payload: bytes) -
     is self-contained or authorized for a particular production appliance.
     Those require signed full-generation runtime and physical acceptance.
     """
+    if item.get("artifact_id") == WHEELHOUSE_ID:
+        return
     if item.get("kind") not in {"runtime", "scaffold-manager"}:
         return
     try:
@@ -319,6 +429,7 @@ def sign_candidate(
         portable_config = _verify_module_portable_contract(item, payload)
         _verify_first_party_application_module_admission(item, payload)
         _verify_core_or_agent_admission(item, payload)
+        _verify_wheelhouse_admission(item, payload)
         _verify_runtime_or_manager_admission(item, payload)
         metadata = {k: v for k, v in item.items() if k != "package_file"}
         if portable_config is not None:

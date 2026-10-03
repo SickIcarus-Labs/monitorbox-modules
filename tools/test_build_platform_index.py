@@ -359,6 +359,49 @@ class BuildPlatformIndexTests(unittest.TestCase):
         path.write_bytes(original)
         self.assertTrue(self.candidate())
 
+    def test_core_wheelhouse_signs_only_with_complete_hash_locked_closure(self) -> None:
+        filename = "core-wheels-1.0.0-1.zip"
+        payload = b"synthetic-wheel-bytes"
+        digest = hashlib.sha256(payload).hexdigest()
+        manifest = {
+            "schema": 1,
+            "artifact_id": "com.sickicarus.monitorbox.core.wheels",
+            "packaging_stage": "qualified-wheel-closure",
+            "release_eligible": True,
+            "platform": {"os": "linux", "arch": "arm64", "python": "cp313"},
+            "direct_requirements": ["example==1.0.0"],
+            "wheels": [{
+                "filename": "example-1.0.0-py3-none-any.whl",
+                "name": "example",
+                "version": "1.0.0",
+                "sha256": digest,
+                "size": len(payload),
+            }],
+        }
+        path = self.packages / filename
+        with zipfile.ZipFile(path, "w", zipfile.ZIP_STORED) as archive:
+            archive.writestr("wheelhouse.json", json.dumps(manifest))
+            archive.writestr("requirements.lock", "synthetic-lock")
+            archive.writestr("wheels/example-1.0.0-py3-none-any.whl", payload)
+        self.source["artifacts"].append({
+            "artifact_id": "com.sickicarus.monitorbox.core.wheels",
+            "kind": "runtime",
+            "version": "1.0.0",
+            "build": 1,
+            "platform": {"os": "linux", "arch": "arm64", "abi": "glibc"},
+            "requires_scaffold_api": {"minimum": 1, "maximum_exclusive": 2},
+            "dependencies": [],
+            "package_file": filename,
+        })
+        self.assertTrue(self.candidate())
+
+        with zipfile.ZipFile(path, "w", zipfile.ZIP_STORED) as archive:
+            archive.writestr("wheelhouse.json", json.dumps(manifest))
+            archive.writestr("requirements.lock", "synthetic-lock")
+            archive.writestr("wheels/example-1.0.0-py3-none-any.whl", payload + b"tamper")
+        with self.assertRaisesRegex(PublicationError, "differ"):
+            self.candidate()
+
     def test_runtime_and_manager_require_explicit_approval_and_matching_identity(self) -> None:
         for position in (5, 6, 7):
             record = self.source["artifacts"][position]
