@@ -39,15 +39,14 @@ jobs:
           go-version: "1.25"
           cache: false
       - name: Install isolated verifier dependencies
-        run: python -m pip install "cryptography>=45,<49" "jsonschema>=4,<5"
+        run: python -m pip install "cryptography>=45,<49" "jsonschema>=4,<5" pytest
       - name: Synthetic-key signature and schema regression tests
         run: python -m unittest discover -s tools -p "test_*platform_index.py" -v
       - name: First-party portable contract authority
         run: python -m unittest discover -s tools -p "test_portable_contracts.py" -v
       - name: Acceptance feed qualification and exact closure
         run: |
-          python -m unittest discover -s tools -p "test_qualify_successor_runtime_artifacts.py" -v
-          python -m unittest discover -s tools -p "test_build_successor_acceptance_feed_source.py" -v
+          PYTHONPATH=tools python -m pytest -q             tools/test_qualify_successor_runtime_artifacts.py             tools/test_build_successor_acceptance_feed_source.py
       - name: Compile verifier and acceptance feed builders
         run: |
           python -m py_compile             tools/verify_platform_index.py             tools/build_platform_index.py             tools/portable_contracts.py             tools/qualify_successor_runtime_artifacts.py             tools/build_successor_acceptance_feed_source.py
