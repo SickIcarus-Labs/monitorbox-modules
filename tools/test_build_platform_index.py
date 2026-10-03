@@ -359,6 +359,61 @@ class BuildPlatformIndexTests(unittest.TestCase):
         path.write_bytes(original)
         self.assertTrue(self.candidate())
 
+    def test_sealed_wheelhouse_runtime_signs_without_fake_elf_entrypoint(self) -> None:
+        filename = "synthetic-wheelhouse.zip"
+        wheel_name = "example_pkg-1.0.0-py3-none-any.whl"
+        wheel_bytes = b"synthetic wheel bytes"
+        wheel_sha = hashlib.sha256(wheel_bytes).hexdigest()
+        manifest = {
+            "schema": 1,
+            "artifact_id": "com.sickicarus.monitorbox.core.wheels",
+            "packaging_stage": "qualified-wheel-closure",
+            "release_eligible": True,
+            "platform": {"os": "linux", "arch": "arm64", "python": "cp313"},
+            "direct_requirements": ["example-pkg==1.0.0"],
+            "wheels": [{
+                "name": "example-pkg",
+                "version": "1.0.0",
+                "filename": wheel_name,
+                "sha256": wheel_sha,
+                "size": len(wheel_bytes),
+            }],
+        }
+        lock = (
+            "--only-binary=:all:\n--no-index\n"
+            f"example-pkg==1.0.0 --hash=sha256:{wheel_sha}\n"
+        )
+        with zipfile.ZipFile(self.packages / filename, "w", zipfile.ZIP_DEFLATED) as z:
+            z.writestr("wheelhouse.json", json.dumps(manifest))
+            z.writestr("requirements.lock", lock)
+            z.writestr("wheels/" + wheel_name, wheel_bytes)
+        record = {
+            "artifact_id": "com.sickicarus.monitorbox.core.wheels",
+            "kind": "runtime",
+            "version": "1.0.0",
+            "build": 1,
+            "platform": {"os": "linux", "arch": "arm64", "abi": "glibc"},
+            "requires_scaffold_api": {"minimum": 1, "maximum_exclusive": 2},
+            "dependencies": [],
+            "package_file": filename,
+        }
+        self.source["artifacts"].append(record)
+        raw = self.candidate()
+        signed = verify_index(raw, keys=self.keys, channel="dev", now=self.clock)
+        wheelhouse = next(
+            item for item in signed["artifacts"]
+            if item["artifact_id"] == "com.sickicarus.monitorbox.core.wheels"
+        )
+        verify_package(wheelhouse, self.root, self.keys)
+
+        manifest["release_eligible"] = False
+        with zipfile.ZipFile(self.packages / filename, "w", zipfile.ZIP_DEFLATED) as z:
+            z.writestr("wheelhouse.json", json.dumps(manifest))
+            z.writestr("requirements.lock", lock)
+            z.writestr("wheels/" + wheel_name, wheel_bytes)
+        with self.assertRaisesRegex(PublicationError, "unreleasable"):
+            self.candidate()
+
     def test_runtime_and_manager_require_explicit_approval_and_matching_identity(self) -> None:
         for position in (5, 6, 7):
             record = self.source["artifacts"][position]
