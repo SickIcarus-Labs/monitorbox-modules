@@ -24,6 +24,7 @@ from build_successor_acceptance_feed_source import (
 
 ROOT = Path(__file__).resolve().parents[1]
 AUTHORITY = ROOT / "platform" / "modules" / "first-party-successor-v1.json"
+CORE_SOURCE_SHA = "a" * 40
 
 
 def zip_bytes(entries: dict[str, bytes]) -> bytes:
@@ -125,7 +126,7 @@ class SuccessorAcceptanceFeedSourceTests(unittest.TestCase):
                 "build": 1,
                 "release_eligible": True,
                 "packaging_stage": "successor-scaffold-manager",
-                "git_sha": "a" * 40,
+                "git_sha": CORE_SOURCE_SHA,
                 "platform": {"os": "linux", "arch": arch, "abi": "static"},
                 "entrypoint": "bin/monitorbox-scaffold",
             }
@@ -160,13 +161,16 @@ class SuccessorAcceptanceFeedSourceTests(unittest.TestCase):
                         "build": 1,
                         "release_eligible": True,
                         "packaging_stage": "qualified-interpreted",
+                        "git_sha": CORE_SOURCE_SHA,
                         "runtime": runtime_ref,
                         "wheelhouse": wheel_ref,
                     }),
                 )
 
     def test_exact_twenty_two_artifact_closure_is_derived(self) -> None:
-        source = build_source(self.packages, AUTHORITY)
+        source = build_source(
+            self.packages, AUTHORITY, core_source_sha=CORE_SOURCE_SHA
+        )
         artifacts = source["artifacts"]
         self.assertEqual("official-platform", source["repository_id"])
         self.assertEqual(22, len(artifacts))
@@ -204,10 +208,38 @@ class SuccessorAcceptanceFeedSourceTests(unittest.TestCase):
             {dep["artifact_id"] for dep in scrypted["dependencies"]},
         )
 
+    def test_core_source_identity_is_exact_for_roles_and_manager(self) -> None:
+        core = self.packages / f"{CORE}-amd64.zip"
+        with zipfile.ZipFile(core) as archive:
+            manifest = json.loads(archive.read("package.json"))
+        manifest["git_sha"] = "b" * 40
+        core.write_bytes(manifest_zip(manifest))
+        with self.assertRaisesRegex(
+            FeedSourceError, "source-unbound"
+        ):
+            build_source(
+                self.packages, AUTHORITY, core_source_sha=CORE_SOURCE_SHA
+            )
+
+        self._build_complete_fixture()
+        manager = self.packages / f"{MANAGER}-arm64.zip"
+        with zipfile.ZipFile(manager) as archive:
+            manifest = json.loads(archive.read("package.json"))
+        manifest["git_sha"] = "b" * 40
+        manager.write_bytes(manifest_zip(manifest))
+        with self.assertRaisesRegex(
+            FeedSourceError, "exact Core source"
+        ):
+            build_source(
+                self.packages, AUTHORITY, core_source_sha=CORE_SOURCE_SHA
+            )
+
     def test_missing_architecture_fails_closed(self) -> None:
         (self.packages / f"{MANAGER}-arm64.zip").unlink()
         with self.assertRaisesRegex(FeedSourceError, "incomplete successor feed closure"):
-            build_source(self.packages, AUTHORITY)
+            build_source(
+            self.packages, AUTHORITY, core_source_sha=CORE_SOURCE_SHA
+        )
 
     def test_core_exact_runtime_digest_must_resolve_to_package_bytes(self) -> None:
         core = self.packages / f"{CORE}-amd64.zip"
@@ -218,7 +250,9 @@ class SuccessorAcceptanceFeedSourceTests(unittest.TestCase):
         with self.assertRaisesRegex(
             FeedSourceError, "exact dependency package is absent"
         ):
-            build_source(self.packages, AUTHORITY)
+            build_source(
+            self.packages, AUTHORITY, core_source_sha=CORE_SOURCE_SHA
+        )
 
     def test_first_party_release_identity_must_match_reviewed_authority(self) -> None:
         ui = self.packages / "com.sickicarus.monitorbox.ui.zip"
@@ -229,7 +263,9 @@ class SuccessorAcceptanceFeedSourceTests(unittest.TestCase):
         with self.assertRaisesRegex(
             FeedSourceError, "disagrees with successor authority"
         ):
-            build_source(self.packages, AUTHORITY)
+            build_source(
+            self.packages, AUTHORITY, core_source_sha=CORE_SOURCE_SHA
+        )
 
 
 if __name__ == "__main__":
