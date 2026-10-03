@@ -391,7 +391,7 @@ def _verify_runtime_or_manager_admission(item: dict[str, Any], payload: bytes) -
             raise PublicationError("scaffold-manager executable is missing") from exc
         if (
             len(manager) < 64
-            or manager[:4] != b"\\x7fELF"
+            or manager[:4] != b"\x7fELF"
             or manager[4] != 2
             or manager[5] != 1
         ):
