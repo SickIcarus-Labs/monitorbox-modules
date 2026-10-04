@@ -59,7 +59,7 @@ jobs:
           mkdir -p "$root/platform/channels/dev" "$root/platform/packages"
           printf '%s\n' '{"synthetic":"index"}' > "$root/platform/channels/dev/index.json"
           printf 'synthetic-package' > "$root/platform/packages/example.zip"
-          "$RUNNER_TEMP/feed-server" -root "$root" -listen 127.0.0.1:18081 >"$RUNNER_TEMP/feed.log" 2>&1 &
+          "$RUNNER_TEMP/feed-server" -root "$root" -listen 127.0.0.1:38081 >"$RUNNER_TEMP/feed.log" 2>&1 &
           pid=$!
           trap 'kill "$pid" >/dev/null 2>&1 || true' EXIT
           for attempt in 1 2 3 4 5; do
