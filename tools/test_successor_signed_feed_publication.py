@@ -10,7 +10,7 @@ def test_signed_feed_publication_is_exact_user_and_issue_scoped():
         "github.event.issue.number == 128",
         "github.event.comment.user.login == 'SickIcarus'",
         "startsWith(github.event.comment.body, '/publish-successor-signed-feed-2 sha256:')",
-        "CORE_SOURCE_SHA: 41d667fe7eecb72af9153c013fe4e3d65bc35297",
+        "CORE_SOURCE_SHA: 82e5a5f683233469421ff36cc4a1972513976d1e",
         "MODULES_SOURCE_SHA: 50673fd26431bd04036ba74df340e8c14ee9b2b0",
         "REAL_PYTHON_SOURCE_SHA: 3e4cf4ae9072efff941f35a2b0b20b7b493de4cc",
         "HANDOFF_IMAGE: ghcr.io/sickicarus-labs/monitorbox-successor-feed",
