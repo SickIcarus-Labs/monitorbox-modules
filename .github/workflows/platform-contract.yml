@@ -80,4 +80,19 @@ jobs:
           cp platform/acceptance-feed.Dockerfile "$context/Dockerfile"
           cp "$root/platform/channels/dev/index.json" "$context/platform/channels/dev/"
           cp "$root/platform/packages/example.zip" "$context/platform/packages/"
+          chmod 0600 "$context/platform/channels/dev/index.json" "$context/platform/packages/example.zip"
           docker build -f "$context/Dockerfile" -t monitorbox-successor-feed:ci "$context"
+          image_port=38082
+          image_id="$(docker run -d --rm --network host --read-only             --name monitorbox-successor-feed-image-ci monitorbox-successor-feed:ci             -root /feed -listen "127.0.0.1:$image_port")"
+          image_cleanup() {
+            docker rm -f "$image_id" >/dev/null 2>&1 || true
+          }
+          trap image_cleanup EXIT
+          for attempt in $(seq 1 40); do
+            if curl --fail --silent "http://127.0.0.1:$image_port/healthz" >/dev/null; then break; fi
+            sleep 0.1
+          done
+          test "$(curl --fail --silent "http://127.0.0.1:$image_port/platform/channels/dev/index.json")" = '{"synthetic":"index"}'
+          test "$(curl --fail --silent "http://127.0.0.1:$image_port/platform/packages/example.zip")" = "synthetic-package"
+          image_cleanup
+          trap - EXIT
