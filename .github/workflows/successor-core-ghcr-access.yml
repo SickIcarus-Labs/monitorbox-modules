@@ -23,12 +23,12 @@ jobs:
       - name: Pull exact private successor scaffold from Core repository package
         shell: bash
         env:
-          TAGGED: ghcr.io/sickicarus-labs/monitorbox-successor-scaffold:sha-edf9eaceeb699069341688060663669cbe640432
-          PINNED: ghcr.io/sickicarus-labs/monitorbox-successor-scaffold@sha256:1f242d3ea2b9eed23a2efd131e85cde96ea476226d792e6c261c339780ff44a5
+          TAGGED: ghcr.io/sickicarus-labs/monitorbox-successor-feed:handoff-bootstrap-4c10bec75c300f0088358e21adabff2522d481e7
+          PINNED: ghcr.io/sickicarus-labs/monitorbox-successor-feed@sha256:a5bd18049cd1b5a6c977559dae693b4d9af3dd1271e72dec2d667ebfb2711977
         run: |
           set -euo pipefail
           docker buildx imagetools inspect "$TAGGED"
           docker pull "$TAGGED"
           docker pull "$PINNED"
-          test "$(docker image inspect "$TAGGED" --format '{{ index .Config.Labels "com.sickicarus.monitorbox.artifact-class" }}')" = "successor-physical-acceptance"
-          test "$(docker image inspect "$TAGGED" --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')" = "edf9eaceeb699069341688060663669cbe640432"
+          test "$(docker image inspect "$TAGGED" --format '{{ index .Config.Labels "com.sickicarus.monitorbox.artifact-class" }}')" = "successor-feed-handoff-bootstrap"
+          test "$(docker image inspect "$TAGGED" --format '{{ index .Config.Labels "org.opencontainers.image.source" }}')" = "https://github.com/SickIcarus-Labs/monitorbox-modules"
