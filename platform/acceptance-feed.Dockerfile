@@ -16,4 +16,5 @@ COPY --from=build /out/feed-server /usr/local/bin/feed-server
 COPY platform/channels/ /feed/platform/channels/
 COPY platform/packages/ /feed/platform/packages/
 USER 10001:10001
-ENTRYPOINT ["/usr/local/bin/feed-server","-root","/feed","-listen","127.0.0.1:18081"]
+ENTRYPOINT ["/usr/local/bin/feed-server"]
+CMD ["-root","/feed","-listen","127.0.0.1:18081"]
