@@ -1,0 +1,322 @@
+name: Publish immutable signed successor acceptance feed
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: successor-signed-feed-publication
+  cancel-in-progress: false
+
+env:
+  CORE_SOURCE_SHA: edf9eaceeb699069341688060663669cbe640432
+  MODULES_SOURCE_SHA: 50673fd26431bd04036ba74df340e8c14ee9b2b0
+  REAL_PYTHON_SOURCE_SHA: 3e4cf4ae9072efff941f35a2b0b20b7b493de4cc
+  HANDOFF_IMAGE: ghcr.io/sickicarus-labs/monitorbox-successor-feed
+  FINAL_IMAGE: ghcr.io/sickicarus-labs/monitorbox-successor-signed-feed
+  FINAL_TAG: seq-1-core-edf9eaceeb69-mods-50673fd26431
+
+jobs:
+  preflight:
+    if: >-
+      github.event.issue.number == 128 &&
+      github.event.comment.user.login == 'SickIcarus' &&
+      startsWith(github.event.comment.body, '/publish-successor-signed-feed-1 sha256:')
+    name: Verify exact unsigned handoff before signing
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      handoff_digest: ${{ steps.identity.outputs.handoff_digest }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Verify trusted signer policy snapshot
+        run: python tools/verify_trusted_successor_signer_snapshot.py
+      - name: Resolve exact approved handoff digest
+        id: identity
+        shell: bash
+        env:
+          COMMAND: ${{ github.event.comment.body }}
+        run: |
+          set -euo pipefail
+          digest="${COMMAND#'/publish-successor-signed-feed-1 '}"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || {
+            echo "::error::publication command requires one exact sha256 digest"
+            exit 1
+          }
+          echo "handoff_digest=$digest" >> "$GITHUB_OUTPUT"
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Pull and extract exact private unsigned handoff
+        shell: bash
+        env:
+          HANDOFF_DIGEST: ${{ steps.identity.outputs.handoff_digest }}
+        run: |
+          set -euo pipefail
+          pinned="$HANDOFF_IMAGE@$HANDOFF_DIGEST"
+          docker pull "$pinned"
+          test "$(docker image inspect "$pinned" --format '{{ index .Config.Labels "com.sickicarus.monitorbox.artifact-class" }}')" = "successor-feed-unsigned-handoff"
+          test "$(docker image inspect "$pinned" --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')" = "$CORE_SOURCE_SHA"
+          test "$(docker image inspect "$pinned" --format '{{ index .Config.Labels "com.sickicarus.monitorbox.modules-source" }}')" = "$MODULES_SOURCE_SHA"
+          test "$(docker image inspect "$pinned" --format '{{ index .Config.Labels "com.sickicarus.monitorbox.python-source" }}')" = "$REAL_PYTHON_SOURCE_SHA"
+          test "$(docker image inspect "$pinned" --format '{{ index .Config.Labels "com.sickicarus.monitorbox.package-count" }}')" = "22"
+          id="$(docker create "$pinned")"
+          trap 'docker rm -f "$id" >/dev/null 2>&1 || true' EXIT
+          mkdir -p "$RUNNER_TEMP/handoff"
+          docker cp "$id:/handoff/." "$RUNNER_TEMP/handoff/"
+          test -s "$RUNNER_TEMP/handoff/catalog.source.json"
+          test "$(find "$RUNNER_TEMP/handoff/platform/packages" -maxdepth 1 -type f -name '*.zip' | wc -l)" = 22
+      - name: Exercise trusted deep admission without production signing authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check "cryptography>=45,<49" "jsonschema>=4,<5"
+          python - <<'PY'
+          import base64,os
+          from pathlib import Path
+          from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+          from cryptography.hazmat.primitives.serialization import Encoding,PrivateFormat,PublicFormat,NoEncryption
+          key=Ed25519PrivateKey.generate()
+          root=Path(os.environ["RUNNER_TEMP"])
+          root.joinpath("ephemeral.seed").write_text(base64.b64encode(
+              key.private_bytes(Encoding.Raw,PrivateFormat.Raw,NoEncryption())
+          ).decode())
+          root.joinpath("ephemeral.pub").write_text(base64.b64encode(
+              key.public_key().public_bytes(Encoding.Raw,PublicFormat.Raw)
+          ).decode()+"\n")
+          PY
+          export MONITORBOX_PLATFORM_SIGNING_KEY="$(cat "$RUNNER_TEMP/ephemeral.seed")"
+          python tools/build_platform_index.py             --source "$RUNNER_TEMP/handoff/catalog.source.json"             --package-root "$RUNNER_TEMP/handoff"             --output "$RUNNER_TEMP/ephemeral.index.json"             --channel stable             --sequence 1             --valid-hours 1
+          python tools/verify_platform_index.py             "$RUNNER_TEMP/ephemeral.index.json"             --packages-root "$RUNNER_TEMP/handoff"             --trust-root "$RUNNER_TEMP/ephemeral.pub"             --channel stable             --min-sequence 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: successor-feed-signing-input
+          path: |
+            ${{ runner.temp }}/handoff/catalog.source.json
+            ${{ runner.temp }}/handoff/platform/packages/*.zip
+          if-no-files-found: error
+          retention-days: 1
+
+  sign-publish:
+    name: Sign and publish exact immutable acceptance feed
+    needs: [preflight]
+    if: needs.preflight.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.25"
+          cache: false
+      - name: Verify trusted signer policy snapshot
+        run: python tools/verify_trusted_successor_signer_snapshot.py
+      - uses: actions/download-artifact@v5
+        with:
+          name: successor-feed-signing-input
+          path: ${{ runner.temp }}/handoff
+      - name: Reconfirm exact staged package closure before secret admission
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "$RUNNER_TEMP/handoff/catalog.source.json"
+          test "$(find "$RUNNER_TEMP/handoff/platform/packages" -maxdepth 1 -type f -name '*.zip' | wc -l)" = 22
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          source=json.loads((Path(os.environ["RUNNER_TEMP"])/"handoff/catalog.source.json").read_text())
+          assert source["schema"] == 1
+          assert source["repository_id"] == "official-platform"
+          assert len(source["artifacts"]) == 22, len(source["artifacts"])
+          PY
+      - name: Install isolated signer dependencies
+        run: python -m pip install --disable-pip-version-check "cryptography>=45,<49" "jsonschema>=4,<5"
+      - name: Require official signer identity and produce exact sequence-1 catalog
+        shell: bash
+        env:
+          MONITORBOX_PLATFORM_SIGNING_KEY: ${{ secrets.MONITORBOX_MODULE_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$MONITORBOX_PLATFORM_SIGNING_KEY" || {
+            echo "::error::protected module signing key is unavailable"
+            exit 1
+          }
+          python - <<'PY'
+          import base64,os
+          from pathlib import Path
+          from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+          from cryptography.hazmat.primitives.serialization import Encoding,PublicFormat
+          raw=base64.b64decode(os.environ["MONITORBOX_PLATFORM_SIGNING_KEY"],validate=True)
+          assert len(raw)==32
+          actual=base64.b64encode(
+              Ed25519PrivateKey.from_private_bytes(raw).public_key().public_bytes(
+                  Encoding.Raw,PublicFormat.Raw
+              )
+          ).decode()
+          expected=Path("trust/official-ed25519-1.pub").read_text().strip()
+          assert actual==expected,"protected signer does not match official-ed25519-1"
+          PY
+          feed="$RUNNER_TEMP/feed"
+          mkdir -p "$feed/platform/channels/stable" "$feed/platform/packages"
+          cp "$RUNNER_TEMP/handoff/platform/packages/"*.zip "$feed/platform/packages/"
+          cp "$RUNNER_TEMP/handoff/catalog.source.json" "$feed/catalog.source.json"
+          python tools/build_platform_index.py             --source "$feed/catalog.source.json"             --package-root "$feed"             --output "$feed/platform/channels/stable/index.json"             --channel stable             --sequence 1             --valid-hours 168
+          python tools/verify_platform_index.py             "$feed/platform/channels/stable/index.json"             --packages-root "$feed"             --trust-root trust/official-ed25519-1.pub             --channel stable             --min-sequence 1
+      - name: Stage exact signed feed image
+        shell: bash
+        env:
+          HANDOFF_DIGEST: ${{ needs.preflight.outputs.handoff_digest }}
+        run: |
+          set -euo pipefail
+          feed="$RUNNER_TEMP/feed"
+          mkdir -p "$feed/tools"
+          cp tools/successor_feed_server.go "$feed/tools/"
+          cp platform/acceptance-feed.Dockerfile "$feed/Dockerfile"
+          test -s "$feed/platform/channels/stable/index.json"
+          test "$(find "$feed/platform/packages" -maxdepth 1 -type f -name '*.zip' | wc -l)" = 22
+          printf '%s\n' "$HANDOFF_DIGEST" > "$feed/HANDOFF_DIGEST"
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - name: Refuse an existing immutable signed-feed identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          ref="$FINAL_IMAGE:$FINAL_TAG"
+          if docker buildx imagetools inspect "$ref" >/dev/null 2>&1; then
+            echo "::error::Immutable signed successor feed already exists: $ref"
+            exit 1
+          fi
+      - name: Publish exact multi-architecture signed feed
+        id: publish
+        uses: docker/build-push-action@v7
+        with:
+          context: ${{ runner.temp }}/feed
+          file: ${{ runner.temp }}/feed/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          provenance: false
+          tags: ${{ env.FINAL_IMAGE }}:${{ env.FINAL_TAG }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/SickIcarus-Labs/monitorbox-modules
+            org.opencontainers.image.revision=${{ env.MODULES_SOURCE_SHA }}
+            com.sickicarus.monitorbox.core-source=${{ env.CORE_SOURCE_SHA }}
+            com.sickicarus.monitorbox.python-source=${{ env.REAL_PYTHON_SOURCE_SHA }}
+            com.sickicarus.monitorbox.handoff-digest=${{ needs.preflight.outputs.handoff_digest }}
+            com.sickicarus.monitorbox.artifact-class=successor-physical-acceptance-feed
+            com.sickicarus.monitorbox.catalog-sequence=1
+      - name: Read back exact registry digest and platform set
+        id: readback
+        shell: bash
+        env:
+          EXPECTED_DIGEST: ${{ steps.publish.outputs.digest }}
+        run: |
+          set -euo pipefail
+          ref="$FINAL_IMAGE:$FINAL_TAG"
+          digest="$(docker buildx imagetools inspect "$ref" | awk '/^Digest:/ {print $2; exit}')"
+          test "$digest" = "$EXPECTED_DIGEST"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          docker buildx imagetools inspect "$ref" --raw > "$RUNNER_TEMP/feed-image-index.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          value=json.loads((Path(os.environ["RUNNER_TEMP"])/"feed-image-index.json").read_text())
+          platforms={
+              (item.get("platform",{}).get("os"),item.get("platform",{}).get("architecture"))
+              for item in value.get("manifests",[])
+          }
+          assert platforms=={("linux","amd64"),("linux","arm64")},platforms
+          PY
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          echo "pinned=$FINAL_IMAGE@$digest" >> "$GITHUB_OUTPUT"
+      - name: Pull by digest and verify every published signed byte over loopback
+        shell: bash
+        env:
+          PINNED: ${{ steps.readback.outputs.pinned }}
+        run: |
+          set -euo pipefail
+          docker pull "$PINNED"
+          port="$(python - <<'PY'
+          import socket
+          s=socket.socket()
+          s.bind(("127.0.0.1",0))
+          print(s.getsockname()[1])
+          s.close()
+          PY
+          )"
+          id="$(docker run -d --rm --network host --read-only             --cap-drop ALL --security-opt no-new-privileges:true             --name monitorbox-successor-signed-feed "$PINNED"             -root /feed -listen "127.0.0.1:$port")"
+          cleanup() {
+            rc=$?
+            if [ "$rc" -ne 0 ]; then docker logs "$id" >&2 || true; fi
+            docker rm -f "$id" >/dev/null 2>&1 || true
+            return "$rc"
+          }
+          trap cleanup EXIT
+          healthy=false
+          for attempt in $(seq 1 50); do
+            if curl --noproxy '*' --fail --silent "http://127.0.0.1:$port/healthz" >/dev/null; then
+              healthy=true
+              break
+            fi
+            sleep 0.2
+          done
+          test "$healthy" = true
+          curl --noproxy '*' --fail --silent             "http://127.0.0.1:$port/platform/channels/stable/index.json"             > "$RUNNER_TEMP/published-index.json"
+          cmp "$RUNNER_TEMP/published-index.json" "$RUNNER_TEMP/feed/platform/channels/stable/index.json"
+          FEED_PORT="$port" python - <<'PY'
+          import hashlib,json,os,urllib.request
+          from pathlib import Path
+          root=json.loads((Path(os.environ["RUNNER_TEMP"])/"published-index.json").read_text())
+          artifacts=root["signed"]["artifacts"]
+          assert len(artifacts)==22,len(artifacts)
+          opener=urllib.request.build_opener(urllib.request.ProxyHandler({}))
+          for artifact in artifacts:
+              package=artifact["package"]
+              url="http://127.0.0.1:"+os.environ["FEED_PORT"]+"/"+package["url"]
+              payload=opener.open(url,timeout=10).read()
+              assert len(payload)==package["size"],artifact["artifact_id"]
+              assert hashlib.sha256(payload).hexdigest()==package["sha256"],artifact["artifact_id"]
+          PY
+          python tools/verify_platform_index.py             "$RUNNER_TEMP/published-index.json"             --packages-root "$RUNNER_TEMP/feed"             --trust-root trust/official-ed25519-1.pub             --channel stable             --min-sequence 1
+      - name: Record immutable signed feed
+        shell: bash
+        run: |
+          {
+            printf '%s\n' "### Successor physical-acceptance signed feed"
+            printf '%s\n' ""
+            printf '%s\n' "- Core source: $CORE_SOURCE_SHA"
+            printf '%s\n' "- Modules source: $MODULES_SOURCE_SHA"
+            printf '%s\n' "- reviewed Python source: $REAL_PYTHON_SOURCE_SHA"
+            printf '%s\n' "- handoff: ${{ needs.preflight.outputs.handoff_digest }}"
+            printf '%s\n' "- catalog sequence: 1"
+            printf '%s\n' "- immutable tag: $FINAL_IMAGE:$FINAL_TAG"
+            printf '%s\n' "- pinned image: ${{ steps.readback.outputs.pinned }}"
+            printf '%s\n' "- moving dev/beta/stable/latest tags changed: none"
+          } >> "$GITHUB_STEP_SUMMARY"

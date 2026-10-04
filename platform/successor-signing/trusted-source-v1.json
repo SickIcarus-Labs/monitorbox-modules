@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "source_commit": "50673fd26431bd04036ba74df340e8c14ee9b2b0",
+  "files": {
+    "tools/build_platform_index.py": "eea2a169d6f6fc94600a2efdeb55a3c3c5ed0b41",
+    "tools/verify_platform_index.py": "3636785402b2941c631df7d8e0cb7c3ca636f466",
+    "tools/portable_contracts.py": "da3d91ae77d6a38cd72af6fb00b95c973397080d",
+    "platform/schema/index-v1.schema.json": "9e36854f6bcd7e4020ef67a3ee875e9fc3b4d500",
+    "platform/portable/first-party-contracts-v1.json": "2612039968e4fbb61afdf46e971c8c30abed1596",
+    "platform/acceptance-feed.Dockerfile": "60e1e0947ba695756cfc65ee55b6df4b1a1bed0e",
+    "tools/successor_feed_server.go": "53faf2063b2c4188bd888efa353aa203115c57bc",
+    "trust/official-ed25519-1.pub": "75a29a96449333c086d9d0dbdbad5e47c741031b"
+  }
+}

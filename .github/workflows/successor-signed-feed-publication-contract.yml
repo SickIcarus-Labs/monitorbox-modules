@@ -1,0 +1,46 @@
+name: Successor signed-feed publication contract
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/successor-signed-feed-publish.yml"
+      - ".github/workflows/successor-signed-feed-publication-contract.yml"
+      - "tools/build_platform_index.py"
+      - "tools/verify_platform_index.py"
+      - "tools/portable_contracts.py"
+      - "tools/verify_trusted_successor_signer_snapshot.py"
+      - "tools/test_trusted_successor_signer_snapshot.py"
+      - "tools/test_successor_signed_feed_publication.py"
+      - "platform/schema/index-v1.schema.json"
+      - "platform/portable/first-party-contracts-v1.json"
+      - "platform/acceptance-feed.Dockerfile"
+      - "platform/successor-signing/trusted-source-v1.json"
+      - "tools/successor_feed_server.go"
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.25"
+          cache: false
+      - name: Verify exact trusted signer snapshot
+        run: python tools/verify_trusted_successor_signer_snapshot.py
+      - name: Compile trusted successor signer tools
+        run: |
+          python -m py_compile             tools/build_platform_index.py             tools/verify_platform_index.py             tools/portable_contracts.py             tools/verify_trusted_successor_signer_snapshot.py
+      - name: Install test dependency
+        run: python -m pip install --disable-pip-version-check pytest
+      - name: Run publication-control tests
+        run: python -m pytest -q tools/test_trusted_successor_signer_snapshot.py tools/test_successor_signed_feed_publication.py
+      - name: Build loopback feed server
+        run: CGO_ENABLED=0 go build -trimpath -o "$RUNNER_TEMP/feed-server" tools/successor_feed_server.go
