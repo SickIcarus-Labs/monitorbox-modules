@@ -8,13 +8,15 @@ ARG TARGETOS=linux
 ARG TARGETARCH
 WORKDIR /src
 COPY tools/successor_feed_server.go ./feed_server.go
+COPY platform/channels/ /feed/platform/channels/
+COPY platform/packages/ /feed/platform/packages/
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
-    go build -trimpath -ldflags="-s -w" -o /out/feed-server ./feed_server.go
+    go build -trimpath -ldflags="-s -w" -o /out/feed-server ./feed_server.go \
+    && chmod -R a+rX /feed
 
 FROM scratch
 COPY --from=build /out/feed-server /usr/local/bin/feed-server
-COPY platform/channels/ /feed/platform/channels/
-COPY platform/packages/ /feed/platform/packages/
+COPY --from=build /feed/ /feed/
 USER 10001:10001
 ENTRYPOINT ["/usr/local/bin/feed-server"]
 CMD ["-root","/feed","-listen","127.0.0.1:18081"]
