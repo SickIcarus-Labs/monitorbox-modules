@@ -1,0 +1,31 @@
+name: Successor cross-repo GHCR access probe
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/successor-core-ghcr-access.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  pull-core-successor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Pull exact private successor scaffold from Core repository package
+        shell: bash
+        env:
+          IMAGE: ghcr.io/sickicarus-labs/monitorbox-successor-scaffold@sha256:1f242d3ea2b9eed23a2efd131e85cde96ea476226d792e6c261c339780ff44a5
+        run: |
+          set -euo pipefail
+          docker pull "$IMAGE"
+          test "$(docker image inspect "$IMAGE" --format '{{ index .Config.Labels "com.sickicarus.monitorbox.artifact-class" }}')" = "successor-physical-acceptance"
+          test "$(docker image inspect "$IMAGE" --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')" = "edf9eaceeb699069341688060663669cbe640432"
