@@ -144,6 +144,23 @@ class BuildPlatformIndexTests(unittest.TestCase):
                             "runtime/loader/ld-linux-aarch64.so.1",
                             b"\x7fELF" + bytes(80),
                         )
+                    else:
+                        # Minimal synthetic ELF64/AArch64 static executable
+                        # shape for trusted publisher admission.
+                        elf = bytearray(64)
+                        elf[:4] = b"\x7fELF"
+                        elf[4] = 2
+                        elf[5] = 1
+                        elf[18:20] = (183).to_bytes(2, "little")
+                        elf[32:40] = (64).to_bytes(8, "little")
+                        elf[54:56] = (56).to_bytes(2, "little")
+                        elf[56:58] = (0).to_bytes(2, "little")
+                        manifest.update({
+                            "packaging_stage": "successor-scaffold-manager",
+                            "platform": {"os": "linux", "arch": "arm64", "abi": "static"},
+                            "entrypoint": "bin/monitorbox-scaffold",
+                        })
+                        z.writestr("bin/monitorbox-scaffold", bytes(elf))
                     z.writestr("package.json", json.dumps(manifest))
                 (self.packages / filename).write_bytes(buffer.getvalue())
 
@@ -359,6 +376,61 @@ class BuildPlatformIndexTests(unittest.TestCase):
         path.write_bytes(original)
         self.assertTrue(self.candidate())
 
+    def test_sealed_wheelhouse_runtime_signs_without_fake_elf_entrypoint(self) -> None:
+        filename = "synthetic-wheelhouse.zip"
+        wheel_name = "example_pkg-1.0.0-py3-none-any.whl"
+        wheel_bytes = b"synthetic wheel bytes"
+        wheel_sha = hashlib.sha256(wheel_bytes).hexdigest()
+        manifest = {
+            "schema": 1,
+            "artifact_id": "com.sickicarus.monitorbox.core.wheels",
+            "packaging_stage": "qualified-wheel-closure",
+            "release_eligible": True,
+            "platform": {"os": "linux", "arch": "arm64", "python": "cp313"},
+            "direct_requirements": ["example-pkg==1.0.0"],
+            "wheels": [{
+                "name": "example-pkg",
+                "version": "1.0.0",
+                "filename": wheel_name,
+                "sha256": wheel_sha,
+                "size": len(wheel_bytes),
+            }],
+        }
+        lock = (
+            "--only-binary=:all:\n--no-index\n"
+            f"example-pkg==1.0.0 --hash=sha256:{wheel_sha}\n"
+        )
+        with zipfile.ZipFile(self.packages / filename, "w", zipfile.ZIP_DEFLATED) as z:
+            z.writestr("wheelhouse.json", json.dumps(manifest))
+            z.writestr("requirements.lock", lock)
+            z.writestr("wheels/" + wheel_name, wheel_bytes)
+        record = {
+            "artifact_id": "com.sickicarus.monitorbox.core.wheels",
+            "kind": "runtime",
+            "version": "1.0.0",
+            "build": 1,
+            "platform": {"os": "linux", "arch": "arm64", "abi": "glibc"},
+            "requires_scaffold_api": {"minimum": 1, "maximum_exclusive": 2},
+            "dependencies": [],
+            "package_file": filename,
+        }
+        self.source["artifacts"].append(record)
+        raw = self.candidate()
+        signed = verify_index(raw, keys=self.keys, channel="dev", now=self.clock)
+        wheelhouse = next(
+            item for item in signed["artifacts"]
+            if item["artifact_id"] == "com.sickicarus.monitorbox.core.wheels"
+        )
+        verify_package(wheelhouse, self.root, self.keys)
+
+        manifest["release_eligible"] = False
+        with zipfile.ZipFile(self.packages / filename, "w", zipfile.ZIP_DEFLATED) as z:
+            z.writestr("wheelhouse.json", json.dumps(manifest))
+            z.writestr("requirements.lock", lock)
+            z.writestr("wheels/" + wheel_name, wheel_bytes)
+        with self.assertRaisesRegex(PublicationError, "unreleasable"):
+            self.candidate()
+
     def test_runtime_and_manager_require_explicit_approval_and_matching_identity(self) -> None:
         for position in (5, 6, 7):
             record = self.source["artifacts"][position]
@@ -381,6 +453,36 @@ class BuildPlatformIndexTests(unittest.TestCase):
                     self.candidate()
             artifact.write_bytes(original)
         self.assertTrue(self.candidate())
+
+    def test_scaffold_manager_wrong_arch_or_dynamic_elf_fails_before_signing(self) -> None:
+        record = self.source["artifacts"][5]
+        artifact = self.packages / record["package_file"]
+        original = artifact.read_bytes()
+        with zipfile.ZipFile(io.BytesIO(original)) as src:
+            manifest = json.loads(src.read("package.json"))
+            binary = bytearray(src.read("bin/monitorbox-scaffold"))
+
+        binary[18:20] = (62).to_bytes(2, "little")
+        with io.BytesIO() as out:
+            with zipfile.ZipFile(out, "w") as dst:
+                dst.writestr("package.json", json.dumps(manifest))
+                dst.writestr("bin/monitorbox-scaffold", binary)
+            artifact.write_bytes(out.getvalue())
+        with self.assertRaisesRegex(PublicationError, "architecture"):
+            self.candidate()
+
+        binary = bytearray(zipfile.ZipFile(io.BytesIO(original)).read("bin/monitorbox-scaffold"))
+        binary[56:58] = (1).to_bytes(2, "little")
+        binary.extend(bytes(56))
+        binary[64:68] = (3).to_bytes(4, "little")
+        with io.BytesIO() as out:
+            with zipfile.ZipFile(out, "w") as dst:
+                dst.writestr("package.json", json.dumps(manifest))
+                dst.writestr("bin/monitorbox-scaffold", binary)
+            artifact.write_bytes(out.getvalue())
+        with self.assertRaisesRegex(PublicationError, "dynamically linked"):
+            self.candidate()
+        artifact.write_bytes(original)
 
     def test_runtime_missing_loader_and_forged_elf_fail_before_signing(self) -> None:
         record = self.source["artifacts"][6]

@@ -15,6 +15,7 @@ import sys
 import io
 import zipfile
 import tempfile
+import struct
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -48,6 +49,9 @@ def _safe_package_path(root: Path, filename: str) -> Path:
 EXECUTABLE_MODULE_IDS = frozenset({
     "com.sickicarus.monitorbox.core", "com.sickicarus.monitorbox.agent",
 })
+
+CORE_WHEELHOUSE_ID = "com.sickicarus.monitorbox.core.wheels"
+
 
 FIRST_PARTY_APPLICATION_MODULE_IDS = frozenset({
     "com.sickicarus.monitorbox.backup-restore",
@@ -221,6 +225,108 @@ def _verify_module_portable_contract(
         raise PublicationError("module portable contract rejected: " + str(exc)) from exc
 
 
+def _verify_wheelhouse_runtime_admission(
+    item: dict[str, Any], payload: bytes
+) -> None:
+    """Admit the sealed CPython wheel closure as a non-executable runtime.
+
+    core.wheels is intentionally kind=runtime so Core/Agent can select it as
+    an architecture-specific dependency, but unlike Python/Node it has no ELF
+    entrypoint or loader. Its package-owned wheelhouse.json is therefore its
+    release authority.
+    """
+    platform = item.get("platform")
+    if (
+        item.get("artifact_id") != CORE_WHEELHOUSE_ID
+        or item.get("kind") != "runtime"
+        or not isinstance(platform, dict)
+        or platform.get("os") != "linux"
+        or platform.get("arch") not in {"amd64", "arm64"}
+        or platform.get("abi") != "glibc"
+    ):
+        raise PublicationError("wheelhouse signed platform is invalid")
+    try:
+        with zipfile.ZipFile(io.BytesIO(payload)) as archive:
+            names = archive.namelist()
+            if names.count("wheelhouse.json") != 1 or names.count("requirements.lock") != 1:
+                raise PublicationError("wheelhouse requires one manifest and one lock")
+            manifest = _parse(archive.read("wheelhouse.json"))
+            if not isinstance(manifest, dict):
+                raise PublicationError("wheelhouse manifest must be an object")
+            required = {
+                "schema", "artifact_id", "packaging_stage", "release_eligible",
+                "platform", "direct_requirements", "wheels",
+            }
+            if set(manifest) != required:
+                raise PublicationError("wheelhouse manifest shape is invalid")
+            declared_platform = manifest.get("platform")
+            if (
+                manifest.get("schema") != 1
+                or manifest.get("artifact_id") != CORE_WHEELHOUSE_ID
+                or manifest.get("packaging_stage") != "qualified-wheel-closure"
+                or manifest.get("release_eligible") is not True
+                or declared_platform != {
+                    "os": "linux", "arch": platform["arch"], "python": "cp313"
+                }
+            ):
+                raise PublicationError("wheelhouse is unreleasable or platform-mismatched")
+            wheels = manifest.get("wheels")
+            direct = manifest.get("direct_requirements")
+            if (
+                not isinstance(wheels, list) or not wheels or len(wheels) > 128
+                or not isinstance(direct, list) or not direct
+            ):
+                raise PublicationError("wheelhouse closure is empty or excessive")
+            records: dict[str, dict[str, Any]] = {}
+            for record in wheels:
+                if not isinstance(record, dict) or set(record) != {
+                    "name", "version", "filename", "sha256", "size"
+                }:
+                    raise PublicationError("wheelhouse wheel record is invalid")
+                filename = record.get("filename")
+                digest = record.get("sha256")
+                size = record.get("size")
+                if (
+                    not isinstance(filename, str)
+                    or not re.fullmatch(r"[A-Za-z0-9_.+-]+[.]whl", filename)
+                    or not isinstance(digest, str)
+                    or not re.fullmatch(r"[0-9a-f]{64}", digest)
+                    or type(size) is not int or size < 1
+                    or filename in records
+                ):
+                    raise PublicationError("wheelhouse wheel identity is invalid")
+                member = "wheels/" + filename
+                if names.count(member) != 1:
+                    raise PublicationError("wheelhouse declared wheel is absent or duplicated")
+                wheel_bytes = archive.read(member)
+                if len(wheel_bytes) != size or hashlib.sha256(wheel_bytes).hexdigest() != digest:
+                    raise PublicationError("wheelhouse declared wheel digest/size mismatch")
+                records[filename] = record
+            expected_names = {"wheelhouse.json", "requirements.lock"} | {
+                "wheels/" + name for name in records
+            }
+            if set(names) != expected_names:
+                raise PublicationError("wheelhouse contains unlisted package bytes")
+            lock = archive.read("requirements.lock").decode("utf-8")
+            for record in wheels:
+                needle = (
+                    f"{record['name']}=={record['version']} "
+                    f"--hash=sha256:{record['sha256']}"
+                )
+                if needle not in lock:
+                    raise PublicationError("wheelhouse lock omits a signed wheel")
+            for requirement in direct:
+                if (
+                    not isinstance(requirement, str)
+                    or not re.fullmatch(r"[A-Za-z0-9_.-]+==[A-Za-z0-9.+-]+", requirement)
+                ):
+                    raise PublicationError("wheelhouse has unpinned direct requirement")
+    except (zipfile.BadZipFile, KeyError, UnicodeDecodeError) as exc:
+        raise PublicationError("wheelhouse is not a valid sealed runtime ZIP") from exc
+    except VerificationError as exc:
+        raise PublicationError("wheelhouse manifest JSON is invalid") from exc
+
+
 def _verify_runtime_or_manager_admission(item: dict[str, Any], payload: bytes) -> None:
     """Never sign an unapproved runtime or replacement manager executable.
 
@@ -229,6 +335,9 @@ def _verify_runtime_or_manager_admission(item: dict[str, Any], payload: bytes) -
     Those require signed full-generation runtime and physical acceptance.
     """
     if item.get("kind") not in {"runtime", "scaffold-manager"}:
+        return
+    if item.get("artifact_id") == CORE_WHEELHOUSE_ID:
+        _verify_wheelhouse_runtime_admission(item, payload)
         return
     try:
         with zipfile.ZipFile(io.BytesIO(payload)) as archive:
@@ -259,6 +368,52 @@ def _verify_runtime_or_manager_admission(item: dict[str, Any], payload: bytes) -
         raise PublicationError("runtime/manager kind disagrees with catalog")
     if any(manifest.get(key) != item.get(key) for key in ("artifact_id", "version", "build")):
         raise PublicationError("runtime/manager identity disagrees with signed catalog")
+
+    if item["kind"] == "scaffold-manager":
+        platform = item.get("platform")
+        entrypoint = manifest.get("entrypoint")
+        if (
+            manifest.get("packaging_stage") != "successor-scaffold-manager"
+            or manifest.get("platform") != platform
+            or not isinstance(platform, dict)
+            or platform.get("os") != "linux"
+            or platform.get("arch") not in {"amd64", "arm64"}
+            or platform.get("abi") != "static"
+            or entrypoint != "bin/monitorbox-scaffold"
+            or entries.count(entrypoint) != 1
+            or set(entries) != {"package.json", entrypoint}
+        ):
+            raise PublicationError("scaffold-manager package contract is invalid")
+        try:
+            with zipfile.ZipFile(io.BytesIO(payload)) as manager_archive:
+                manager = manager_archive.read(entrypoint)
+        except (zipfile.BadZipFile, KeyError) as exc:
+            raise PublicationError("scaffold-manager executable is missing") from exc
+        if (
+            len(manager) < 64
+            or manager[:4] != b"\x7fELF"
+            or manager[4] != 2
+            or manager[5] != 1
+        ):
+            raise PublicationError("scaffold-manager executable is not little-endian ELF64")
+        machine = struct.unpack_from("<H", manager, 18)[0]
+        expected_machine = {"amd64": 62, "arm64": 183}[platform["arch"]]
+        if machine != expected_machine:
+            raise PublicationError("scaffold-manager ELF architecture disagrees with catalog")
+        phoff = struct.unpack_from("<Q", manager, 32)[0]
+        phentsize = struct.unpack_from("<H", manager, 54)[0]
+        phnum = struct.unpack_from("<H", manager, 56)[0]
+        if (
+            phnum > 4096
+            or (phnum and phentsize < 56)
+            or phoff > len(manager)
+            or phoff + phentsize * phnum > len(manager)
+        ):
+            raise PublicationError("scaffold-manager ELF program headers are invalid")
+        for index in range(phnum):
+            p_type = struct.unpack_from("<I", manager, phoff + index * phentsize)[0]
+            if p_type == 3:
+                raise PublicationError("scaffold-manager executable is dynamically linked")
 
 def _timestamp(value: datetime) -> datetime:
     if value.tzinfo is None:

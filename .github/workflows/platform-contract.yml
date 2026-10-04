@@ -10,6 +10,12 @@ on:
       - "tools/build_platform_index.py"
       - "tools/test_platform_index.py"
       - "tools/test_build_platform_index.py"
+      - "tools/qualify_successor_runtime_artifacts.py"
+      - "tools/test_qualify_successor_runtime_artifacts.py"
+      - "tools/build_successor_acceptance_feed_source.py"
+      - "tools/test_build_successor_acceptance_feed_source.py"
+      - "tools/successor_feed_server.go"
+      - "platform/acceptance-feed.Dockerfile"
       - "tools/portable_contracts.py"
       - "tools/test_portable_contracts.py"
       - ".github/workflows/platform-contract.yml"
@@ -28,11 +34,50 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.25"
+          cache: false
       - name: Install isolated verifier dependencies
-        run: python -m pip install "cryptography>=45,<49" "jsonschema>=4,<5"
+        run: python -m pip install "cryptography>=45,<49" "jsonschema>=4,<5" pytest
       - name: Synthetic-key signature and schema regression tests
         run: python -m unittest discover -s tools -p "test_*platform_index.py" -v
       - name: First-party portable contract authority
         run: python -m unittest discover -s tools -p "test_portable_contracts.py" -v
-      - name: Compile verifier
-        run: python -m py_compile tools/verify_platform_index.py tools/build_platform_index.py tools/portable_contracts.py
+      - name: Acceptance feed qualification and exact closure
+        run: |
+          PYTHONPATH=tools python -m pytest -q             tools/test_qualify_successor_runtime_artifacts.py             tools/test_build_successor_acceptance_feed_source.py
+      - name: Compile verifier and acceptance feed builders
+        run: |
+          python -m py_compile             tools/verify_platform_index.py             tools/build_platform_index.py             tools/portable_contracts.py             tools/qualify_successor_runtime_artifacts.py             tools/build_successor_acceptance_feed_source.py
+          go build -trimpath -ldflags="-s -w" -o "$RUNNER_TEMP/feed-server" tools/successor_feed_server.go
+      - name: Prove loopback-only feed transport and scratch image
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/feed"
+          mkdir -p "$root/platform/channels/dev" "$root/platform/packages"
+          printf '%s\n' '{"synthetic":"index"}' > "$root/platform/channels/dev/index.json"
+          printf 'synthetic-package' > "$root/platform/packages/example.zip"
+          "$RUNNER_TEMP/feed-server" -root "$root" -listen 127.0.0.1:38081 >"$RUNNER_TEMP/feed.log" 2>&1 &
+          pid=$!
+          trap 'kill "$pid" >/dev/null 2>&1 || true' EXIT
+          for attempt in 1 2 3 4 5; do
+            if curl --fail --silent http://127.0.0.1:38081/healthz >/dev/null; then break; fi
+            sleep 0.2
+          done
+          test "$(curl --fail --silent http://127.0.0.1:38081/platform/packages/example.zip)" = "synthetic-package"
+          if curl --fail --silent http://127.0.0.1:38081/not-allowed >/dev/null 2>&1; then
+            echo "::error::feed exposed an unapproved path"; exit 1
+          fi
+          kill "$pid"
+          wait "$pid" || true
+          trap - EXIT
+
+          context="$RUNNER_TEMP/feed-image"
+          mkdir -p "$context/tools" "$context/platform/channels/dev" "$context/platform/packages"
+          cp tools/successor_feed_server.go "$context/tools/"
+          cp platform/acceptance-feed.Dockerfile "$context/Dockerfile"
+          cp "$root/platform/channels/dev/index.json" "$context/platform/channels/dev/"
+          cp "$root/platform/packages/example.zip" "$context/platform/packages/"
+          docker build -f "$context/Dockerfile" -t monitorbox-successor-feed:ci "$context"
