@@ -63,11 +63,11 @@ jobs:
           pid=$!
           trap 'kill "$pid" >/dev/null 2>&1 || true' EXIT
           for attempt in 1 2 3 4 5; do
-            if curl --fail --silent http://127.0.0.1:18081/healthz >/dev/null; then break; fi
+            if curl --fail --silent http://127.0.0.1:38081/healthz >/dev/null; then break; fi
             sleep 0.2
           done
-          test "$(curl --fail --silent http://127.0.0.1:18081/platform/packages/example.zip)" = "synthetic-package"
-          if curl --fail --silent http://127.0.0.1:18081/not-allowed >/dev/null 2>&1; then
+          test "$(curl --fail --silent http://127.0.0.1:38081/platform/packages/example.zip)" = "synthetic-package"
+          if curl --fail --silent http://127.0.0.1:38081/not-allowed >/dev/null 2>&1; then
             echo "::error::feed exposed an unapproved path"; exit 1
           fi
           kill "$pid"
