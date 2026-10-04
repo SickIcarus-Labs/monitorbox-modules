@@ -38,6 +38,8 @@ jobs:
       - name: Compile trusted successor signer tools
         run: |
           python -m py_compile             tools/build_platform_index.py             tools/verify_platform_index.py             tools/portable_contracts.py             tools/verify_trusted_successor_signer_snapshot.py
+      - name: Install test dependency
+        run: python -m pip install --disable-pip-version-check pytest
       - name: Run publication-control tests
         run: python -m pytest -q tools/test_trusted_successor_signer_snapshot.py tools/test_successor_signed_feed_publication.py
       - name: Build loopback feed server
