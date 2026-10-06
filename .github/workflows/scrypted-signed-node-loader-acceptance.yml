@@ -1,0 +1,31 @@
+name: Scrypted signed Node loader acceptance
+
+on:
+  pull_request:
+    paths:
+      - sources/scrypted/2.3.1-build7/**
+      - tools/build_first_party_scrypted_231.py
+      - tools/accept_scrypted_signed_node_loader.py
+      - .github/workflows/scrypted-signed-node-loader-acceptance.yml
+  push:
+    branches:
+      - fix/547-scrypted-signed-node-loader
+    paths:
+      - sources/scrypted/2.3.1-build7/**
+      - tools/build_first_party_scrypted_231.py
+      - tools/accept_scrypted_signed_node_loader.py
+      - .github/workflows/scrypted-signed-node-loader-acceptance.yml
+
+permissions:
+  contents: read
+
+jobs:
+  signed-node-loader:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Verify Scrypted signed Node loader repair
+        run: python tools/accept_scrypted_signed_node_loader.py
