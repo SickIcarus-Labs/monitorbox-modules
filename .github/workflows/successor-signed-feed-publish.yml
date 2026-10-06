@@ -50,7 +50,7 @@ jobs:
           COMMAND: ${{ github.event.comment.body }}
         run: |
           set -euo pipefail
-          digest="${COMMAND#'/publish-successor-signed-feed-2 '}"
+          digest="${COMMAND#'/publish-successor-signed-feed-3 '}"
           [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || {
             echo "::error::publication command requires one exact sha256 digest"
             exit 1
