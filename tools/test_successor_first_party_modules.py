@@ -34,7 +34,7 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
 
     def test_scrypted_requires_node24_but_other_modules_do_not(self) -> None:
         scrypted = self.records[subject.SCRYPTED_ID]
-        self.assertEqual(8, scrypted["build"])
+        self.assertEqual(9, scrypted["build"])
         self.assertEqual(
             [
                 {
