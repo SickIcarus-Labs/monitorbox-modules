@@ -41,8 +41,10 @@ MAX_TOTAL_BYTES = 128 << 20
 
 CORE_ID = "com.sickicarus.monitorbox.core"
 SCRYPTED_ID = "com.sickicarus.monitorbox.scrypted"
+UI_ID = "com.sickicarus.monitorbox.ui"
 NODE_RUNTIME_ID = "com.sickicarus.monitorbox.runtime.node"
 SCRYPTED_RUNTIME_MEMBER = "monitorbox_scrypted_v230_b6/runtime.py"
+UI_MODULES_MEMBER_SUFFIX = "/assets/modules.js"
 
 _CORE_DEPENDENCY = {
     "artifact_id": CORE_ID,
@@ -249,20 +251,9 @@ def _predecessor_members(record: dict[str, Any]) -> dict[str, bytes | None]:
         return result
 
 
-def _successor_runtime_overlays(
-    record: dict[str, Any],
+def _apply_scrypted_successor_overlay(
     files: dict[str, bytes | None],
 ) -> None:
-    """Apply narrowly bounded successor-only runtime contracts.
-
-    Scrypted 2.x located Node from the container PATH. Successor Agent3 must
-    instead launch the exact signed Node runtime selected by the scaffold,
-    including its reviewed ELF loader and library closure. The legacy fallback
-    remains available only when no scaffold artifact identity is present.
-    """
-
-    if record["artifact_id"] != SCRYPTED_ID:
-        return
     payload = files.get(SCRYPTED_RUNTIME_MEMBER)
     if not isinstance(payload, bytes):
         raise SuccessorModuleError("Scrypted predecessor runtime member is missing")
@@ -338,6 +329,220 @@ def _successor_runtime_overlays(
         .replace(old_mkdir, new_mkdir, 1)
     )
     files[SCRYPTED_RUNTIME_MEMBER] = text.encode("utf-8")
+
+
+
+def _apply_ui_successor_overlay(
+    files: dict[str, bytes | None],
+) -> None:
+    members = [
+        name for name, payload in files.items()
+        if name.endswith(UI_MODULES_MEMBER_SUFFIX) and isinstance(payload, bytes)
+    ]
+    if len(members) != 1:
+        raise SuccessorModuleError(
+            "UI predecessor must contain exactly one assets/modules.js member"
+        )
+    member = members[0]
+    payload = files[member]
+    assert isinstance(payload, bytes)
+    try:
+        text = payload.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise SuccessorModuleError("UI predecessor modules.js is not UTF-8") from exc
+
+    capability_anchor = '''    const catalogRefresh = Boolean(current.catalog_refresh);
+    const packageInstall = Boolean(current.package_install);
+    const repositoryError = model && model.repository_error ? String(model.repository_error) : "";
+'''
+    capability_replacement = '''    const catalogRefresh = Boolean(current.catalog_refresh);
+    const packageInstall = Boolean(current.package_install);
+    const scaffoldLifecycle = Boolean(current.scaffold_lifecycle);
+    const updatePlane = packageInstall || scaffoldLifecycle;
+    const distributionReady = scaffoldLifecycle || (catalogRefresh && packageInstall);
+    const repositoryError = model && model.repository_error ? String(model.repository_error) : "";
+'''
+    if text.count(capability_anchor) != 1:
+        raise SuccessorModuleError("UI capability boundary changed unexpectedly")
+    text = text.replace(capability_anchor, capability_replacement, 1)
+    if text.count("heading.textContent = catalogRefresh && packageInstall") != 1:
+        raise SuccessorModuleError("UI distribution heading boundary changed unexpectedly")
+    text = text.replace(
+        "heading.textContent = catalogRefresh && packageInstall",
+        "heading.textContent = distributionReady",
+        1,
+    )
+    if text.count(
+        'capabilities.dataset.state = catalogRefresh && packageInstall && !repositoryError ? "ready" : "limited";'
+    ) != 1:
+        raise SuccessorModuleError("UI distribution state boundary changed unexpectedly")
+    text = text.replace(
+        'capabilities.dataset.state = catalogRefresh && packageInstall && !repositoryError ? "ready" : "limited";',
+        'capabilities.dataset.state = distributionReady && !repositoryError ? "ready" : "limited";',
+        1,
+    )
+    if text.count(
+        "checkUpdates.disabled = !catalogRefresh || !authenticated || !csrfToken || busy;"
+    ) != 1:
+        raise SuccessorModuleError("UI check-updates capability boundary changed unexpectedly")
+    text = text.replace(
+        "checkUpdates.disabled = !catalogRefresh || !authenticated || !csrfToken || busy;",
+        "checkUpdates.disabled = (!catalogRefresh && !scaffoldLifecycle) || !authenticated || !csrfToken || busy;",
+        1,
+    )
+    if text.count('checkUpdates.title = !catalogRefresh') != 1:
+        raise SuccessorModuleError("UI check-updates title boundary changed unexpectedly")
+    text = text.replace(
+        'checkUpdates.title = !catalogRefresh',
+        'checkUpdates.title = (!catalogRefresh && !scaffoldLifecycle)',
+        1,
+    )
+
+    old_update_gate = '''    const updates = installed.reduce(
+      (count, module) => count + ((Array.isArray(module.actions) && module.actions.includes("update")) ? 1 : 0),
+      0
+    );
+    const packageInstall = Boolean(model && model.capabilities && model.capabilities.package_install);
+    updateAll.disabled = !authenticated || !csrfToken || !packageInstall || updates === 0 || busy;
+    updateAll.textContent = updates > 0 ? `Update All (${updates})` : "Update All";
+'''
+    new_update_gate = '''    const capabilities = model && model.capabilities ? model.capabilities : {};
+    const scaffoldLifecycle = Boolean(capabilities.scaffold_lifecycle);
+    const legacyUpdates = installed.reduce(
+      (count, module) => count + ((Array.isArray(module.actions) && module.actions.includes("update")) ? 1 : 0),
+      0
+    );
+    const updates = scaffoldLifecycle
+      ? Number(capabilities.platform_update_count || 0)
+      : legacyUpdates;
+    const updatePlane = scaffoldLifecycle || Boolean(capabilities.package_install);
+    updateAll.disabled = !authenticated || !csrfToken || !updatePlane || updates === 0 || busy;
+    updateAll.textContent = updates > 0 ? `Update All (${updates})` : "Update All";
+'''
+    if text.count(old_update_gate) != 1:
+        raise SuccessorModuleError("UI Update All gate boundary changed unexpectedly")
+    text = text.replace(old_update_gate, new_update_gate, 1)
+
+    update_start = text.find("  async function updateAllModules() {")
+    update_end = text.find('  repositoryForm.addEventListener("submit"', update_start)
+    if update_start < 0 or update_end < 0:
+        raise SuccessorModuleError("UI Update All handler boundary changed unexpectedly")
+    new_update_handler = '''  async function updateAllModules() {
+    if (!authenticated || !csrfToken || busy) return;
+    busy = true;
+    renderCapabilities();
+    renderRepositories();
+    renderModules();
+    const scaffoldLifecycle = Boolean(model?.capabilities?.scaffold_lifecycle);
+    setStatus(scaffoldLifecycle
+      ? "Applying compatible signed MonitorBox updates…"
+      : "Applying compatible cached module updates independently…");
+    try {
+      const payload = await jsonRequest(UPDATE_ALL_API, {
+        method: "POST",
+        headers: { [CSRF_HEADER]: csrfToken },
+      });
+      const scaffoldActivation = Boolean(payload.accepted)
+        || payload.runtime_reconcile === "scaffold_activation_scheduled";
+      if (scaffoldActivation) {
+        const pending = Number(payload.pending || 0);
+        setStatus(
+          `Update accepted${pending ? ` for ${pending} package${pending === 1 ? "" : "s"}` : ""}. MonitorBox is activating the signed generation; reconnecting may take a moment.`
+        );
+      } else {
+        const summary = `${payload.updated || 0} updated, ${payload.failed || 0} failed.`;
+        setStatus(
+          payload.runtime_reconcile === "restart_scheduled"
+            ? `${summary} Module authority committed; MonitorBox restart scheduled.`
+            : summary,
+          Boolean(payload.failed)
+        );
+        if (payload.runtime_reconcile !== "restart_scheduled") {
+          await loadModel();
+        }
+      }
+    } catch (error) {
+      setStatus(error.message || String(error), true);
+    } finally {
+      busy = false;
+      renderCapabilities();
+      renderRepositories();
+      renderModules();
+    }
+  }
+
+'''
+    text = text[:update_start] + new_update_handler + text[update_end:]
+
+    check_start = text.find('  checkUpdates.addEventListener("click", async () => {')
+    check_end = text.find('  updateAll.addEventListener("click", updateAllModules);', check_start)
+    if check_start < 0 or check_end < 0:
+        raise SuccessorModuleError("UI Check for Updates handler boundary changed unexpectedly")
+    new_check_handler = '''  checkUpdates.addEventListener("click", async () => {
+    const capabilities = model && model.capabilities ? model.capabilities : {};
+    const scaffoldLifecycle = Boolean(capabilities.scaffold_lifecycle);
+    if (!capabilities.catalog_refresh && !scaffoldLifecycle) {
+      setStatus("Update discovery is unavailable in this build.", true);
+      return;
+    }
+    if (!authenticated || !csrfToken || busy) return;
+
+    busy = true;
+    renderCapabilities();
+    renderRepositories();
+    renderModules();
+    setStatus(scaffoldLifecycle
+      ? "Checking the signed MonitorBox release channel for updates…"
+      : "Checking configured module repositories for updates…");
+    try {
+      const payload = await jsonRequest(CHECK_UPDATES_API, {
+        method: "POST",
+        headers: { [CSRF_HEADER]: csrfToken },
+      });
+      await loadModel();
+      const failed = Number(payload.failed || 0);
+      if (scaffoldLifecycle) {
+        const updates = Number(payload.platform_update_count || 0);
+        setStatus(
+          updates > 0
+            ? `Update check complete: ${updates} signed package${updates === 1 ? "" : "s"} available.`
+            : "Update check complete: MonitorBox is current.",
+          failed > 0
+        );
+      } else {
+        const refreshed = Number(payload.refreshed || 0);
+        setStatus(
+          `Repository check complete: ${refreshed} refreshed, ${failed} failed.`,
+          failed > 0
+        );
+      }
+    } catch (error) {
+      setStatus(error.message || String(error), true);
+    } finally {
+      busy = false;
+      renderCapabilities();
+      renderRepositories();
+      renderModules();
+    }
+  });
+
+'''
+    text = text[:check_start] + new_check_handler + text[check_end:]
+    files[member] = text.encode("utf-8")
+
+
+def _successor_runtime_overlays(
+    record: dict[str, Any],
+    files: dict[str, bytes | None],
+) -> None:
+    """Apply narrowly bounded successor-only runtime/operator overlays."""
+
+    artifact_id = record["artifact_id"]
+    if artifact_id == SCRYPTED_ID:
+        _apply_scrypted_successor_overlay(files)
+    elif artifact_id == UI_ID:
+        _apply_ui_successor_overlay(files)
+
 
 
 def package_manifest(record: dict[str, Any], *, release_eligible: bool) -> bytes:

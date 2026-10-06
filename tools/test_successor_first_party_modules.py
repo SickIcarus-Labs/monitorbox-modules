@@ -32,6 +32,11 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
                 record["platform"]["dependencies"],
             )
 
+    def test_successor_ui_advances_for_scaffold_lifecycle_operator_contract(self) -> None:
+        ui = self.records[subject.UI_ID]
+        self.assertEqual(56, ui["build"])
+        self.assertEqual(56, ui["module_runtime"]["build"])
+
     def test_scrypted_requires_node24_but_other_modules_do_not(self) -> None:
         scrypted = self.records[subject.SCRYPTED_ID]
         self.assertEqual(9, scrypted["build"])
@@ -126,6 +131,28 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
                             )
                             self.assertIn(
                                 'shutil.which(os.environ.get("MONITORBOX_MODULE_NODE", "node"))',
+                                decoded,
+                            )
+                        elif (
+                            artifact_id == subject.UI_ID
+                            and name.endswith(subject.UI_MODULES_MEMBER_SUFFIX)
+                        ):
+                            predecessor_ui = old.read(name)
+                            successor_ui = new.read(name)
+                            self.assertNotEqual(predecessor_ui, successor_ui)
+                            decoded = successor_ui.decode("utf-8")
+                            self.assertIn("scaffold_lifecycle", decoded)
+                            self.assertIn("platform_update_count", decoded)
+                            self.assertIn("scaffold_activation_scheduled", decoded)
+                            self.assertIn(
+                                "Applying compatible signed MonitorBox updates", decoded
+                            )
+                            self.assertIn(
+                                "updateAll.disabled = !authenticated || !csrfToken || !updatePlane",
+                                decoded,
+                            )
+                            self.assertNotIn(
+                                "updateAll.disabled = !authenticated || !csrfToken || !packageInstall || updates === 0 || busy;",
                                 decoded,
                             )
                         else:
