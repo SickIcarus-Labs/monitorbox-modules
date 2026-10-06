@@ -317,11 +317,26 @@ def _successor_runtime_overlays(
             env=environment,
         )
 '''
-    if text.count(old_lookup) != 1 or text.count(old_exec) != 1:
+    old_socket = '_DEFAULT_SOCKET = "/run/monitorbox-scrypted/bridge.sock"'
+    new_socket = '_DEFAULT_SOCKET = "/tmp/monitorbox-scrypted/bridge.sock"'
+    old_mkdir = "        socket_path.parent.mkdir(parents=True, exist_ok=True)\n"
+    new_mkdir = "        socket_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)\n"
+
+    if (
+        text.count(old_lookup) != 1
+        or text.count(old_exec) != 1
+        or text.count(old_socket) != 1
+        or text.count(old_mkdir) != 1
+    ):
         raise SuccessorModuleError(
-            "Scrypted predecessor Node launch boundary changed unexpectedly"
+            "Scrypted predecessor successor runtime boundary changed unexpectedly"
         )
-    text = text.replace(old_lookup, new_lookup, 1).replace(old_exec, new_exec, 1)
+    text = (
+        text.replace(old_lookup, new_lookup, 1)
+        .replace(old_exec, new_exec, 1)
+        .replace(old_socket, new_socket, 1)
+        .replace(old_mkdir, new_mkdir, 1)
+    )
     files[SCRYPTED_RUNTIME_MEMBER] = text.encode("utf-8")
 
 

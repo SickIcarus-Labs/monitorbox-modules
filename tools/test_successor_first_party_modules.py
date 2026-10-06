@@ -34,7 +34,7 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
 
     def test_scrypted_requires_node24_but_other_modules_do_not(self) -> None:
         scrypted = self.records[subject.SCRYPTED_ID]
-        self.assertEqual(8, scrypted["build"])
+        self.assertEqual(9, scrypted["build"])
         self.assertEqual(
             [
                 {
@@ -112,6 +112,18 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
                             self.assertIn("MONITORBOX_MODULE_NODE_LOADER", decoded)
                             self.assertIn("MONITORBOX_MODULE_NODE_LIBRARY_PATH", decoded)
                             self.assertIn("*node_command", decoded)
+                            self.assertIn(
+                                '_DEFAULT_SOCKET = "/tmp/monitorbox-scrypted/bridge.sock"',
+                                decoded,
+                            )
+                            self.assertIn(
+                                "socket_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)",
+                                decoded,
+                            )
+                            self.assertNotIn(
+                                '_DEFAULT_SOCKET = "/run/monitorbox-scrypted/bridge.sock"',
+                                decoded,
+                            )
                             self.assertIn(
                                 'shutil.which(os.environ.get("MONITORBOX_MODULE_NODE", "node"))',
                                 decoded,
