@@ -6,6 +6,8 @@ import importlib.util
 import os
 import shutil
 import stat
+import subprocess
+import sys
 import tempfile
 import zipfile
 from pathlib import Path
@@ -45,8 +47,17 @@ def main() -> None:
         shutil.copy2(predecessor, first / predecessor.name)
         shutil.copy2(predecessor, second / predecessor.name)
 
-        one = release.build(root, first)
-        two = release.build(root, second)
+        builder = root / "tools" / "build_first_party_scrypted_231.py"
+        subprocess.run(
+            [sys.executable, str(builder), "--output-dir", str(first)], check=True
+        )
+        subprocess.run(
+            [sys.executable, str(builder), "--output-dir", str(second)], check=True
+        )
+        one = first / EXPECTED_PACKAGE
+        two = second / EXPECTED_PACKAGE
+        if not one.is_file() or not two.is_file():
+            raise AssertionError("Scrypted loader-repair package was not built")
         if one.name != EXPECTED_PACKAGE or two.name != EXPECTED_PACKAGE:
             raise AssertionError("Scrypted loader-repair package identity changed")
         if one.read_bytes() != two.read_bytes():
