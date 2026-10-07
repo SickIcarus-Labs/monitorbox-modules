@@ -9,9 +9,9 @@ def test_signed_feed_publication_is_exact_user_and_issue_scoped():
     for required in (
         "github.event.issue.number == 128",
         "github.event.comment.user.login == 'SickIcarus'",
-        "startsWith(github.event.comment.body, '/publish-successor-signed-feed-6 sha256:')",
-        "digest=\"${COMMAND#\'/publish-successor-signed-feed-6 \'}\"",
-        "CORE_SOURCE_SHA: dea5831a350d28d46a7172602b509f98151838cb",
+        "startsWith(github.event.comment.body, '/publish-successor-signed-feed-7 sha256:')",
+        "digest=\"${COMMAND#\'/publish-successor-signed-feed-7 \'}\"",
+        "CORE_SOURCE_SHA: dc4aed2acf3465d97476e01ca5d2063e61b9901d",
         "MODULES_SOURCE_SHA: 5dd8ef0c6183840cdf448a1a720bd1231b86c7c4",
         "REAL_PYTHON_SOURCE_SHA: 3e4cf4ae9072efff941f35a2b0b20b7b493de4cc",
         "HANDOFF_IMAGE: ghcr.io/sickicarus-labs/monitorbox-successor-feed",
@@ -47,7 +47,7 @@ def test_protected_signer_matches_official_root_and_publishes_only_immutable_fee
         "official-ed25519-1.pub",
         "protected signer does not match official-ed25519-1",
         "--channel stable",
-        "--sequence 6",
+        "--sequence 7",
         "--valid-hours 168",
         "Immutable successor publication identity already exists",
         "platforms: linux/amd64,linux/arm64",
@@ -86,15 +86,13 @@ def test_protected_signer_derives_manager_only_supervisor_bootstrap_feed():
     assert "$SUPERVISOR_IMAGE:stable" not in signed
 
 
-def test_sequence6_supervisor_backfill_does_not_republish_full_feed_or_move_stable():
+
+
+def test_sequence7_signed_publication_owns_both_full_and_supervisor_immutable_feeds():
     raw=WORKFLOW.read_text("utf-8")
-    backfill=raw.split("  supervisor-backfill:",1)[1]
-    assert "startsWith(github.event.comment.body, '/publish-successor-supervisor-feed-6 sha256:')" in backfill
-    assert "secrets.MONITORBOX_MODULE_SIGNING_KEY" in backfill
-    assert "protected signer does not match official-ed25519-1" in backfill
-    assert "successor-supervisor-bootstrap-feed" in backfill
-    assert "assert len(artifacts)==1" in backfill
-    assert "assert len(packages)==1" in backfill
-    assert "$FINAL_IMAGE:$FINAL_TAG" not in backfill
-    assert "$SUPERVISOR_IMAGE:stable" not in backfill
-    assert "stable pointer changed: **no**" in backfill
+    assert "FINAL_TAG: seq-7-core-dc4aed2acf34-mods-5dd8ef0c6183" in raw
+    assert "SUPERVISOR_TAG: seq-7-core-dc4aed2acf34" in raw
+    assert "com.sickicarus.monitorbox.catalog-sequence=7" in raw
+    assert "catalog sequence: 7" in raw
+    assert "supervisor-backfill:" not in raw
+    assert "/publish-successor-supervisor-feed-6" not in raw
