@@ -79,7 +79,8 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
                 decoded = archive.read(subject.SCRYPTED_RUNTIME_MEMBER).decode("utf-8")
 
             start = decoded.index("def resolve_managed_socket(")
-            end = decoded.index("\n\n@dataclass", start)
+            return_line = "    return str(socket_path)\n"
+            end = decoded.index(return_line, start) + len(return_line)
             namespace = {
                 "Any": object,
                 "Path": Path,
