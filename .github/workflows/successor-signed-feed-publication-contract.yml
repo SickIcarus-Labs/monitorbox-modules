@@ -5,6 +5,7 @@ on:
     paths:
       - ".github/workflows/successor-signed-feed-publish.yml"
       - ".github/workflows/successor-signed-feed-stable-pointer.yml"
+      - ".github/workflows/successor-supervisor-feed-seq7-publish.yml"
       - ".github/workflows/successor-signed-feed-publication-contract.yml"
       - "tools/build_platform_index.py"
       - "tools/verify_platform_index.py"
