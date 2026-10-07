@@ -49,7 +49,7 @@ def test_protected_signer_matches_official_root_and_publishes_only_immutable_fee
         "--channel stable",
         "--sequence 6",
         "--valid-hours 168",
-        "Immutable signed successor feed already exists",
+        "Immutable successor publication identity already exists",
         "platforms: linux/amd64,linux/arm64",
         "provenance: false",
         "steps.publish.outputs.digest",
