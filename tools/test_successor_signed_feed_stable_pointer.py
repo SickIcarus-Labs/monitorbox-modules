@@ -27,7 +27,7 @@ def test_successor_stable_feed_pointer_is_exact_verified_and_rebuild_free():
 def test_supervisor_stable_pointer_is_exact_verified_manager_only_and_rebuild_free():
     raw = WORKFLOW.read_text("utf-8")
     for required in (
-        "github.event.comment.body == '/point-successor-supervisor-feed-stable-6'",
+        "github.event.comment.body == '/point-successor-supervisor-feed-stable-7'",
         "SUPERVISOR_IMAGE: ghcr.io/sickicarus-labs/monitorbox-successor-supervisor-feed",
         "SUPERVISOR_EXPECTED_TAG: seq-7-core-dc4aed2acf34",
         "SUPERVISOR_EXPECTED_DIGEST: sha256:a5f09f075f268e4ee541828f30fb6e9ffd929a7e1f62136e04b58aa915a1709a",
