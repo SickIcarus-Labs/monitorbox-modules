@@ -40,9 +40,11 @@ MAX_MEMBER_BYTES = 32 << 20
 MAX_TOTAL_BYTES = 128 << 20
 
 CORE_ID = "com.sickicarus.monitorbox.core"
+PORTAINER_ID = "com.sickicarus.monitorbox.portainer"
 SCRYPTED_ID = "com.sickicarus.monitorbox.scrypted"
 UI_ID = "com.sickicarus.monitorbox.ui"
 NODE_RUNTIME_ID = "com.sickicarus.monitorbox.runtime.node"
+PORTAINER_RUNTIME_MEMBER = "monitorbox_portainer_b9/runtime.py"
 SCRYPTED_RUNTIME_MEMBER = "monitorbox_scrypted_v230_b6/runtime.py"
 UI_MODULES_MEMBER_SUFFIX = "/assets/modules.js"
 UI_MODULES_CSS_MEMBER_SUFFIX = "/assets/modules.css"
@@ -250,6 +252,152 @@ def _predecessor_members(record: dict[str, Any]) -> dict[str, bytes | None]:
             seen.add(name)
             result[name] = payload
         return result
+
+
+def _apply_portainer_successor_overlay(
+    files: dict[str, bytes | None],
+) -> None:
+    """Keep real multi-environment inventory inside the managed 15s budget."""
+
+    payload = files.get(PORTAINER_RUNTIME_MEMBER)
+    if not isinstance(payload, bytes):
+        raise SuccessorModuleError("Portainer predecessor runtime member is missing")
+    try:
+        text = payload.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise SuccessorModuleError("Portainer predecessor runtime is not UTF-8") from exc
+
+    import_anchor = "from __future__ import annotations\n\n"
+    if text.count(import_anchor) != 1 or "import asyncio\n" in text:
+        raise SuccessorModuleError(
+            "Portainer predecessor asyncio import boundary changed unexpectedly"
+        )
+    text = text.replace(import_anchor, import_anchor + "import asyncio\n", 1)
+
+    old_timeout = "        timeout = aiohttp.ClientTimeout(total=15)\n"
+    new_timeout = (
+        "        # The Core managed-provider deadline is 15s. Bound each Portainer\n"
+        "        # request to 5s and fan out environment inventories concurrently so\n"
+        "        # one slow endpoint becomes partial visibility rather than killing\n"
+        "        # the entire provider execution.\n"
+        "        timeout = aiohttp.ClientTimeout(total=5)\n"
+    )
+    if text.count(old_timeout) != 1:
+        raise SuccessorModuleError(
+            "Portainer predecessor timeout boundary changed unexpectedly"
+        )
+    text = text.replace(old_timeout, new_timeout, 1)
+
+    old_loop = '''            ignored_count = 0
+            for (
+                endpoint,
+                provider_id,
+                name,
+                engine,
+                environment_key,
+            ) in _environment_rows(endpoints, selected_ids):
+                endpoint_url = endpoint.get("URL", endpoint.get("url"))
+                environments.append(
+                    {
+                        "provider_id": provider_id,
+                        "name": name,
+                        "key": environment_key,
+                        "status": endpoint.get(
+                            "Status", endpoint.get("status")
+                        ),
+                        "url": endpoint_url,
+                        "container_engine": engine,
+                    }
+                )
+                try:
+                    containers = await self._get(
+                        session,
+                        (
+                            f"{base}/api/endpoints/{provider_id}/docker/"
+                            "containers/json?all=true"
+                        ),
+                        headers,
+                        verify_tls,
+                    )
+                    if not isinstance(containers, list):
+                        raise RuntimeError("container inventory is not a list")
+                    successful.add(environment_key)
+                except Exception as exc:
+                    errors.append(
+                        {
+                            "environment": name,
+                            "environment_key": environment_key,
+                            "error": f"{type(exc).__name__}: {exc}"[:300],
+                        }
+                    )
+                    continue
+
+                for container in containers:
+'''
+    new_loop = '''            ignored_count = 0
+            rows = _environment_rows(endpoints, selected_ids)
+            container_results = await asyncio.gather(
+                *(
+                    self._get(
+                        session,
+                        (
+                            f"{base}/api/endpoints/{provider_id}/docker/"
+                            "containers/json?all=true"
+                        ),
+                        headers,
+                        verify_tls,
+                    )
+                    for _, provider_id, _, _, _ in rows
+                ),
+                return_exceptions=True,
+            )
+            for row, container_result in zip(rows, container_results):
+                endpoint, provider_id, name, engine, environment_key = row
+                endpoint_url = endpoint.get("URL", endpoint.get("url"))
+                environments.append(
+                    {
+                        "provider_id": provider_id,
+                        "name": name,
+                        "key": environment_key,
+                        "status": endpoint.get(
+                            "Status", endpoint.get("status")
+                        ),
+                        "url": endpoint_url,
+                        "container_engine": engine,
+                    }
+                )
+                if isinstance(container_result, Exception):
+                    errors.append(
+                        {
+                            "environment": name,
+                            "environment_key": environment_key,
+                            "error": (
+                                f"{type(container_result).__name__}: "
+                                f"{container_result}"
+                            )[:300],
+                        }
+                    )
+                    continue
+                containers = container_result
+                if not isinstance(containers, list):
+                    errors.append(
+                        {
+                            "environment": name,
+                            "environment_key": environment_key,
+                            "error": "RuntimeError: container inventory is not a list",
+                        }
+                    )
+                    continue
+                successful.add(environment_key)
+
+                for container in containers:
+'''
+    if text.count(old_loop) != 1:
+        raise SuccessorModuleError(
+            "Portainer predecessor inventory loop changed unexpectedly"
+        )
+    text = text.replace(old_loop, new_loop, 1)
+    files[PORTAINER_RUNTIME_MEMBER] = text.encode("utf-8")
 
 
 def _apply_scrypted_successor_overlay(
@@ -686,7 +834,9 @@ def _successor_runtime_overlays(
     """Apply narrowly bounded successor-only runtime/operator overlays."""
 
     artifact_id = record["artifact_id"]
-    if artifact_id == SCRYPTED_ID:
+    if artifact_id == PORTAINER_ID:
+        _apply_portainer_successor_overlay(files)
+    elif artifact_id == SCRYPTED_ID:
         _apply_scrypted_successor_overlay(files)
     elif artifact_id == UI_ID:
         _apply_ui_successor_overlay(files)
