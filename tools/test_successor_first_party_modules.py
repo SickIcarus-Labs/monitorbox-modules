@@ -37,6 +37,11 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
         self.assertEqual(57, ui["build"])
         self.assertEqual(57, ui["module_runtime"]["build"])
 
+    def test_successor_portainer_advances_for_bounded_parallel_inventory(self) -> None:
+        portainer = self.records[subject.PORTAINER_ID]
+        self.assertEqual(11, portainer["build"])
+        self.assertEqual(11, portainer["module_runtime"]["build"])
+
     def test_scrypted_requires_node24_but_other_modules_do_not(self) -> None:
         scrypted = self.records[subject.SCRYPTED_ID]
         self.assertEqual(9, scrypted["build"])
@@ -107,6 +112,25 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
                     )
                     for name in old_names:
                         if (
+                            artifact_id == subject.PORTAINER_ID
+                            and name == subject.PORTAINER_RUNTIME_MEMBER
+                        ):
+                            predecessor_runtime = old.read(name)
+                            successor_runtime = new.read(name)
+                            self.assertNotEqual(predecessor_runtime, successor_runtime)
+                            decoded = successor_runtime.decode("utf-8")
+                            self.assertIn("import asyncio", decoded)
+                            self.assertIn("aiohttp.ClientTimeout(total=5)", decoded)
+                            self.assertIn("await asyncio.gather(", decoded)
+                            self.assertIn("return_exceptions=True", decoded)
+                            self.assertIn(
+                                "for row, container_result in zip(rows, container_results):",
+                                decoded,
+                            )
+                            self.assertNotIn(
+                                "timeout = aiohttp.ClientTimeout(total=15)", decoded
+                            )
+                        elif (
                             artifact_id == subject.SCRYPTED_ID
                             and name == subject.SCRYPTED_RUNTIME_MEMBER
                         ):
