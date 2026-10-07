@@ -12,19 +12,19 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  CORE_SOURCE_SHA: 984b3f5bd0ac121e8e3407c20d6185db032a9b15
-  MODULES_SOURCE_SHA: 50673fd26431bd04036ba74df340e8c14ee9b2b0
+  CORE_SOURCE_SHA: dea5831a350d28d46a7172602b509f98151838cb
+  MODULES_SOURCE_SHA: 5dd8ef0c6183840cdf448a1a720bd1231b86c7c4
   REAL_PYTHON_SOURCE_SHA: 3e4cf4ae9072efff941f35a2b0b20b7b493de4cc
   HANDOFF_IMAGE: ghcr.io/sickicarus-labs/monitorbox-successor-feed
   FINAL_IMAGE: ghcr.io/sickicarus-labs/monitorbox-successor-signed-feed
-  FINAL_TAG: seq-5-core-984b3f5bd0ac-mods-50673fd26431
+  FINAL_TAG: seq-6-core-dea5831a350d-mods-5dd8ef0c6183
 
 jobs:
   preflight:
     if: >-
       github.event.issue.number == 128 &&
       github.event.comment.user.login == 'SickIcarus' &&
-      startsWith(github.event.comment.body, '/publish-successor-signed-feed-5 sha256:')
+      startsWith(github.event.comment.body, '/publish-successor-signed-feed-6 sha256:')
     name: Verify exact unsigned handoff before signing
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -50,7 +50,7 @@ jobs:
           COMMAND: ${{ github.event.comment.body }}
         run: |
           set -euo pipefail
-          digest="${COMMAND#'/publish-successor-signed-feed-5 '}"
+          digest="${COMMAND#'/publish-successor-signed-feed-6 '}"
           [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || {
             echo "::error::publication command requires one exact sha256 digest"
             exit 1
@@ -100,8 +100,8 @@ jobs:
           ).decode()+"\n")
           PY
           export MONITORBOX_PLATFORM_SIGNING_KEY="$(cat "$RUNNER_TEMP/ephemeral.seed")"
-          python tools/build_platform_index.py             --source "$RUNNER_TEMP/handoff/catalog.source.json"             --package-root "$RUNNER_TEMP/handoff"             --output "$RUNNER_TEMP/ephemeral.index.json"             --channel stable             --sequence 5             --valid-hours 1
-          python tools/verify_platform_index.py             "$RUNNER_TEMP/ephemeral.index.json"             --packages-root "$RUNNER_TEMP/handoff"             --trust-root "$RUNNER_TEMP/ephemeral.pub"             --channel stable             --min-sequence 5
+          python tools/build_platform_index.py             --source "$RUNNER_TEMP/handoff/catalog.source.json"             --package-root "$RUNNER_TEMP/handoff"             --output "$RUNNER_TEMP/ephemeral.index.json"             --channel stable             --sequence 6             --valid-hours 1
+          python tools/verify_platform_index.py             "$RUNNER_TEMP/ephemeral.index.json"             --packages-root "$RUNNER_TEMP/handoff"             --trust-root "$RUNNER_TEMP/ephemeral.pub"             --channel stable             --min-sequence 6
       - uses: actions/upload-artifact@v4
         with:
           name: successor-feed-signing-input
@@ -183,8 +183,8 @@ jobs:
           mkdir -p "$feed/platform/channels/stable" "$feed/platform/packages"
           cp "$RUNNER_TEMP/handoff/platform/packages/"*.zip "$feed/platform/packages/"
           cp "$RUNNER_TEMP/handoff/catalog.source.json" "$feed/catalog.source.json"
-          python tools/build_platform_index.py             --source "$feed/catalog.source.json"             --package-root "$feed"             --output "$feed/platform/channels/stable/index.json"             --channel stable             --sequence 5             --valid-hours 168
-          python tools/verify_platform_index.py             "$feed/platform/channels/stable/index.json"             --packages-root "$feed"             --trust-root trust/official-ed25519-1.pub             --channel stable             --min-sequence 5
+          python tools/build_platform_index.py             --source "$feed/catalog.source.json"             --package-root "$feed"             --output "$feed/platform/channels/stable/index.json"             --channel stable             --sequence 6             --valid-hours 168
+          python tools/verify_platform_index.py             "$feed/platform/channels/stable/index.json"             --packages-root "$feed"             --trust-root trust/official-ed25519-1.pub             --channel stable             --min-sequence 6
       - name: Stage exact signed feed image
         shell: bash
         env:
@@ -231,7 +231,7 @@ jobs:
             com.sickicarus.monitorbox.python-source=${{ env.REAL_PYTHON_SOURCE_SHA }}
             com.sickicarus.monitorbox.handoff-digest=${{ needs.preflight.outputs.handoff_digest }}
             com.sickicarus.monitorbox.artifact-class=successor-physical-acceptance-feed
-            com.sickicarus.monitorbox.catalog-sequence=5
+            com.sickicarus.monitorbox.catalog-sequence=6
       - name: Read back exact registry digest and platform set
         id: readback
         shell: bash
@@ -304,7 +304,7 @@ jobs:
               assert len(payload)==package["size"],artifact["artifact_id"]
               assert hashlib.sha256(payload).hexdigest()==package["sha256"],artifact["artifact_id"]
           PY
-          python tools/verify_platform_index.py             "$RUNNER_TEMP/published-index.json"             --packages-root "$RUNNER_TEMP/feed"             --trust-root trust/official-ed25519-1.pub             --channel stable             --min-sequence 5
+          python tools/verify_platform_index.py             "$RUNNER_TEMP/published-index.json"             --packages-root "$RUNNER_TEMP/feed"             --trust-root trust/official-ed25519-1.pub             --channel stable             --min-sequence 6
       - name: Record immutable signed feed
         shell: bash
         run: |
