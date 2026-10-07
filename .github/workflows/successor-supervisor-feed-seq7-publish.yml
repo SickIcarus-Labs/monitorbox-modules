@@ -1,0 +1,248 @@
+name: Publish immutable Supervisor bootstrap feed sequence 7
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+env:
+  CANDIDATE_IMAGE: ghcr.io/sickicarus-labs/monitorbox-successor-supervisor-candidate
+  CANDIDATE_TAG: source-9132101125c0-build3
+  CANDIDATE_DIGEST: sha256:c4161f57445d4aeb7639e59ae4de505e040867f31e616a7c0407bdc4fa035292
+  MANAGER_SOURCE_SHA: 9132101125c05a3855277d8de3588101ecd55b80
+  MANAGER_VERSION: 1.0.0
+  MANAGER_BUILD: "3"
+  AMD64_PACKAGE_SHA256: 8568640092c20b088e1ebcd244053cd0cab3f458ea705f1ed180eb1454d397ea
+  ARM64_PACKAGE_SHA256: 2e79fd4c4b942a3ef33f1aab6d8dd6956596d490a867a618028ea6472c9fa58f
+  FINAL_IMAGE: ghcr.io/sickicarus-labs/monitorbox-successor-supervisor-feed
+  FINAL_TAG: seq-7-manager-9132101125c0
+  CATALOG_SEQUENCE: "7"
+
+jobs:
+  publish:
+    name: Sign and publish exact Supervisor sequence 7
+    if: >-
+      github.event.issue.number == 128 &&
+      github.event.comment.user.login == 'SickIcarus' &&
+      github.event.comment.body == '/publish-successor-supervisor-feed-7 sha256:c4161f57445d4aeb7639e59ae4de505e040867f31e616a7c0407bdc4fa035292'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Verify trusted signer snapshot
+        run: python tools/verify_trusted_successor_signer_snapshot.py
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull exact immutable unsigned manager candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          tagged="$CANDIDATE_IMAGE:$CANDIDATE_TAG"
+          resolved="$(docker buildx imagetools inspect "$tagged" | awk '/^Digest:/ {print $2; exit}')"
+          test "$resolved" = "$CANDIDATE_DIGEST"
+          docker pull "$CANDIDATE_IMAGE@$CANDIDATE_DIGEST"
+          id="$(docker create "$CANDIDATE_IMAGE@$CANDIDATE_DIGEST" /noop)"
+          mkdir -p "$RUNNER_TEMP/candidate"
+          docker cp "$id:/candidate/." "$RUNNER_TEMP/candidate/"
+          docker rm -f "$id" >/dev/null
+
+      - name: Reconfirm exact source-bound candidate package closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "$AMD64_PACKAGE_SHA256  $RUNNER_TEMP/candidate/scaffold-manager-amd64.zip" | sha256sum --check --status
+          echo "$ARM64_PACKAGE_SHA256  $RUNNER_TEMP/candidate/scaffold-manager-arm64.zip" | sha256sum --check --status
+          python - <<'PY'
+          import json,os,zipfile
+          from pathlib import Path
+          root=Path(os.environ["RUNNER_TEMP"])/"candidate"
+          candidate=json.loads((root/"candidate.json").read_text())
+          assert candidate=={
+              "schema":1,
+              "artifact_class":"successor-supervisor-manager-candidate",
+              "source_sha":os.environ["MANAGER_SOURCE_SHA"],
+              "version":os.environ["MANAGER_VERSION"],
+              "build":int(os.environ["MANAGER_BUILD"]),
+              "packages":{
+                  "amd64":{"filename":"scaffold-manager-amd64.zip","sha256":os.environ["AMD64_PACKAGE_SHA256"]},
+                  "arm64":{"filename":"scaffold-manager-arm64.zip","sha256":os.environ["ARM64_PACKAGE_SHA256"]},
+              },
+          }
+          for arch in ("amd64","arm64"):
+              package=root/f"scaffold-manager-{arch}.zip"
+              with zipfile.ZipFile(package) as archive:
+                  assert archive.namelist()==["package.json","bin/monitorbox-scaffold"]
+                  manifest=json.loads(archive.read("package.json"))
+                  manager=archive.read("bin/monitorbox-scaffold")
+              assert manifest=={
+                  "schema":1,
+                  "artifact_id":"com.sickicarus.monitorbox.scaffold-manager",
+                  "kind":"scaffold-manager",
+                  "version":os.environ["MANAGER_VERSION"],
+                  "build":int(os.environ["MANAGER_BUILD"]),
+                  "release_eligible":True,
+                  "packaging_stage":"successor-scaffold-manager",
+                  "git_sha":os.environ["MANAGER_SOURCE_SHA"],
+                  "platform":{"os":"linux","arch":arch,"abi":"static"},
+                  "entrypoint":"bin/monitorbox-scaffold",
+              }
+              assert manager[:4]==b"\x7fELF"
+          PY
+
+      - name: Install isolated signing dependencies
+        run: python -m pip install --disable-pip-version-check "cryptography>=45,<49" "jsonschema>=4,<5"
+
+      - name: Require official protected signer and create per-architecture signed authority
+        shell: bash
+        env:
+          MONITORBOX_PLATFORM_SIGNING_KEY: ${{ secrets.MONITORBOX_MODULE_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$MONITORBOX_PLATFORM_SIGNING_KEY" || {
+            echo "::error::protected official signing key unavailable"
+            exit 1
+          }
+          python - <<'PY'
+          import base64,os
+          from pathlib import Path
+          from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+          from cryptography.hazmat.primitives.serialization import Encoding,PublicFormat
+          raw=base64.b64decode(os.environ["MONITORBOX_PLATFORM_SIGNING_KEY"],validate=True)
+          assert len(raw)==32
+          actual=base64.b64encode(
+              Ed25519PrivateKey.from_private_bytes(raw).public_key().public_bytes(
+                  Encoding.Raw,PublicFormat.Raw
+              )
+          ).decode()
+          expected=Path("trust/official-ed25519-1.pub").read_text().strip()
+          assert actual==expected,"protected signer does not match official-ed25519-1"
+          PY
+          for arch in amd64 arm64; do
+            root="$RUNNER_TEMP/feed-$arch"
+            mkdir -p "$root/platform/channels/stable" "$root/platform/packages" "$root/tools"
+            cp "$RUNNER_TEMP/candidate/scaffold-manager-$arch.zip" "$root/platform/packages/"
+            ARCH="$arch" ROOT="$root" python - <<'PY'
+          import json,os,zipfile
+          from pathlib import Path
+          arch=os.environ["ARCH"]
+          root=Path(os.environ["ROOT"])
+          package=root/"platform"/"packages"/f"scaffold-manager-{arch}.zip"
+          with zipfile.ZipFile(package) as archive:
+              manifest=json.loads(archive.read("package.json"))
+          source={
+              "schema":1,
+              "repository_id":"official-platform",
+              "artifacts":[{
+                  "artifact_id":manifest["artifact_id"],
+                  "kind":manifest["kind"],
+                  "version":manifest["version"],
+                  "build":manifest["build"],
+                  "platform":manifest["platform"],
+                  "requires_scaffold_api":{"minimum":1,"maximum_exclusive":2},
+                  "dependencies":[],
+                  "package_file":package.name,
+              }],
+          }
+          (root/"catalog.source.json").write_text(
+              json.dumps(source,sort_keys=True,indent=2)+"\n",encoding="utf-8"
+          )
+          PY
+            python tools/build_platform_index.py               --source "$root/catalog.source.json"               --package-root "$root"               --output "$root/platform/channels/stable/index.json"               --channel stable               --sequence "$CATALOG_SEQUENCE"               --valid-hours 168
+            python tools/verify_platform_index.py               "$root/platform/channels/stable/index.json"               --packages-root "$root"               --trust-root trust/official-ed25519-1.pub               --channel stable               --min-sequence "$CATALOG_SEQUENCE"
+            cp tools/successor_feed_server.go "$root/tools/"
+            cp platform/acceptance-feed.Dockerfile "$root/Dockerfile"
+          done
+
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Refuse existing immutable sequence-7 identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          for ref in             "$FINAL_IMAGE:$FINAL_TAG"             "$FINAL_IMAGE:$FINAL_TAG-amd64"             "$FINAL_IMAGE:$FINAL_TAG-arm64"; do
+            if docker buildx imagetools inspect "$ref" >/dev/null 2>&1; then
+              echo "::error::immutable Supervisor sequence-7 identity already exists: $ref"
+              exit 1
+            fi
+          done
+
+      - name: Publish exact architecture-minimal signed Supervisor feed
+        id: publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          for arch in amd64 arm64; do
+            docker buildx build               --platform "linux/$arch"               --provenance=false               --push               --tag "$FINAL_IMAGE:$FINAL_TAG-$arch"               --label "org.opencontainers.image.source=https://github.com/SickIcarus-Labs/monitorbox"               --label "org.opencontainers.image.revision=$MANAGER_SOURCE_SHA"               --label "com.sickicarus.monitorbox.artifact-class=successor-supervisor-bootstrap-feed"               --label "com.sickicarus.monitorbox.catalog-sequence=$CATALOG_SEQUENCE"               "$RUNNER_TEMP/feed-$arch"
+          done
+          docker buildx imagetools create             --tag "$FINAL_IMAGE:$FINAL_TAG"             "$FINAL_IMAGE:$FINAL_TAG-amd64"             "$FINAL_IMAGE:$FINAL_TAG-arm64"
+          digest="$(docker buildx imagetools inspect "$FINAL_IMAGE:$FINAL_TAG" | awk '/^Digest:/ {print $2; exit}')"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          echo "pinned=$FINAL_IMAGE@$digest" >> "$GITHUB_OUTPUT"
+
+      - name: Verify published sequence-7 platform and package census
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker buildx imagetools inspect "$FINAL_IMAGE:$FINAL_TAG" --raw > "$RUNNER_TEMP/index.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          value=json.loads((Path(os.environ["RUNNER_TEMP"])/"index.json").read_text())
+          platforms={
+              (x.get("platform",{}).get("os"),x.get("platform",{}).get("architecture"))
+              for x in value.get("manifests",[])
+              if x.get("platform",{}).get("os")!="unknown"
+          }
+          assert platforms=={("linux","amd64"),("linux","arm64")},platforms
+          PY
+          for arch in amd64 arm64; do
+            ref="$FINAL_IMAGE:$FINAL_TAG-$arch"
+            docker pull --platform "linux/$arch" "$ref"
+            test "$(docker image inspect "$ref" --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')" = "$MANAGER_SOURCE_SHA"
+            test "$(docker image inspect "$ref" --format '{{ index .Config.Labels "com.sickicarus.monitorbox.catalog-sequence" }}')" = "$CATALOG_SEQUENCE"
+            id="$(docker create --platform "linux/$arch" "$ref")"
+            root="$RUNNER_TEMP/readback-$arch"
+            mkdir -p "$root"
+            docker cp "$id:/feed/." "$root/"
+            docker rm -f "$id" >/dev/null
+            ARCH="$arch" ROOT="$root" python - <<'PY'
+          import json,os
+          from pathlib import Path
+          root=Path(os.environ["ROOT"])
+          value=json.loads((root/"platform/channels/stable/index.json").read_text())
+          artifacts=value["signed"]["artifacts"]
+          packages=list((root/"platform/packages").glob("*.zip"))
+          assert value["signed"]["sequence"]==7
+          assert len(artifacts)==1 and len(packages)==1
+          item=artifacts[0]
+          assert item["artifact_id"]=="com.sickicarus.monitorbox.scaffold-manager"
+          assert item["kind"]=="scaffold-manager"
+          assert item["version"]=="1.0.0" and item["build"]==3
+          assert item["platform"]=={"os":"linux","arch":os.environ["ARCH"],"abi":"static"}
+          PY
+          done
+          {
+            echo "### Signed Supervisor bootstrap feed sequence 7"
+            echo "- source: `$MANAGER_SOURCE_SHA`"
+            echo "- candidate: `$CANDIDATE_IMAGE@$CANDIDATE_DIGEST`"
+            echo "- immutable tag: `$FINAL_IMAGE:$FINAL_TAG`"
+            echo "- pinned feed: `${{ steps.publish.outputs.pinned }}`"
+            echo "- stable pointer changed: **no**"
+          } >> "$GITHUB_STEP_SUMMARY"
