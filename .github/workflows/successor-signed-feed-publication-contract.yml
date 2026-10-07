@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/successor-signed-feed-publish.yml"
+      - ".github/workflows/successor-signed-feed-stable-pointer.yml"
       - ".github/workflows/successor-signed-feed-publication-contract.yml"
       - "tools/build_platform_index.py"
       - "tools/verify_platform_index.py"
@@ -11,6 +12,7 @@ on:
       - "tools/verify_trusted_successor_signer_snapshot.py"
       - "tools/test_trusted_successor_signer_snapshot.py"
       - "tools/test_successor_signed_feed_publication.py"
+      - "tools/test_successor_signed_feed_stable_pointer.py"
       - "platform/schema/index-v1.schema.json"
       - "platform/portable/first-party-contracts-v1.json"
       - "platform/acceptance-feed.Dockerfile"
@@ -41,6 +43,10 @@ jobs:
       - name: Install test dependency
         run: python -m pip install --disable-pip-version-check pytest
       - name: Run publication-control tests
-        run: python -m pytest -q tools/test_trusted_successor_signer_snapshot.py tools/test_successor_signed_feed_publication.py
+        run: >-
+          python -m pytest -q
+          tools/test_trusted_successor_signer_snapshot.py
+          tools/test_successor_signed_feed_publication.py
+          tools/test_successor_signed_feed_stable_pointer.py
       - name: Build loopback feed server
         run: CGO_ENABLED=0 go build -trimpath -o "$RUNNER_TEMP/feed-server" tools/successor_feed_server.go
