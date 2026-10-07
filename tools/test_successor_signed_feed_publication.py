@@ -93,6 +93,6 @@ def test_sequence8_signed_publication_owns_both_full_and_supervisor_immutable_fe
     assert "FINAL_TAG: seq-8-core-31a4c874c717-mods-0fb0a016034a" in raw
     assert "SUPERVISOR_TAG: seq-8-core-31a4c874c717" in raw
     assert "com.sickicarus.monitorbox.catalog-sequence=8" in raw
-    assert "catalog sequence: 7" in raw
+    assert "catalog sequence: 8" in raw
     assert "supervisor-backfill:" not in raw
     assert "/publish-successor-supervisor-feed-6" not in raw
