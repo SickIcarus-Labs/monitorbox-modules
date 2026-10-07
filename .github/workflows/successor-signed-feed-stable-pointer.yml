@@ -14,8 +14,8 @@ env:
   EXPECTED_CORE_SHA: dea5831a350d28d46a7172602b509f98151838cb
   EXPECTED_MODULES_SHA: 5dd8ef0c6183840cdf448a1a720bd1231b86c7c4
   SUPERVISOR_IMAGE: ghcr.io/sickicarus-labs/monitorbox-successor-supervisor-feed
-  SUPERVISOR_EXPECTED_TAG: seq-6-core-dea5831a350d
-  SUPERVISOR_EXPECTED_DIGEST: sha256:56ef808b778f08e8cf522c81eff01b3a13c636a46c7030cd50e89fec9b06ea42
+  SUPERVISOR_EXPECTED_TAG: seq-7-core-dc4aed2acf34
+  SUPERVISOR_EXPECTED_DIGEST: sha256:a5f09f075f268e4ee541828f30fb6e9ffd929a7e1f62136e04b58aa915a1709a
 
 jobs:
   repoint:
@@ -76,7 +76,7 @@ jobs:
             echo "### Successor signed feed stable pointer"
             echo "- target: `$target`"
             echo "- digest: `$EXPECTED_DIGEST`"
-            echo "- catalog sequence: `$EXPECTED_SEQUENCE`"
+            echo "- catalog sequence: `7`"
             echo "- rebuild performed: **no**"
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -86,7 +86,7 @@ jobs:
     if: >-
       github.event.issue.number == 128 &&
       github.event.comment.user.login == 'SickIcarus' &&
-      github.event.comment.body == '/point-successor-supervisor-feed-stable-6'
+      github.event.comment.body == '/point-successor-supervisor-feed-stable-7'
     runs-on: ubuntu-latest
     timeout-minutes: 12
     permissions:
@@ -99,7 +99,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - uses: docker/setup-buildx-action@v4
-      - name: Verify exact immutable sequence-6 Supervisor feed provenance
+      - name: Verify exact immutable sequence-7 Supervisor feed provenance
         shell: bash
         run: |
           set -euo pipefail
@@ -122,8 +122,8 @@ jobs:
             ref="$SUPERVISOR_IMAGE:$SUPERVISOR_EXPECTED_TAG-$arch"
             docker pull --platform "linux/$arch" "$ref"
             test "$(docker image inspect "$ref" --format '{{ index .Config.Labels "com.sickicarus.monitorbox.artifact-class" }}')" = "successor-supervisor-bootstrap-feed"
-            test "$(docker image inspect "$ref" --format '{{ index .Config.Labels "com.sickicarus.monitorbox.catalog-sequence" }}')" = "$EXPECTED_SEQUENCE"
-            test "$(docker image inspect "$ref" --format '{{ index .Config.Labels "com.sickicarus.monitorbox.core-source" }}')" = "$EXPECTED_CORE_SHA"
+            test "$(docker image inspect "$ref" --format '{{ index .Config.Labels "com.sickicarus.monitorbox.catalog-sequence" }}')" = "7"
+            test "$(docker image inspect "$ref" --format '{{ index .Config.Labels "com.sickicarus.monitorbox.core-source" }}')" = "dc4aed2acf3465d97476e01ca5d2063e61b9901d"
             test "$(docker image inspect "$ref" --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')" = "$EXPECTED_MODULES_SHA"
             id="$(docker create --platform "linux/$arch" "$ref")"
             root="$RUNNER_TEMP/supervisor-$arch"
