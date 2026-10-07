@@ -9,10 +9,10 @@ def test_signed_feed_publication_is_exact_user_and_issue_scoped():
     for required in (
         "github.event.issue.number == 128",
         "github.event.comment.user.login == 'SickIcarus'",
-        "startsWith(github.event.comment.body, '/publish-successor-signed-feed-7 sha256:')",
-        "digest=\"${COMMAND#\'/publish-successor-signed-feed-7 \'}\"",
-        "CORE_SOURCE_SHA: dc4aed2acf3465d97476e01ca5d2063e61b9901d",
-        "MODULES_SOURCE_SHA: 5dd8ef0c6183840cdf448a1a720bd1231b86c7c4",
+        "startsWith(github.event.comment.body, '/publish-successor-signed-feed-8 sha256:')",
+        "digest=\"${COMMAND#\'/publish-successor-signed-feed-8 \'}\"",
+        "CORE_SOURCE_SHA: 31a4c874c717e9e1ab2a6600c7b18d488e1a1abe",
+        "MODULES_SOURCE_SHA: 0fb0a016034a559e2f79300625aaa01d33f754cb",
         "REAL_PYTHON_SOURCE_SHA: 3e4cf4ae9072efff941f35a2b0b20b7b493de4cc",
         "HANDOFF_IMAGE: ghcr.io/sickicarus-labs/monitorbox-successor-feed",
         "FINAL_IMAGE: ghcr.io/sickicarus-labs/monitorbox-successor-signed-feed",
@@ -47,7 +47,7 @@ def test_protected_signer_matches_official_root_and_publishes_only_immutable_fee
         "official-ed25519-1.pub",
         "protected signer does not match official-ed25519-1",
         "--channel stable",
-        "--sequence 7",
+        "--sequence 8",
         "--valid-hours 168",
         "Immutable successor publication identity already exists",
         "platforms: linux/amd64,linux/arm64",
@@ -88,11 +88,11 @@ def test_protected_signer_derives_manager_only_supervisor_bootstrap_feed():
 
 
 
-def test_sequence7_signed_publication_owns_both_full_and_supervisor_immutable_feeds():
+def test_sequence8_signed_publication_owns_both_full_and_supervisor_immutable_feeds():
     raw=WORKFLOW.read_text("utf-8")
-    assert "FINAL_TAG: seq-7-core-dc4aed2acf34-mods-5dd8ef0c6183" in raw
-    assert "SUPERVISOR_TAG: seq-7-core-dc4aed2acf34" in raw
-    assert "com.sickicarus.monitorbox.catalog-sequence=7" in raw
+    assert "FINAL_TAG: seq-8-core-31a4c874c717-mods-0fb0a016034a" in raw
+    assert "SUPERVISOR_TAG: seq-8-core-31a4c874c717" in raw
+    assert "com.sickicarus.monitorbox.catalog-sequence=8" in raw
     assert "catalog sequence: 7" in raw
     assert "supervisor-backfill:" not in raw
     assert "/publish-successor-supervisor-feed-6" not in raw
