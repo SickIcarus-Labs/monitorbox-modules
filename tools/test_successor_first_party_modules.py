@@ -4,6 +4,8 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import os
+import socket
 import tempfile
 import unittest
 import zipfile
@@ -44,7 +46,7 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
 
     def test_scrypted_requires_node24_but_other_modules_do_not(self) -> None:
         scrypted = self.records[subject.SCRYPTED_ID]
-        self.assertEqual(9, scrypted["build"])
+        self.assertEqual(10, scrypted["build"])
         self.assertEqual(
             [
                 {
@@ -65,6 +67,63 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
                 subject.NODE_RUNTIME_ID,
                 {item["artifact_id"] for item in record["platform"]["dependencies"]},
             )
+
+    def test_successor_scrypted_scaffold_ipc_uses_short_private_socket(self) -> None:
+        record = self.records[subject.SCRYPTED_ID]
+        with tempfile.TemporaryDirectory(prefix="successor-scrypted-ipc-") as raw:
+            root = Path(raw)
+            package = subject.build_package(
+                record, root / "package", release_eligible=False
+            )
+            with zipfile.ZipFile(package) as archive:
+                decoded = archive.read(subject.SCRYPTED_RUNTIME_MEMBER).decode("utf-8")
+
+            start = decoded.index("def resolve_managed_socket(")
+            end = decoded.index("\n\n@dataclass", start)
+            namespace = {
+                "Any": object,
+                "Path": Path,
+                "hashlib": hashlib,
+                "os": os,
+                "_LEGACY_SOCKET": "/run/monitorbox-scrypted/bridge.sock",
+                "_SUCCESSOR_SOCKET_DEFAULT": "/tmp/monitorbox-scrypted/bridge.sock",
+                "_UNIX_PATH_MAX_BYTES": 107,
+                "_legacy_resolve_managed_socket": lambda requested, state_root: str(requested),
+            }
+            exec(compile(decoded[start:end], "<successor-scrypted-ipc>", "exec"), namespace)
+
+            state_root = (
+                root
+                / ("scaffold-live-state-" + "a" * 80)
+                / ("generation-slot-" + "b" * 80)
+                / "state"
+                / "agent"
+                / "module-state"
+                / subject.SCRYPTED_ID
+            )
+            legacy = "/run/monitorbox-scrypted/bridge.sock"
+            with patch.dict(
+                os.environ,
+                {"MONITORBOX_ARTIFACT_ID": subject.SCRYPTED_ID},
+                clear=False,
+            ):
+                resolved = namespace["resolve_managed_socket"](legacy, str(state_root))
+                defaulted = namespace["resolve_managed_socket"](
+                    "/tmp/monitorbox-scrypted/bridge.sock", str(state_root)
+                )
+
+            self.assertEqual(resolved, defaulted)
+            self.assertTrue(resolved.startswith("/tmp/mb-scrypted-"), resolved)
+            self.assertNotIn(str(state_root), resolved)
+            self.assertLessEqual(len(os.fsencode(resolved)), 107)
+            self.assertEqual(0o700, Path(resolved).parent.stat().st_mode & 0o777)
+
+            unix_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            try:
+                unix_socket.bind(resolved)
+            finally:
+                unix_socket.close()
+                Path(resolved).unlink(missing_ok=True)
 
     def test_authority_pins_exact_accepted_predecessor_digests(self) -> None:
         for record in self.records.values():
@@ -157,6 +216,9 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
                                 'shutil.which(os.environ.get("MONITORBOX_MODULE_NODE", "node"))',
                                 decoded,
                             )
+                            self.assertIn("_UNIX_PATH_MAX_BYTES = 107", decoded)
+                            self.assertIn('Path("/tmp") / f"mb-scrypted-{digest}"', decoded)
+                            self.assertIn("sun_path storage", decoded)
                         elif (
                             artifact_id == subject.UI_ID
                             and name.endswith(subject.UI_MODULES_MEMBER_SUFFIX)
