@@ -84,3 +84,17 @@ def test_protected_signer_derives_manager_only_supervisor_bootstrap_feed():
     # Bootstrap images must be immutable sequence identities; stable movement
     # remains a separately guarded pointer operation.
     assert "$SUPERVISOR_IMAGE:stable" not in signed
+
+
+def test_sequence6_supervisor_backfill_does_not_republish_full_feed_or_move_stable():
+    raw=WORKFLOW.read_text("utf-8")
+    backfill=raw.split("  supervisor-backfill:",1)[1]
+    assert "startsWith(github.event.comment.body, '/publish-successor-supervisor-feed-6 sha256:')" in backfill
+    assert "secrets.MONITORBOX_MODULE_SIGNING_KEY" in backfill
+    assert "protected signer does not match official-ed25519-1" in backfill
+    assert "successor-supervisor-bootstrap-feed" in backfill
+    assert "assert len(artifacts)==1" in backfill
+    assert "assert len(packages)==1" in backfill
+    assert "$FINAL_IMAGE:$FINAL_TAG" not in backfill
+    assert "$SUPERVISOR_IMAGE:stable" not in backfill
+    assert "stable pointer changed: **no**" in backfill
