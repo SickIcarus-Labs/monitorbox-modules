@@ -22,3 +22,24 @@ def test_successor_stable_feed_pointer_is_exact_verified_and_rebuild_free():
     ):
         assert required in raw
     assert "docker buildx build" not in raw
+
+
+def test_supervisor_stable_pointer_is_exact_verified_manager_only_and_rebuild_free():
+    raw = WORKFLOW.read_text("utf-8")
+    for required in (
+        "github.event.comment.body == '/point-successor-supervisor-feed-stable-6'",
+        "SUPERVISOR_IMAGE: ghcr.io/sickicarus-labs/monitorbox-successor-supervisor-feed",
+        "SUPERVISOR_EXPECTED_TAG: seq-6-core-dea5831a350d",
+        "SUPERVISOR_EXPECTED_DIGEST: sha256:56ef808b778f08e8cf522c81eff01b3a13c636a46c7030cd50e89fec9b06ea42",
+        "successor-supervisor-bootstrap-feed",
+        'assert len(artifacts)==1',
+        'assert len(packages)==1',
+        'item["artifact_id"]=="com.sickicarus.monitorbox.scaffold-manager"',
+        'target="$SUPERVISOR_IMAGE:stable"',
+        'docker buildx imagetools create --tag "$target" "$SUPERVISOR_IMAGE@$SUPERVISOR_EXPECTED_DIGEST"',
+        'test "$resolved" = "$SUPERVISOR_EXPECTED_DIGEST"',
+        "rebuild performed: **no**",
+    ):
+        assert required in raw
+    supervisor = raw.split("  repoint-supervisor:", 1)[1]
+    assert "docker buildx build" not in supervisor
