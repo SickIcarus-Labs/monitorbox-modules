@@ -34,8 +34,8 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
 
     def test_successor_ui_advances_for_scaffold_lifecycle_operator_contract(self) -> None:
         ui = self.records[subject.UI_ID]
-        self.assertEqual(56, ui["build"])
-        self.assertEqual(56, ui["module_runtime"]["build"])
+        self.assertEqual(57, ui["build"])
+        self.assertEqual(57, ui["module_runtime"]["build"])
 
     def test_scrypted_requires_node24_but_other_modules_do_not(self) -> None:
         scrypted = self.records[subject.SCRYPTED_ID]
@@ -155,6 +155,24 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
                                 "updateAll.disabled = !authenticated || !csrfToken || !packageInstall || updates === 0 || busy;",
                                 decoded,
                             )
+                            self.assertIn("RELEASE_CHANNEL_API", decoded)
+                            self.assertIn("release_channels", decoded)
+                            self.assertIn("preferred_channel", decoded)
+                            self.assertIn("changeReleaseChannel", decoded)
+                            self.assertIn("modules-release-channel", decoded)
+                            self.assertIn(
+                                "Bounded by deployment ceiling", decoded
+                            )
+                        elif (
+                            artifact_id == subject.UI_ID
+                            and name.endswith(subject.UI_MODULES_CSS_MEMBER_SUFFIX)
+                        ):
+                            predecessor_css = old.read(name)
+                            successor_css = new.read(name)
+                            self.assertNotEqual(predecessor_css, successor_css)
+                            decoded = successor_css.decode("utf-8")
+                            self.assertIn(".modules-release-channel {", decoded)
+                            self.assertIn(".modules-release-channel select {", decoded)
                         else:
                             self.assertEqual(old.read(name), new.read(name), name)
 
