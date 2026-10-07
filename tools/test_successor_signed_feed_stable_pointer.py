@@ -29,8 +29,8 @@ def test_supervisor_stable_pointer_is_exact_verified_manager_only_and_rebuild_fr
     for required in (
         "github.event.comment.body == '/point-successor-supervisor-feed-stable-6'",
         "SUPERVISOR_IMAGE: ghcr.io/sickicarus-labs/monitorbox-successor-supervisor-feed",
-        "SUPERVISOR_EXPECTED_TAG: seq-6-core-dea5831a350d",
-        "SUPERVISOR_EXPECTED_DIGEST: sha256:56ef808b778f08e8cf522c81eff01b3a13c636a46c7030cd50e89fec9b06ea42",
+        "SUPERVISOR_EXPECTED_TAG: seq-7-core-dc4aed2acf34",
+        "SUPERVISOR_EXPECTED_DIGEST: sha256:a5f09f075f268e4ee541828f30fb6e9ffd929a7e1f62136e04b58aa915a1709a",
         "successor-supervisor-bootstrap-feed",
         'assert len(artifacts)==1',
         'assert len(packages)==1',
