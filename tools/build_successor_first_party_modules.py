@@ -45,6 +45,7 @@ UI_ID = "com.sickicarus.monitorbox.ui"
 NODE_RUNTIME_ID = "com.sickicarus.monitorbox.runtime.node"
 SCRYPTED_RUNTIME_MEMBER = "monitorbox_scrypted_v230_b6/runtime.py"
 UI_MODULES_MEMBER_SUFFIX = "/assets/modules.js"
+UI_MODULES_CSS_MEMBER_SUFFIX = "/assets/modules.css"
 
 _CORE_DEPENDENCY = {
     "artifact_id": CORE_ID,
@@ -360,8 +361,21 @@ def _apply_ui_successor_overlay(
     const scaffoldLifecycle = Boolean(current.scaffold_lifecycle);
     const updatePlane = packageInstall || scaffoldLifecycle;
     const distributionReady = scaffoldLifecycle || (catalogRefresh && packageInstall);
+    const releaseChannels = Array.isArray(current.release_channels) ? current.release_channels : [];
+    const preferredChannel = typeof current.preferred_channel === "string" ? current.preferred_channel : "";
     const repositoryError = model && model.repository_error ? String(model.repository_error) : "";
 '''
+    api_anchor = '''  const UPDATE_ALL_API = "/api/v2/config/modules/update-all";
+  const REPOSITORIES_API = "/api/v2/config/modules/repositories";
+'''
+    api_replacement = '''  const UPDATE_ALL_API = "/api/v2/config/modules/update-all";
+  const RELEASE_CHANNEL_API = "/api/v2/config/modules/release-channel";
+  const REPOSITORIES_API = "/api/v2/config/modules/repositories";
+'''
+    if text.count(api_anchor) != 1:
+        raise SuccessorModuleError("UI lifecycle API boundary changed unexpectedly")
+    text = text.replace(api_anchor, api_replacement, 1)
+
     if text.count(capability_anchor) != 1:
         raise SuccessorModuleError("UI capability boundary changed unexpectedly")
     text = text.replace(capability_anchor, capability_replacement, 1)
@@ -381,6 +395,38 @@ def _apply_ui_successor_overlay(
         'capabilities.dataset.state = distributionReady && !repositoryError ? "ready" : "limited";',
         1,
     )
+    capability_append_anchor = '''    capabilities.append(heading, copy);
+    capabilities.dataset.state = distributionReady && !repositoryError ? "ready" : "limited";
+'''
+    capability_append_replacement = '''    capabilities.append(heading, copy);
+    if (scaffoldLifecycle && releaseChannels.length) {
+      const releaseControl = document.createElement("label");
+      releaseControl.className = "modules-release-channel";
+      releaseControl.textContent = "Release channel";
+      const releaseSelect = document.createElement("select");
+      releaseSelect.setAttribute("aria-label", "MonitorBox release channel");
+      for (const channel of releaseChannels) {
+        const option = document.createElement("option");
+        option.value = channel;
+        option.textContent = channel;
+        option.selected = channel === preferredChannel;
+        releaseSelect.append(option);
+      }
+      releaseSelect.disabled = !authenticated || !csrfToken || busy || Boolean(current.platform_updating);
+      releaseSelect.title = !authenticated || !csrfToken
+        ? "Administrator authentication required"
+        : Boolean(current.platform_updating)
+          ? "MonitorBox lifecycle activation is already in progress"
+          : "Bounded by deployment ceiling: " + (current.channel_ceiling || "unknown");
+      releaseSelect.addEventListener("change", () => changeReleaseChannel(releaseSelect.value));
+      releaseControl.append(releaseSelect);
+      capabilities.append(releaseControl);
+    }
+    capabilities.dataset.state = distributionReady && !repositoryError ? "ready" : "limited";
+'''
+    if text.count(capability_append_anchor) != 1:
+        raise SuccessorModuleError("UI release-channel capability boundary changed unexpectedly")
+    text = text.replace(capability_append_anchor, capability_append_replacement, 1)
     if text.count(
         "checkUpdates.disabled = !catalogRefresh || !authenticated || !csrfToken || busy;"
     ) != 1:
@@ -422,6 +468,62 @@ def _apply_ui_successor_overlay(
     if text.count(old_update_gate) != 1:
         raise SuccessorModuleError("UI Update All gate boundary changed unexpectedly")
     text = text.replace(old_update_gate, new_update_gate, 1)
+
+    release_handler_anchor = "  async function updateAllModules() {"
+    release_handler = '''  async function changeReleaseChannel(channel) {
+    const capabilities = model && model.capabilities ? model.capabilities : {};
+    const allowed = Array.isArray(capabilities.release_channels)
+      ? capabilities.release_channels
+      : [];
+    if (!capabilities.scaffold_lifecycle || !allowed.includes(channel)) {
+      setStatus("Release-channel change is not permitted by current scaffold authority.", true);
+      renderCapabilities();
+      return;
+    }
+    if (!authenticated || !csrfToken || busy) {
+      renderCapabilities();
+      return;
+    }
+
+    busy = true;
+    renderCapabilities();
+    renderRepositories();
+    renderModules();
+    setStatus("Switching signed MonitorBox release channel to " + channel + "…");
+    try {
+      const payload = await jsonRequest(RELEASE_CHANNEL_API, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          [CSRF_HEADER]: csrfToken,
+        },
+        body: JSON.stringify({ channel }),
+      });
+      const scaffoldActivation = Boolean(payload.accepted)
+        || payload.runtime_reconcile === "scaffold_activation_scheduled";
+      if (scaffoldActivation) {
+        setStatus(
+          "Release channel " + channel + " accepted. MonitorBox is activating the signed generation; reconnecting may take a moment."
+        );
+      } else {
+        await loadModel();
+        setStatus("Release channel is " + (payload.preferred_channel || channel) + ".");
+      }
+    } catch (error) {
+      setStatus(error.message || String(error), true);
+      await loadModel().catch(() => {});
+    } finally {
+      busy = false;
+      renderCapabilities();
+      renderRepositories();
+      renderModules();
+    }
+  }
+
+  async function updateAllModules() {'''
+    if text.count(release_handler_anchor) != 1:
+        raise SuccessorModuleError("UI release-channel handler boundary changed unexpectedly")
+    text = text.replace(release_handler_anchor, release_handler, 1)
 
     update_start = text.find("  async function updateAllModules() {")
     update_end = text.find('  repositoryForm.addEventListener("submit"', update_start)
@@ -529,6 +631,52 @@ def _apply_ui_successor_overlay(
 '''
     text = text[:check_start] + new_check_handler + text[check_end:]
     files[member] = text.encode("utf-8")
+
+    css_members = [
+        name for name, payload in files.items()
+        if name.endswith(UI_MODULES_CSS_MEMBER_SUFFIX) and isinstance(payload, bytes)
+    ]
+    if len(css_members) != 1:
+        raise SuccessorModuleError(
+            "UI predecessor must contain exactly one assets/modules.css member"
+        )
+    css_member = css_members[0]
+    css_payload = files[css_member]
+    assert isinstance(css_payload, bytes)
+    try:
+        css_text = css_payload.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise SuccessorModuleError("UI predecessor modules.css is not UTF-8") from exc
+    release_css = """
+.modules-release-channel {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 12px;
+  color: #c9d5e5;
+  font-size: .9rem;
+  white-space: nowrap;
+}
+
+.modules-release-channel select {
+  border: 1px solid rgba(255, 255, 255, .16);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, .22);
+  color: inherit;
+  padding: 6px 9px;
+}
+
+@media (max-width: 760px) {
+  .modules-release-channel {
+    display: flex;
+    margin: 12px 0 0;
+    width: 100%;
+  }
+}
+"""
+    if ".modules-release-channel {" in css_text:
+        raise SuccessorModuleError("UI predecessor unexpectedly already has release-channel CSS")
+    files[css_member] = (css_text.rstrip() + "\n" + release_css.lstrip()).encode("utf-8")
 
 
 def _successor_runtime_overlays(
