@@ -411,7 +411,7 @@ def _apply_scrypted_successor_overlay(
     except UnicodeDecodeError as exc:
         raise SuccessorModuleError("Scrypted predecessor runtime is not UTF-8") from exc
 
-    old_state_import = "from .state_socket import resolve_managed_socket\\n"
+    old_state_import = "from .state_socket import resolve_managed_socket\n"
     new_state_import = '''from .state_socket import (
     LEGACY_SOCKET as _LEGACY_SOCKET,
     resolve_managed_socket as _legacy_resolve_managed_socket,
