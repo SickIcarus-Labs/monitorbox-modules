@@ -2,6 +2,7 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
 WORKFLOW=ROOT/".github"/"workflows"/"successor-signed-feed-publish.yml"
+SUPERVISOR_SEQ7=ROOT/".github"/"workflows"/"successor-supervisor-feed-seq7-publish.yml"
 
 
 def test_signed_feed_publication_is_exact_user_and_issue_scoped():
@@ -96,3 +97,35 @@ def test_sequence7_signed_publication_owns_both_full_and_supervisor_immutable_fe
     assert "catalog sequence: 7" in raw
     assert "supervisor-backfill:" not in raw
     assert "/publish-successor-supervisor-feed-6" not in raw
+
+
+def test_dedicated_supervisor_seq7_signer_consumes_exact_immutable_candidate():
+    raw=SUPERVISOR_SEQ7.read_text("utf-8")
+    for required in (
+        "github.event.issue.number == 128",
+        "github.event.comment.user.login == 'SickIcarus'",
+        "/publish-successor-supervisor-feed-7 sha256:c4161f57445d4aeb7639e59ae4de505e040867f31e616a7c0407bdc4fa035292",
+        "CANDIDATE_DIGEST: sha256:c4161f57445d4aeb7639e59ae4de505e040867f31e616a7c0407bdc4fa035292",
+        "MANAGER_SOURCE_SHA: 9132101125c05a3855277d8de3588101ecd55b80",
+        "AMD64_PACKAGE_SHA256: 8568640092c20b088e1ebcd244053cd0cab3f458ea705f1ed180eb1454d397ea",
+        "ARM64_PACKAGE_SHA256: 2e79fd4c4b942a3ef33f1aab6d8dd6956596d490a867a618028ea6472c9fa58f",
+        "FINAL_TAG: seq-7-manager-9132101125c0",
+    ):
+        assert required in raw
+
+
+def test_dedicated_supervisor_seq7_signer_preserves_protected_signing_boundary():
+    raw=SUPERVISOR_SEQ7.read_text("utf-8")
+    presecret=raw.split("- name: Require official protected signer",1)[0]
+    assert "MONITORBOX_MODULE_SIGNING_KEY" not in presecret
+    for required in (
+        "secrets.MONITORBOX_MODULE_SIGNING_KEY",
+        "protected signer does not match official-ed25519-1",
+        "--sequence \"$CATALOG_SEQUENCE\"",
+        "--valid-hours 168",
+        "successor-supervisor-bootstrap-feed",
+        "assert len(artifacts)==1 and len(packages)==1",
+        "stable pointer changed: **no**",
+    ):
+        assert required in raw
+    assert "$FINAL_IMAGE:stable" not in raw
