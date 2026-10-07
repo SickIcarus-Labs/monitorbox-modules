@@ -321,7 +321,7 @@ jobs:
             com.sickicarus.monitorbox.python-source=${{ env.REAL_PYTHON_SOURCE_SHA }}
             com.sickicarus.monitorbox.handoff-digest=${{ needs.preflight.outputs.handoff_digest }}
             com.sickicarus.monitorbox.artifact-class=successor-physical-acceptance-feed
-            com.sickicarus.monitorbox.catalog-sequence=7
+            com.sickicarus.monitorbox.catalog-sequence=8
       - name: Read back exact registry digest and platform set
         id: readback
         shell: bash
@@ -362,7 +362,7 @@ jobs:
               --label "org.opencontainers.image.revision=$MODULES_SOURCE_SHA" \
               --label "com.sickicarus.monitorbox.core-source=$CORE_SOURCE_SHA" \
               --label "com.sickicarus.monitorbox.artifact-class=successor-supervisor-bootstrap-feed" \
-              --label "com.sickicarus.monitorbox.catalog-sequence=7" \
+              --label "com.sickicarus.monitorbox.catalog-sequence=8" \
               "$root"
           done
           docker buildx imagetools create \
@@ -474,7 +474,7 @@ jobs:
             printf '%s\n' "- Modules source: $MODULES_SOURCE_SHA"
             printf '%s\n' "- reviewed Python source: $REAL_PYTHON_SOURCE_SHA"
             printf '%s\n' "- handoff: ${{ needs.preflight.outputs.handoff_digest }}"
-            printf '%s\n' "- catalog sequence: 7"
+            printf '%s\n' "- catalog sequence: 8"
             printf '%s\n' "- immutable tag: $FINAL_IMAGE:$FINAL_TAG"
             printf '%s\n' "- pinned image: ${{ steps.readback.outputs.pinned }}"
             printf '%s\n' "- Supervisor bootstrap image: ${{ steps.supervisor.outputs.pinned }}"
