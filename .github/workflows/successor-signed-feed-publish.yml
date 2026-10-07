@@ -18,6 +18,8 @@ env:
   HANDOFF_IMAGE: ghcr.io/sickicarus-labs/monitorbox-successor-feed
   FINAL_IMAGE: ghcr.io/sickicarus-labs/monitorbox-successor-signed-feed
   FINAL_TAG: seq-6-core-dea5831a350d-mods-5dd8ef0c6183
+  SUPERVISOR_IMAGE: ghcr.io/sickicarus-labs/monitorbox-successor-supervisor-feed
+  SUPERVISOR_TAG: seq-6-core-dea5831a350d
 
 jobs:
   preflight:
@@ -185,6 +187,79 @@ jobs:
           cp "$RUNNER_TEMP/handoff/catalog.source.json" "$feed/catalog.source.json"
           python tools/build_platform_index.py             --source "$feed/catalog.source.json"             --package-root "$feed"             --output "$feed/platform/channels/stable/index.json"             --channel stable             --sequence 6             --valid-hours 168
           python tools/verify_platform_index.py             "$feed/platform/channels/stable/index.json"             --packages-root "$feed"             --trust-root trust/official-ed25519-1.pub             --channel stable             --min-sequence 6
+      - name: Build signed per-architecture Supervisor bootstrap authorities
+        shell: bash
+        env:
+          MONITORBOX_PLATFORM_SIGNING_KEY: ${{ secrets.MONITORBOX_MODULE_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          for arch in amd64 arm64; do
+            root="$RUNNER_TEMP/supervisor-$arch"
+            mkdir -p "$root/platform/channels/stable" "$root/platform/packages" "$root/tools"
+            ARCH="$arch" ROOT="$root" python - <<'PY'
+          import json,os,shutil
+          from pathlib import Path
+          arch=os.environ["ARCH"]
+          root=Path(os.environ["ROOT"])
+          handoff=Path(os.environ["RUNNER_TEMP"])/"handoff"
+          source=json.loads((handoff/"catalog.source.json").read_text())
+          matches=[
+              item for item in source["artifacts"]
+              if item.get("artifact_id")=="com.sickicarus.monitorbox.scaffold-manager"
+              and item.get("kind")=="scaffold-manager"
+              and item.get("platform",{}).get("os")=="linux"
+              and item.get("platform",{}).get("arch")==arch
+              and item.get("platform",{}).get("abi")=="static"
+          ]
+          assert len(matches)==1,(arch,matches)
+          item=matches[0]
+          filename=item["package_file"]
+          assert Path(filename).name==filename
+          filtered={
+              "schema":1,
+              "repository_id":"official-platform",
+              "artifacts":[item],
+          }
+          (root/"catalog.source.json").write_text(
+              json.dumps(filtered,sort_keys=True,indent=2)+"\n"
+          )
+          shutil.copy2(
+              handoff/"platform"/"packages"/filename,
+              root/"platform"/"packages"/filename,
+          )
+          PY
+            python tools/build_platform_index.py \
+              --source "$root/catalog.source.json" \
+              --package-root "$root" \
+              --output "$root/platform/channels/stable/index.json" \
+              --channel stable \
+              --sequence 6 \
+              --valid-hours 168
+            python tools/verify_platform_index.py \
+              "$root/platform/channels/stable/index.json" \
+              --packages-root "$root" \
+              --trust-root trust/official-ed25519-1.pub \
+              --channel stable \
+              --min-sequence 6
+            ARCH="$arch" ROOT="$root" python - <<'PY'
+          import json,os
+          from pathlib import Path
+          root=Path(os.environ["ROOT"])
+          value=json.loads((root/"platform/channels/stable/index.json").read_text())
+          artifacts=value["signed"]["artifacts"]
+          assert len(artifacts)==1,artifacts
+          item=artifacts[0]
+          assert item["artifact_id"]=="com.sickicarus.monitorbox.scaffold-manager"
+          assert item["kind"]=="scaffold-manager"
+          assert item["platform"]=={"os":"linux","arch":os.environ["ARCH"],"abi":"static"}
+          packages=list((root/"platform/packages").glob("*.zip"))
+          assert len(packages)==1,packages
+          assert item["package"]["url"]=="platform/packages/"+packages[0].name
+          PY
+            cp tools/successor_feed_server.go "$root/tools/"
+            cp platform/acceptance-feed.Dockerfile "$root/Dockerfile"
+          done
+
       - name: Stage exact signed feed image
         shell: bash
         env:
@@ -205,15 +280,20 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - uses: docker/setup-qemu-action@v4
       - uses: docker/setup-buildx-action@v4
-      - name: Refuse an existing immutable signed-feed identity
+      - name: Refuse existing immutable signed-feed identities
         shell: bash
         run: |
           set -euo pipefail
-          ref="$FINAL_IMAGE:$FINAL_TAG"
-          if docker buildx imagetools inspect "$ref" >/dev/null 2>&1; then
-            echo "::error::Immutable signed successor feed already exists: $ref"
-            exit 1
-          fi
+          for ref in \
+            "$FINAL_IMAGE:$FINAL_TAG" \
+            "$SUPERVISOR_IMAGE:$SUPERVISOR_TAG" \
+            "$SUPERVISOR_IMAGE:$SUPERVISOR_TAG-amd64" \
+            "$SUPERVISOR_IMAGE:$SUPERVISOR_TAG-arm64"; do
+            if docker buildx imagetools inspect "$ref" >/dev/null 2>&1; then
+              echo "::error::Immutable successor publication identity already exists: $ref"
+              exit 1
+            fi
+          done
       - name: Publish exact multi-architecture signed feed
         id: publish
         uses: docker/build-push-action@v7
@@ -256,6 +336,75 @@ jobs:
           PY
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
           echo "pinned=$FINAL_IMAGE@$digest" >> "$GITHUB_OUTPUT"
+      - name: Publish architecture-minimal Supervisor bootstrap feed
+        id: supervisor
+        shell: bash
+        run: |
+          set -euo pipefail
+          for arch in amd64 arm64; do
+            root="$RUNNER_TEMP/supervisor-$arch"
+            docker buildx build \
+              --platform "linux/$arch" \
+              --provenance=false \
+              --push \
+              --tag "$SUPERVISOR_IMAGE:$SUPERVISOR_TAG-$arch" \
+              --label "org.opencontainers.image.source=https://github.com/SickIcarus-Labs/monitorbox-modules" \
+              --label "org.opencontainers.image.revision=$MODULES_SOURCE_SHA" \
+              --label "com.sickicarus.monitorbox.core-source=$CORE_SOURCE_SHA" \
+              --label "com.sickicarus.monitorbox.artifact-class=successor-supervisor-bootstrap-feed" \
+              --label "com.sickicarus.monitorbox.catalog-sequence=6" \
+              "$root"
+          done
+          docker buildx imagetools create \
+            --tag "$SUPERVISOR_IMAGE:$SUPERVISOR_TAG" \
+            "$SUPERVISOR_IMAGE:$SUPERVISOR_TAG-amd64" \
+            "$SUPERVISOR_IMAGE:$SUPERVISOR_TAG-arm64"
+          digest="$(docker buildx imagetools inspect "$SUPERVISOR_IMAGE:$SUPERVISOR_TAG" | awk '/^Digest:/ {print $2; exit}')"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          echo "pinned=$SUPERVISOR_IMAGE@$digest" >> "$GITHUB_OUTPUT"
+
+      - name: Verify Supervisor feed contains exactly one manager on each architecture
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker buildx imagetools inspect "$SUPERVISOR_IMAGE:$SUPERVISOR_TAG" --raw > "$RUNNER_TEMP/supervisor-index.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          value=json.loads((Path(os.environ["RUNNER_TEMP"])/"supervisor-index.json").read_text())
+          platforms={
+              (item.get("platform",{}).get("os"),item.get("platform",{}).get("architecture"))
+              for item in value.get("manifests",[])
+          }
+          assert platforms=={("linux","amd64"),("linux","arm64")},platforms
+          PY
+          for arch in amd64 arm64; do
+            ref="$SUPERVISOR_IMAGE:$SUPERVISOR_TAG-$arch"
+            docker pull --platform "linux/$arch" "$ref"
+            test "$(docker image inspect "$ref" --format '{{ index .Config.Labels "com.sickicarus.monitorbox.artifact-class" }}')" = "successor-supervisor-bootstrap-feed"
+            id="$(docker create --platform "linux/$arch" "$ref")"
+            root="$RUNNER_TEMP/supervisor-readback-$arch"
+            mkdir -p "$root"
+            docker cp "$id:/feed/." "$root/"
+            docker rm -f "$id" >/dev/null
+            ARCH="$arch" ROOT="$root" python - <<'PY'
+          import json,os
+          from pathlib import Path
+          root=Path(os.environ["ROOT"])
+          value=json.loads((root/"platform/channels/stable/index.json").read_text())
+          artifacts=value["signed"]["artifacts"]
+          packages=list((root/"platform/packages").glob("*.zip"))
+          assert len(artifacts)==1,artifacts
+          assert len(packages)==1,packages
+          item=artifacts[0]
+          assert item["artifact_id"]=="com.sickicarus.monitorbox.scaffold-manager"
+          assert item["kind"]=="scaffold-manager"
+          assert item["platform"]=={"os":"linux","arch":os.environ["ARCH"],"abi":"static"}
+          assert item["package"]["url"]=="platform/packages/"+packages[0].name
+          PY
+          done
+
       - name: Pull by digest and verify every published signed byte over loopback
         shell: bash
         env:
@@ -318,5 +467,7 @@ jobs:
             printf '%s\n' "- catalog sequence: 5"
             printf '%s\n' "- immutable tag: $FINAL_IMAGE:$FINAL_TAG"
             printf '%s\n' "- pinned image: ${{ steps.readback.outputs.pinned }}"
+            printf '%s\n' "- Supervisor bootstrap image: ${{ steps.supervisor.outputs.pinned }}"
+            printf '%s\n' "- Supervisor bootstrap package census: one scaffold-manager per architecture"
             printf '%s\n' "- moving dev/beta/stable/latest tags changed: none"
           } >> "$GITHUB_STEP_SUMMARY"
