@@ -411,6 +411,54 @@ def _apply_scrypted_successor_overlay(
     except UnicodeDecodeError as exc:
         raise SuccessorModuleError("Scrypted predecessor runtime is not UTF-8") from exc
 
+    old_state_import = "from .state_socket import resolve_managed_socket\\n"
+    new_state_import = '''from .state_socket import (
+    LEGACY_SOCKET as _LEGACY_SOCKET,
+    resolve_managed_socket as _legacy_resolve_managed_socket,
+)
+
+_SUCCESSOR_SOCKET_DEFAULT = "/tmp/monitorbox-scrypted/bridge.sock"
+_UNIX_PATH_MAX_BYTES = 107
+
+
+def resolve_managed_socket(requested: Any, state_root: str | None) -> str:
+    """Resolve successor bridge IPC into a short private ephemeral namespace."""
+
+    raw = str(requested or "").strip()
+    if not os.environ.get("MONITORBOX_ARTIFACT_ID"):
+        return _legacy_resolve_managed_socket(requested, state_root)
+    if raw and raw not in {_LEGACY_SOCKET, _SUCCESSOR_SOCKET_DEFAULT}:
+        return _legacy_resolve_managed_socket(requested, state_root)
+    if not state_root:
+        raise RuntimeError("Scrypted managed state root is unavailable")
+
+    root = Path(state_root)
+    if not root.is_absolute():
+        raise ValueError("Scrypted managed state root must be an absolute path")
+    root.mkdir(parents=True, exist_ok=True)
+    if root.is_symlink() or not root.is_dir():
+        raise RuntimeError("Scrypted managed state root is not a real directory")
+
+    # Durable successor slots are deliberately deep. A Linux pathname AF_UNIX
+    # socket has only 108 bytes of sun_path storage, so never append bridge.sock
+    # directly beneath the durable module state root.
+    digest = hashlib.sha256(os.fsencode(str(root))).hexdigest()[:16]
+    runtime_root = Path("/tmp") / f"mb-scrypted-{digest}"
+    runtime_root.mkdir(mode=0o700, exist_ok=True)
+    if (
+        runtime_root.is_symlink()
+        or not runtime_root.is_dir()
+        or runtime_root.stat().st_uid != os.geteuid()
+    ):
+        raise RuntimeError("Scrypted ephemeral runtime directory is unsafe")
+    runtime_root.chmod(0o700)
+
+    socket_path = runtime_root / "bridge.sock"
+    if len(os.fsencode(str(socket_path))) > _UNIX_PATH_MAX_BYTES:
+        raise RuntimeError("Scrypted bridge socket exceeds Linux AF_UNIX path limit")
+    return str(socket_path)
+'''
+
     old_lookup = '''        node = shutil.which(os.environ.get("MONITORBOX_MODULE_NODE", "node"))
         if node is None:
             raise RuntimeError("Node.js runtime is unavailable for the Scrypted module")
@@ -463,7 +511,8 @@ def _apply_scrypted_successor_overlay(
     new_mkdir = "        socket_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)\n"
 
     if (
-        text.count(old_lookup) != 1
+        text.count(old_state_import) != 1
+        or text.count(old_lookup) != 1
         or text.count(old_exec) != 1
         or text.count(old_socket) != 1
         or text.count(old_mkdir) != 1
@@ -472,7 +521,8 @@ def _apply_scrypted_successor_overlay(
             "Scrypted predecessor successor runtime boundary changed unexpectedly"
         )
     text = (
-        text.replace(old_lookup, new_lookup, 1)
+        text.replace(old_state_import, new_state_import, 1)
+        .replace(old_lookup, new_lookup, 1)
         .replace(old_exec, new_exec, 1)
         .replace(old_socket, new_socket, 1)
         .replace(old_mkdir, new_mkdir, 1)
