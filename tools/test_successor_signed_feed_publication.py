@@ -16,6 +16,7 @@ def test_signed_feed_publication_is_exact_user_and_issue_scoped():
         "REAL_PYTHON_SOURCE_SHA: 3e4cf4ae9072efff941f35a2b0b20b7b493de4cc",
         "HANDOFF_IMAGE: ghcr.io/sickicarus-labs/monitorbox-successor-feed",
         "FINAL_IMAGE: ghcr.io/sickicarus-labs/monitorbox-successor-signed-feed",
+        "SUPERVISOR_IMAGE: ghcr.io/sickicarus-labs/monitorbox-successor-supervisor-feed",
     ):
         assert required in raw
 
@@ -60,3 +61,26 @@ def test_protected_signer_matches_official_root_and_publishes_only_immutable_fee
         assert required in signed
     for mutable in (":dev",":beta",":stable",":latest"):
         assert mutable not in raw
+
+
+def test_protected_signer_derives_manager_only_supervisor_bootstrap_feed():
+    raw=WORKFLOW.read_text("utf-8")
+    signed=raw.split("  sign-publish:",1)[1]
+    for required in (
+        "Build signed per-architecture Supervisor bootstrap authorities",
+        'item.get("artifact_id")=="com.sickicarus.monitorbox.scaffold-manager"',
+        'item.get("kind")=="scaffold-manager"',
+        'and item.get("platform",{}).get("arch")==arch',
+        'assert len(matches)==1',
+        "Publish architecture-minimal Supervisor bootstrap feed",
+        "successor-supervisor-bootstrap-feed",
+        "Verify Supervisor feed contains exactly one manager on each architecture",
+        'assert len(artifacts)==1',
+        'assert len(packages)==1',
+        'docker buildx imagetools create',
+        "steps.supervisor.outputs.pinned",
+    ):
+        assert required in signed
+    # Bootstrap images must be immutable sequence identities; stable movement
+    # remains a separately guarded pointer operation.
+    assert "$SUPERVISOR_IMAGE:stable" not in signed
