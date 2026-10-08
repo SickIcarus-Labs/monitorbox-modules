@@ -1,10 +1,10 @@
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
-NEW=ROOT/".github/workflows/successor-signed-feed-stable-pointer-9.yml"
+NEW=ROOT/"docs/release-intent-history/successor-signed-feed-stable-pointer-seq9.yml"
 OLD=ROOT/"docs/release-intent-history/successor-signed-feed-stable-pointer-seq8.yml"
 
-def test_sequence9_paired_stable_promotion_requires_exact_operator_authority():
+def test_historical_sequence9_paired_stable_promotion_preserves_exact_audit_evidence():
     s=NEW.read_text("utf-8")
     assert "github.event.issue.number == 128" in s
     assert "github.event.comment.user.login == 'SickIcarus'" in s
@@ -37,3 +37,11 @@ def test_retired_sequence8_promotion_cannot_run_from_active_workflows():
         contents=workflow.read_text("utf-8")
         assert "/point-successor-feed-stable-8" not in contents, workflow.name
         assert "/point-successor-supervisor-feed-stable-8" not in contents, workflow.name
+
+
+def test_retired_sequence9_pointer_cannot_be_invoked_by_issue_comment():
+    active = ROOT / ".github" / "workflows"
+    assert not (active / "successor-signed-feed-stable-pointer-9.yml").exists()
+    for workflow in active.glob("*.yml"):
+        contents = workflow.read_text("utf-8")
+        assert "/point-successor-feeds-stable-9" not in contents, workflow.name
