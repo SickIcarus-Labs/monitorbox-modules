@@ -149,6 +149,25 @@ class GHCRReadOnly:
             raise ReleaseRefusal("registry returned bytes different from requested digest")
         return result
 
+    def resolve_stable_digest(self, repository: str) -> str:
+        """Read the exact current stable OCI index without changing it.
+
+        A second read after the immutable payload verification is mandatory
+        for coherent two-pointer observation. This is not a write lock.
+        """
+        if repository not in ALLOWED:
+            raise ReleaseRefusal("unknown successor repository for stable observation")
+        url = BASE + "/v2/" + repository + "/manifests/stable"
+        with self._authorized_get(repository, url, INDEX_MIME) as response:
+            payload = self._read_limited(response, MAX_MANIFEST)
+            declared = response.headers.get("Docker-Content-Digest")
+        actual = "sha256:" + hashlib.sha256(payload).hexdigest()
+        if declared is not None and declared != actual:
+            raise ReleaseRefusal("GHCR current stable digest header disagrees with payload")
+        if not DIGEST.fullmatch(actual):
+            raise ReleaseRefusal("invalid immutable digest from current stable")
+        return actual
+
     def blob(self, repository: str, digest: str, destination: Path,
              max_bytes: int) -> None:
         self._check(repository, digest)
