@@ -2,7 +2,7 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
 NEW=ROOT/".github/workflows/successor-signed-feed-stable-pointer-9.yml"
-OLD=ROOT/".github/workflows/successor-signed-feed-stable-pointer.yml"
+OLD=ROOT/"docs/release-intent-history/successor-signed-feed-stable-pointer-seq8.yml"
 
 def test_sequence9_paired_stable_promotion_requires_exact_operator_authority():
     s=NEW.read_text("utf-8")
@@ -28,3 +28,12 @@ def test_sequence8_promotion_remains_unmodified_and_distinct():
     assert "EXPECTED_SEQUENCE: \"8\"" in historical
     assert "/point-successor-feed-stable-8" in historical
     assert "/point-successor-feeds-stable-9" not in historical
+
+
+def test_retired_sequence8_promotion_cannot_run_from_active_workflows():
+    active=ROOT/".github/workflows"
+    assert not (active/"successor-signed-feed-stable-pointer.yml").exists()
+    for workflow in active.glob("*.yml"):
+        contents=workflow.read_text("utf-8")
+        assert "/point-successor-feed-stable-8" not in contents, workflow.name
+        assert "/point-successor-supervisor-feed-stable-8" not in contents, workflow.name
