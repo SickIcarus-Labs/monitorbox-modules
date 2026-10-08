@@ -145,7 +145,7 @@ def test_tampered_oci_layer_blob_rejected(registry_candidate):
     repo, digest = next((repo, digest) for repo, digest in registry.blobs
                         if repo == FULL_REPO and registry.blobs[(repo, digest)].startswith(b"\x1f\x8b"))
     registry.blobs[(repo, digest)] += b"forged"
-    with pytest.raises(ReleaseRefusal, match="layer size|layer digest"):
+    with pytest.raises(ReleaseRefusal, match="size budget|layer size|layer digest"):
         run(registry_candidate)
 
 
@@ -184,7 +184,7 @@ def test_signed_package_disappears_on_one_full_architecture(registry_candidate):
 
 
 @pytest.mark.parametrize("injected,expected", [
-    ([("feed/platform/packages/evil.zip", b"unsigned")], "missing or extraneous"),
+    ([("feed/platform/packages/evil.zip", b"unsigned")], "architecture package sets differ|extraneous"),
     ([("../escape", b"bad")], "path traversal"),
     ([("feed/platform/packages/manager-amd64.zip", "SYMLINK")], "unsafe non-regular|duplicate"),
     ([("feed/platform/packages/.wh.old.zip", b"whiteout")], "whiteouts"),
