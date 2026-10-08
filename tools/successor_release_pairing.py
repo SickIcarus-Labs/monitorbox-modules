@@ -16,7 +16,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 from verify_platform_index import VerificationError, _parse, _date, verify_index
 
-DIGEST = re.compile(r"sha256:[0-9a-f]{64}\\Z")
+DIGEST = re.compile(r"sha256:[0-9a-f]{64}\Z")
 MANAGER = "com.sickicarus.monitorbox.scaffold-manager"
 ARCHES = frozenset(("amd64", "arm64"))
 
