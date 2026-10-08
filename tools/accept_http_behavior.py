@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib
+import os
 import json
 import sys
 from dataclasses import dataclass, field
@@ -353,6 +354,72 @@ async def accept() -> None:
         raise AssertionError("HTTP runtime intent lost generic adapter/agent ownership")
     if check["config"].get("request_header_value_env") != "MONITORBOX_MANAGED_HTTP_SERVICE_HTTP_HEADER":
         raise AssertionError("HTTP runtime intent protected-header binding changed")
+
+    # Reconcile original Core HTTP calibration PR #93 against the managed ZIP:
+    # exercise actual validation with one temporary protected-header binding,
+    # not only the public plan and runtime projections.
+    class HTTPValidationObservation:
+        state = sys.modules["monitorbox.v2.model"].State.HEALTHY
+
+        def as_dict(self) -> dict[str, Any]:
+            return {
+                "summary": "HTTP 200 in 8.5 ms",
+                "metadata": {
+                    "status": 200,
+                    "request_debug": f"Authorization: {SECRET}",
+                    "nested": {"headers": [SECRET]},
+                },
+                "metrics": {"http.status": 200.0},
+            }
+
+    class HTTPValidationRunner:
+        started = 0
+        closed = 0
+        temporary_name: str | None = None
+
+        async def start(self) -> None:
+            type(self).started += 1
+
+        async def run(self, check) -> HTTPValidationObservation:
+            if (check.adapter != "http" or check.agent_id != "monitor"
+                    or check.options["url"] != "https://service.example.test:443"
+                    or check.options["request_header_name"] != "Authorization"
+                    or check.options["statuses"] != [200, 204, 401, 402]):
+                raise AssertionError("managed HTTP validator lost shared adapter/config policy")
+            if "request_header_value" in check.options:
+                raise AssertionError("HTTP protected header was embedded in adapter options")
+            name = check.options["request_header_value_env"]
+            if not name.startswith("MONITORBOX_ONBOARDING_") or os.environ.get(name) != SECRET:
+                raise AssertionError("managed HTTP validation did not bind an isolated temporary secret")
+            type(self).temporary_name = name
+            return HTTPValidationObservation()
+
+        async def close(self) -> None:
+            type(self).closed += 1
+
+    validation = await managed.HttpIntegration(
+        runner_factory=HTTPValidationRunner,
+    ).validate(request, context)
+    if (not validation.accepted or validation.state != "healthy"
+            or validation.summary != "HTTP 200 in 8.5 ms"):
+        raise AssertionError("managed HTTP onboarding validation lost healthy adapter result")
+    if validation.values.get("request_header_value") != SECRET:
+        raise AssertionError("managed HTTP validated planning handoff lost its protected header")
+    public_validation = {
+        "state": validation.state,
+        "summary": validation.summary,
+        "observation": validation.observation,
+        "metadata": validation.metadata,
+    }
+    if SECRET in json.dumps(public_validation, sort_keys=True):
+        raise AssertionError("managed HTTP public validation leaked protected request header")
+    if validation.observation["metadata"]["nested"]["headers"] != ["[protected]"]:
+        raise AssertionError("managed HTTP validation did not recursively scrub adapter diagnostics")
+    if HTTPValidationRunner.started != 1 or HTTPValidationRunner.closed != 1:
+        raise AssertionError("managed HTTP validation did not start/close one shared adapter")
+    if (not HTTPValidationRunner.temporary_name
+            or HTTPValidationRunner.temporary_name in os.environ):
+        raise AssertionError("managed HTTP validation retained temporary onboarding credentials")
 
     presentation = integration.describe(context)
     fields = {item.key: item for item in presentation.fields}
