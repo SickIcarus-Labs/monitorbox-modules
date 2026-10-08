@@ -1,0 +1,170 @@
+name: Point successor signed feed stable channel
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: ghcr.io/sickicarus-labs/monitorbox-successor-signed-feed
+  EXPECTED_DIGEST: sha256:c2b4d3a02cdb528bba4bccc5248fbe4f9d7cd6fe1c974ff311b8c99718db9339
+  EXPECTED_SEQUENCE: "8"
+  EXPECTED_CORE_SHA: 31a4c874c717e9e1ab2a6600c7b18d488e1a1abe
+  EXPECTED_MODULES_SHA: 0fb0a016034a559e2f79300625aaa01d33f754cb
+  SUPERVISOR_IMAGE: ghcr.io/sickicarus-labs/monitorbox-successor-supervisor-feed
+  SUPERVISOR_EXPECTED_TAG: seq-8-core-31a4c874c717
+  SUPERVISOR_EXPECTED_DIGEST: sha256:ad15eb4f91e8c47a06d3ccba11657408d90128e7ac1ba623409e32835ec4ee8c
+
+jobs:
+  repoint:
+    name: Verify immutable feed and point stable
+    if: >-
+      github.event.issue.number == 128 &&
+      github.event.comment.user.login == 'SickIcarus' &&
+      github.event.comment.body == '/point-successor-feed-stable-8'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/setup-buildx-action@v4
+      - name: Verify exact immutable sequence-8 feed provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          source="$IMAGE@$EXPECTED_DIGEST"
+          docker pull "$source"
+          test "$(docker image inspect "$source" --format '{{ index .Config.Labels "com.sickicarus.monitorbox.artifact-class" }}')" = "successor-physical-acceptance-feed"
+          test "$(docker image inspect "$source" --format '{{ index .Config.Labels "com.sickicarus.monitorbox.catalog-sequence" }}')" = "$EXPECTED_SEQUENCE"
+          test "$(docker image inspect "$source" --format '{{ index .Config.Labels "com.sickicarus.monitorbox.core-source" }}')" = "$EXPECTED_CORE_SHA"
+          test "$(docker image inspect "$source" --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')" = "$EXPECTED_MODULES_SHA"
+          docker buildx imagetools inspect "$source" --raw > "$RUNNER_TEMP/index.json"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          value=json.loads((Path(os.environ["RUNNER_TEMP"])/"index.json").read_text())
+          platforms={
+              (item.get("platform",{}).get("os"),item.get("platform",{}).get("architecture"))
+              for item in value.get("manifests",[])
+              if item.get("platform",{}).get("os") != "unknown"
+          }
+          assert platforms == {("linux","amd64"),("linux","arm64")}, platforms
+          PY
+      - name: Move successor stable feed pointer without rebuild
+        shell: bash
+        run: |
+          set -euo pipefail
+          target="$IMAGE:stable"
+          docker buildx imagetools create --tag "$target" "$IMAGE@$EXPECTED_DIGEST"
+          resolved=""
+          for attempt in 1 2 3 4 5; do
+            inspect="$(docker buildx imagetools inspect "$target" 2>/dev/null || true)"
+            resolved="$(awk '/^Digest:/ {print $2; exit}' <<<"$inspect")"
+            [ "$resolved" = "$EXPECTED_DIGEST" ] && break
+            sleep $((attempt * 2))
+          done
+          test "$resolved" = "$EXPECTED_DIGEST"
+          {
+            echo "### Successor signed feed stable pointer"
+            echo "- target: `$target`"
+            echo "- digest: `$EXPECTED_DIGEST`"
+            echo "- catalog sequence: `8`"
+            echo "- rebuild performed: **no**"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+
+  repoint-supervisor:
+    name: Verify immutable Supervisor feed and point stable
+    if: >-
+      github.event.issue.number == 128 &&
+      github.event.comment.user.login == 'SickIcarus' &&
+      github.event.comment.body == '/point-successor-supervisor-feed-stable-8'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/setup-buildx-action@v4
+      - name: Verify exact immutable sequence-8 Supervisor feed provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          tagged="$SUPERVISOR_IMAGE:$SUPERVISOR_EXPECTED_TAG"
+          resolved="$(docker buildx imagetools inspect "$tagged" | awk '/^Digest:/ {print $2; exit}')"
+          test "$resolved" = "$SUPERVISOR_EXPECTED_DIGEST"
+          docker buildx imagetools inspect "$SUPERVISOR_IMAGE@$SUPERVISOR_EXPECTED_DIGEST" --raw > "$RUNNER_TEMP/supervisor-index.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          value=json.loads((Path(os.environ["RUNNER_TEMP"])/"supervisor-index.json").read_text())
+          platforms={
+              (item.get("platform",{}).get("os"),item.get("platform",{}).get("architecture"))
+              for item in value.get("manifests",[])
+              if item.get("platform",{}).get("os") != "unknown"
+          }
+          assert platforms == {("linux","amd64"),("linux","arm64")}, platforms
+          PY
+          for arch in amd64 arm64; do
+            ref="$SUPERVISOR_IMAGE:$SUPERVISOR_EXPECTED_TAG-$arch"
+            docker pull --platform "linux/$arch" "$ref"
+            test "$(docker image inspect "$ref" --format '{{ index .Config.Labels "com.sickicarus.monitorbox.artifact-class" }}')" = "successor-supervisor-bootstrap-feed"
+            test "$(docker image inspect "$ref" --format '{{ index .Config.Labels "com.sickicarus.monitorbox.catalog-sequence" }}')" = "8"
+            test "$(docker image inspect "$ref" --format '{{ index .Config.Labels "com.sickicarus.monitorbox.core-source" }}')" = "31a4c874c717e9e1ab2a6600c7b18d488e1a1abe"
+            test "$(docker image inspect "$ref" --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')" = "$EXPECTED_MODULES_SHA"
+            id="$(docker create --platform "linux/$arch" "$ref")"
+            root="$RUNNER_TEMP/supervisor-$arch"
+            mkdir -p "$root"
+            docker cp "$id:/feed/." "$root/"
+            docker rm -f "$id" >/dev/null
+            ARCH="$arch" ROOT="$root" python - <<'PY'
+          import json,os
+          from pathlib import Path
+          root=Path(os.environ["ROOT"])
+          value=json.loads((root/"platform/channels/stable/index.json").read_text())
+          artifacts=value["signed"]["artifacts"]
+          packages=list((root/"platform/packages").glob("*.zip"))
+          assert len(artifacts)==1,artifacts
+          assert len(packages)==1,packages
+          item=artifacts[0]
+          assert item["artifact_id"]=="com.sickicarus.monitorbox.scaffold-manager"
+          assert item["kind"]=="scaffold-manager"
+          assert item["platform"]=={"os":"linux","arch":os.environ["ARCH"],"abi":"static"}
+          assert item["package"]["url"]=="platform/packages/"+packages[0].name
+          PY
+          done
+      - name: Move Supervisor stable feed pointer without rebuild
+        shell: bash
+        run: |
+          set -euo pipefail
+          target="$SUPERVISOR_IMAGE:stable"
+          docker buildx imagetools create --tag "$target" "$SUPERVISOR_IMAGE@$SUPERVISOR_EXPECTED_DIGEST"
+          resolved=""
+          for attempt in 1 2 3 4 5; do
+            inspect="$(docker buildx imagetools inspect "$target" 2>/dev/null || true)"
+            resolved="$(awk '/^Digest:/ {print $2; exit}' <<<"$inspect")"
+            [ "$resolved" = "$SUPERVISOR_EXPECTED_DIGEST" ] && break
+            sleep $((attempt * 2))
+          done
+          test "$resolved" = "$SUPERVISOR_EXPECTED_DIGEST"
+          {
+            echo "### Successor Supervisor bootstrap stable pointer"
+            echo "- target: `$target`"
+            echo "- digest: `$SUPERVISOR_EXPECTED_DIGEST`"
+            echo "- catalog sequence: `$EXPECTED_SEQUENCE`"
+            echo "- package census: one scaffold-manager per architecture"
+            echo "- rebuild performed: **no**"
+          } >> "$GITHUB_STEP_SUMMARY"
