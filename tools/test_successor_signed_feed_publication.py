@@ -1,7 +1,7 @@
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
-WORKFLOW=ROOT/".github"/"workflows"/"successor-signed-feed-publish.yml"
+WORKFLOW=ROOT/"docs"/"release-intent-history"/"successor-signed-feed-publish-seq8.yml"
 
 
 def test_signed_feed_publication_is_exact_user_and_issue_scoped():
