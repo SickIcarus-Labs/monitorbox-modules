@@ -20,6 +20,8 @@ import sys
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 from successor_ghcr_readonly import read_only_ghcr_client_from_environment
+from successor_github_readonly import source_api_from_environment
+from successor_github_source_evidence import qualify_source_commits
 from successor_registry_extract import admit_digest_pinned_registry_release
 from successor_release_pairing import ReleaseRefusal
 
@@ -30,6 +32,8 @@ def main() -> int:
                         help="reviewed immutable candidate manifest JSON")
     parser.add_argument("--trust-root", required=True, type=Path,
                         help="approved Ed25519 public key, base64 raw 32-byte format")
+    parser.add_argument("--require-source-ci", action="store_true",
+                        help="also require live exact-source GitHub ancestry and CI/job qualification")
     args = parser.parse_args()
     try:
         raw = args.candidate.read_bytes()
@@ -39,6 +43,8 @@ def main() -> int:
         if len(key_raw) != 32:
             raise ReleaseRefusal("trust root must be a 32-byte Ed25519 key")
         key = Ed25519PublicKey.from_public_bytes(key_raw)
+        proofs = (qualify_source_commits(raw, source_api_from_environment())
+                  if args.require_source_ci else ())
         result = admit_digest_pinned_registry_release(
             raw, read_only_ghcr_client_from_environment(),
             keys={"official-ed25519-1": key},
@@ -56,6 +62,8 @@ def main() -> int:
         "full": result.pair.full_digest,
         "supervisor": result.pair.supervisor_digest,
         "architectures": list(result.full_architectures),
+        "source_ci_verified": bool(proofs),
+        "source_ci_roles": sorted(proof.role for proof in proofs),
     }, sort_keys=True))
     return 0
 
