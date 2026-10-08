@@ -20,6 +20,8 @@ on:
       - "tools/test_successor_github_source_evidence.py"
       - "tools/test_successor_github_readonly.py"
       - "tools/successor_ghcr_readonly.py"
+      - "tools/successor_stable_witness.py"
+      - "tools/test_successor_stable_witness.py"
       - "tools/successor_registry_readonly_cli.py"
       - "tools/test_successor_registry_extract.py"
       - "tools/test_successor_ghcr_readonly.py"
@@ -80,6 +82,7 @@ jobs:
           tools/test_successor_github_source_evidence.py
           tools/test_successor_github_readonly.py
           tools/test_successor_ghcr_readonly.py
+          tools/test_successor_stable_witness.py
           tools/test_successor_active_release_surface.py
       - name: Build loopback feed server
         run: CGO_ENABLED=0 go build -trimpath -o "$RUNNER_TEMP/feed-server" tools/successor_feed_server.go
