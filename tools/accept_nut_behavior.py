@@ -166,12 +166,100 @@ async def accept() -> None:
     ]:
         raise AssertionError(f"NUT UPS enumeration changed: {discovered!r}")
 
+    # Restore pre-modular NUT #83/#86 refusal contracts against the actual
+    # managed ZIP: an unclosed UPS enumeration must not invent a UPS list.
+    class IncompleteNUTProbe(Probe):
+        async def tcp_exchange_until(
+            self, host: str, port: int, payload: bytes, terminator: bytes, *, limit: int
+        ):
+            self.calls.append(("tcp_exchange_until", host, port, payload, terminator, limit))
+            return b'BEGIN LIST UPS\\nUPS server_ups "Server UPS"\\n'
+
+    incomplete = IncompleteNUTProbe()
+    incomplete_rows = await integration.detect(
+        plugin_api.DiscoveryRequest(
+            system_id="power_host", label="Power host", address="nut-a.example.test"
+        ),
+        context,
+        incomplete,
+    )
+    if (len(incomplete_rows) != 1 or incomplete_rows[0].kind != "nut"
+            or incomplete_rows[0].values != {"host": "nut-a.example.test", "port": 3493}
+            or not incomplete_rows[0].default_selected):
+        raise AssertionError("NUT incomplete listing incorrectly fabricated UPS inventory")
+    if [item[0] for item in incomplete.calls] != [
+        "tcp_open", "tcp_exchange", "tcp_exchange_until"
+    ]:
+        raise AssertionError("NUT incomplete discovery exceeded bounded probe sequence")
+
+    class NonNUTProbe(Probe):
+        async def tcp_exchange(self, host: str, port: int, payload: bytes, *, limit: int):
+            self.calls.append(("tcp_exchange", host, port, payload, limit))
+            return b"SSH-2.0-unrelated-service\\n"
+
+        async def tcp_exchange_until(self, *args, **kwargs):
+            raise AssertionError("unidentified TCP service was queried as a NUT server")
+
+    non_nut = NonNUTProbe()
+    possible = await integration.detect(
+        plugin_api.DiscoveryRequest(
+            system_id="power_host", label="Power host", address="nut-a.example.test"
+        ),
+        context,
+        non_nut,
+    )
+    if (len(possible) != 1 or possible[0].kind != "tcp"
+            or possible[0].label != "TCP service on 3493"
+            or possible[0].confidence is not plugin_api.DiscoveryConfidence.POSSIBLE
+            or possible[0].default_selected
+            or possible[0].endpoint != "nut-a.example.test:3493"
+            or possible[0].values != {"host": "nut-a.example.test", "port": 3493}):
+        raise AssertionError("NUT unrecognized TCP/3493 service was falsely selected")
+    if [item[0] for item in non_nut.calls] != ["tcp_open", "tcp_exchange"]:
+        raise AssertionError("non-NUT detection performed unauthorized UPS enumeration")
+
     request_a = _request(plugin_api, system_id="power_host", host="nut-a.example.test", ups="network_ups", label="Network UPS")
     request_b = _request(plugin_api, system_id="server_host", host="nut-b.example.test", ups="server_ups", label="Server UPS")
     plan_a = integration.plan(request_a, context)
     plan_b = integration.plan(request_b, context)
     if plan_a.object_ids == plan_b.object_ids:
         raise AssertionError("distinct NUT UPS Connections collapsed to one object id")
+
+    if (plan_a.expected_revision != 11 or plan_a.expected_config_hash != "nut-behavior-hash"
+            or len(plan_a.operations) != 1 or plan_a.secret_writes
+            or plan_a.object_ids != ("network_ups",)):
+        raise AssertionError("managed NUT plan lost optimistic authority/canonical object shape")
+    ups_object = plan_a.operations[0].object_data
+    if (ups_object["kind"] != "ups"
+            or ups_object["address"] != "nut-a.example.test"
+            or ups_object["depends_on"] != ["power_host"]
+            or len(ups_object["capabilities"]) != 1):
+        raise AssertionError("managed NUT canonical UPS object migration shape changed")
+    provider = ups_object["capabilities"][0]["providers"][0]
+    expected_config = {"host": "nut-a.example.test", "port": 3493, "ups": "network_ups"}
+    if (provider["adapter"] != "nut" or provider["agent_id"] != "monitor"
+            or provider["interval_seconds"] != 15 or provider["timeout_seconds"] != 5
+            or provider["config"] != expected_config):
+        raise AssertionError("managed NUT provider/Agent cadence and config changed")
+
+    identities = integration.identities(request_a.candidate, context)
+    if [(item.namespace, item.value) for item in identities] != [
+        ("nut-ups", "nut-a.example.test:3493/network_ups"),
+        ("nut-endpoint", "nut-a.example.test:3493"),
+    ]:
+        raise AssertionError("managed NUT stable UPS/endpoint identities changed")
+    intent = integration.build_runtime_intent(request_a, context)
+    if (intent.plugin_id != "nut" or intent.checks != ({
+        "id": "network_ups",
+        "adapter": "nut",
+        "object_id": "network_ups",
+        "agent_id": "monitor",
+        "interval_seconds": 15,
+        "timeout_seconds": 5,
+        "config": expected_config,
+    },)):
+        raise AssertionError("managed NUT executable runtime intent drifted from plan")
+
 
     executor = managed.PLUGIN.runtime_executor
     execution_context = plugin_api.RuntimeExecutionContext(
