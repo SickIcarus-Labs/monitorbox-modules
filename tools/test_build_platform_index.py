@@ -431,6 +431,17 @@ class BuildPlatformIndexTests(unittest.TestCase):
         with self.assertRaisesRegex(PublicationError, "unreleasable"):
             self.candidate()
 
+        # The manifest and lock are unchanged, but a wheel member differs.
+        # The trusted signer must reject the tampered wheel before signing.
+        manifest["release_eligible"] = True
+        tampered_wheel = wheel_bytes[:-1] + bytes([wheel_bytes[-1] ^ 1])
+        with zipfile.ZipFile(self.packages / filename, "w", zipfile.ZIP_DEFLATED) as z:
+            z.writestr("wheelhouse.json", json.dumps(manifest))
+            z.writestr("requirements.lock", lock)
+            z.writestr("wheels/" + wheel_name, tampered_wheel)
+        with self.assertRaisesRegex(PublicationError, "digest/size mismatch"):
+            self.candidate()
+
     def test_runtime_and_manager_require_explicit_approval_and_matching_identity(self) -> None:
         for position in (5, 6, 7):
             record = self.source["artifacts"][position]
