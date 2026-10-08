@@ -1,7 +1,8 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-WORKFLOW = ROOT / ".github" / "workflows" / "successor-signed-feed-stable-pointer.yml"
+# Frozen historical fixture: obsolete seq8 promotion must not be executable.
+WORKFLOW = ROOT / "docs" / "release-intent-history" / "successor-signed-feed-stable-pointer-seq8.yml"
 
 
 def test_successor_stable_feed_pointer_is_exact_verified_and_rebuild_free():
