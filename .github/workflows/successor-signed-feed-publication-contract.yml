@@ -15,6 +15,10 @@ on:
       - "tools/successor_release_manifest.py"
       - "tools/successor_oci_evidence.py"
       - "tools/successor_registry_extract.py"
+      - "tools/successor_github_source_evidence.py"
+      - "tools/successor_github_readonly.py"
+      - "tools/test_successor_github_source_evidence.py"
+      - "tools/test_successor_github_readonly.py"
       - "tools/successor_ghcr_readonly.py"
       - "tools/successor_registry_readonly_cli.py"
       - "tools/test_successor_registry_extract.py"
@@ -73,6 +77,8 @@ jobs:
           tools/test_successor_release_manifest.py
           tools/test_successor_oci_evidence.py
           tools/test_successor_registry_extract.py
+          tools/test_successor_github_source_evidence.py
+          tools/test_successor_github_readonly.py
           tools/test_successor_ghcr_readonly.py
           tools/test_successor_active_release_surface.py
       - name: Build loopback feed server
