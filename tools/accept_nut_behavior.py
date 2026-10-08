@@ -173,7 +173,7 @@ async def accept() -> None:
             self, host: str, port: int, payload: bytes, terminator: bytes, *, limit: int
         ):
             self.calls.append(("tcp_exchange_until", host, port, payload, terminator, limit))
-            return b'BEGIN LIST UPS\\nUPS server_ups "Server UPS"\\n'
+            return b'BEGIN LIST UPS\nUPS server_ups "Server UPS"\n'
 
     incomplete = IncompleteNUTProbe()
     incomplete_rows = await integration.detect(
@@ -195,7 +195,7 @@ async def accept() -> None:
     class NonNUTProbe(Probe):
         async def tcp_exchange(self, host: str, port: int, payload: bytes, *, limit: int):
             self.calls.append(("tcp_exchange", host, port, payload, limit))
-            return b"SSH-2.0-unrelated-service\\n"
+            return b"SSH-2.0-unrelated-service\n"
 
         async def tcp_exchange_until(self, *args, **kwargs):
             raise AssertionError("unidentified TCP service was queried as a NUT server")
