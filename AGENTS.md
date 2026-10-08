@@ -4,6 +4,13 @@ This repository contains independently versioned MonitorBox module source, packa
 
 The project-wide development policy is canonically defined by `SickIcarus-Labs/monitorbox/AGENTS.md`. This repository-local contract carries the rules that must remain visible to agents working directly in `monitorbox-modules`, especially module scope, dividend, versioning, publication, and production-safety requirements. If these documents ever diverge, stop and reconcile them rather than silently choosing the weaker rule.
 
+## Central issue routing and repository cleanup
+
+- Open **all new** MonitorBox engineering/issues in `SickIcarus-Labs/monitorbox`, with the owning module marked there. Keep module code, tests, independent versions and PRs in `monitorbox-modules`; colocating tickets is not a reason to move implementation into Core.
+- Do not duplicate issues here. Historical module-repository tickets are being handled by a separate issue audit. Do not migrate, reprioritize, rename or close them during repository cleanup.
+- Verify each old PR's original changed-file list and compare unique implementation, tests and documentation to current accepted `main` before closing it as superseded. Record disposition in PR comments and preserve original historical refs; do not silently delete artifact/source history.
+- Protected successor release signing, paired channel movement and production acceptance are separate from source merge and package CI. Keep old sequence-specific dispatchers inert and do not grant a signer or GHCR writer solely because a read-only verifier passes.
+
 ## Source of truth and scope
 
 Use GitHub as durable development state. The active issue/PR contract defines the bounded task. Module-specific behavior belongs in the owning module; do not use this repository as a route to widen MonitorBox Core.
