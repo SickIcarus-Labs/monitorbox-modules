@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - ".github/workflows/successor-signed-feed-publish.yml"
+      - ".github/workflows/successor-signed-feed-publish-9.yml"
+      - "tools/test_successor_signed_feed_publication_9.py"
       - ".github/workflows/successor-signed-feed-stable-pointer.yml"
       - ".github/workflows/successor-signed-feed-publication-contract.yml"
       - "tools/build_platform_index.py"
@@ -47,6 +49,7 @@ jobs:
           python -m pytest -q
           tools/test_trusted_successor_signer_snapshot.py
           tools/test_successor_signed_feed_publication.py
+          tools/test_successor_signed_feed_publication_9.py
           tools/test_successor_signed_feed_stable_pointer.py
       - name: Build loopback feed server
         run: CGO_ENABLED=0 go build -trimpath -o "$RUNNER_TEMP/feed-server" tools/successor_feed_server.go
