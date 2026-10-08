@@ -43,6 +43,12 @@ Without this switch, output explicitly declares `source_ci_verified=false`. With
 
 This evidence is necessary but not sufficient: it is **not** proof of protected main-branch rules, reviewed release approval, exact build recipe reproducibility or signed publisher authorization. Current private-repository branch protection remains blocked by GitHub plan/permission limitations.
 
+## Optional signed-current stable monotonic preflight
+
+Use `--check-current-stable` to read both existing GHCR `stable` tags **without writing**, verify the exact current full/Supervisor immutable signed feed pair (including expired-but-authentic historic catalogs) and reread both pointers after extraction to detect tag drift. The verifier then rejects an older candidate, rejects alternative artifacts with an identical signed sequence and rejects a purported newer candidate that reuses only one current image digest. A byte-identical same-sequence pair is reported as `already-current`; a strictly newer signed pair reports `newer-candidate`. Both outcomes are explicitly **read-only**.
+
+The operator command can combine `--require-source-ci --check-current-stable` to check both source/CI evidence and the existing channel state, but output always retains `publication_authorized=false` and `channel_changed=false`. A double-read witness is not exclusive publication serialization, cannot prevent every ABA race, and is not an atomic two-tag transaction. No user has approved live promotion as part of cleanup.
+
 ## Remaining release blockers
 
 A manifest's claims are **not independent release authorization**, and this command does not verify whether the source commits passed required GitHub CI checks, who reviewed them, or whether a protected approver authorized publication. The command does not verify the build process used to produce the signed ZIPs beyond cryptographic package identity and embedded archive eligibility admission; that requires qualified build provenance. GHCR availability and access to private images have **not** yet been physically exercised through this runner.
