@@ -256,11 +256,13 @@ def test_manifest_package_hash_rejected_even_with_same_artifact_identity(candida
 
 
 def test_oci_arch_or_core_provenance_mismatch_refused(candidate):
-    evidence = copy.deepcopy(candidate)
+    evidence = dict(candidate)
+    evidence["observed_registry_labels"] = copy.deepcopy(candidate["observed_registry_labels"])
     evidence["observed_registry_labels"]["supervisor"]["amd64"]["com.sickicarus.monitorbox.core-source"] = "f" * 40
     with pytest.raises(ReleaseRefusal, match="label mismatch"):
         admit(evidence)
-    evidence = copy.deepcopy(candidate)
+    evidence = dict(candidate)
+    evidence["observed_registry_labels"] = copy.deepcopy(candidate["observed_registry_labels"])
     del evidence["observed_registry_labels"]["supervisor"]["arm64"]
     with pytest.raises(ReleaseRefusal, match="platform-label"):
         admit(evidence)
