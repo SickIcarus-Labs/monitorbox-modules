@@ -135,6 +135,29 @@ def verified_pair(full: Feed, supervisor: SupervisorFeed, *,
     return Pair(complete["sequence"], full.digest, supervisor.digest)
 
 
+def compare_verified_pair_freshness(target: Pair, current: Pair) -> str:
+    """Read-only signed-state monotonic decision after BOTH pairs were verified.
+
+    'newer-candidate' is NOT promotion authorization; it only passes this
+    specific anti-rollback ordering gate. Caller must enforce locking, approval,
+    source provenance, trusted current readback and registry compensation.
+    """
+    if not isinstance(target, Pair) or not isinstance(current, Pair):
+        raise ReleaseRefusal("pair evidence must be a verified signed Pair")
+    if target.sequence < current.sequence:
+        raise ReleaseRefusal("signed catalog downgrade refused")
+    same = (target.full_digest == current.full_digest and
+            target.supervisor_digest == current.supervisor_digest)
+    if target.sequence == current.sequence:
+        if same:
+            return "already-current"
+        raise ReleaseRefusal("same-sequence alternate artifact/mixed pointers refused")
+    if (target.full_digest == current.full_digest or
+            target.supervisor_digest == current.supervisor_digest):
+        raise ReleaseRefusal("new sequence reused one old immutable channel image")
+    return "newer-candidate"
+
+
 def evaluate_promotion(*, candidate_full: Feed, candidate_supervisor: SupervisorFeed,
                        current_full: Feed, current_supervisor: SupervisorFeed,
                        keys: Mapping[str, Ed25519PublicKey],
@@ -150,11 +173,5 @@ def evaluate_promotion(*, candidate_full: Feed, candidate_supervisor: Supervisor
     target = verified_pair(candidate_full, candidate_supervisor, keys=keys, now=instant)
     previous = verified_pair(current_full, current_supervisor, keys=keys,
                              now=instant, historical=True)
-    if target.sequence < previous.sequence:
-        raise ReleaseRefusal("signed catalog downgrade refused")
-    if target.sequence == previous.sequence:
-        if (target.full_digest == previous.full_digest and
-                target.supervisor_digest == previous.supervisor_digest):
-            return ("already-current", target)
-        raise ReleaseRefusal("same-sequence alternate artifact/mixed pointers refused")
-    return ("promote", target)
+    decision = compare_verified_pair_freshness(target, previous)
+    return ("already-current" if decision == "already-current" else "promote", target)
