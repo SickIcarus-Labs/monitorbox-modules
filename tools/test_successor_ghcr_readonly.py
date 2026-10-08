@@ -143,3 +143,15 @@ def test_readonly_client_has_no_http_mutation_implementation():
                       'method="DELETE"', "docker login", "imagetools create",
                       "subprocess"):
         assert forbidden not in raw
+
+
+
+def test_read_current_stable_tag_by_get_only_and_hash_to_immutable_id():
+    payload = b'{"schemaVersion":2,"mediaType":"application/vnd.oci.image.index.v1+json"}'
+    url = f"https://ghcr.io/v2/{FULL_REPO}/manifests/stable"
+    opener = FakeOpener({url: payload})
+    client = GHCRReadOnly(opener=opener)
+    assert client.resolve_stable_digest(FULL_REPO) == digest(payload)
+    assert opener.seen == [(url, "GET", None)]
+    with pytest.raises(ReleaseRefusal, match="unknown successor"):
+        client.resolve_stable_digest("other-repo/not-authorized")
