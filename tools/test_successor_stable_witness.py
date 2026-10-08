@@ -7,6 +7,7 @@ import pytest
 from successor_registry_extract import FULL_REPO, SUPERVISOR_REPO, ReleaseRefusal
 from successor_stable_witness import observe_current_stable_pair
 from test_successor_registry_extract import registry_candidate, NOW
+from test_successor_release_manifest import candidate  # register reusable ephemeral Ed25519 fixture
 
 
 def provider_from_candidate(value):
