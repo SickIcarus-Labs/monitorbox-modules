@@ -21,6 +21,8 @@ on:
       - "tools/test_successor_github_readonly.py"
       - "tools/successor_ghcr_readonly.py"
       - "tools/successor_stable_witness.py"
+      - "tools/successor_promotion_recovery_model.py"
+      - "tools/test_successor_promotion_recovery_model.py"
       - "tools/successor_existing_stable_readonly.py"
       - "tools/test_successor_existing_stable_readonly.py"
       - ".github/workflows/successor-live-stable-readonly.yml"
@@ -79,6 +81,7 @@ jobs:
           tools/test_successor_signed_feed_stable_pointer.py
           tools/test_successor_signed_feed_stable_pointer_9.py
           tools/test_successor_release_pairing.py
+          tools/test_successor_promotion_recovery_model.py
           tools/test_successor_release_manifest.py
           tools/test_successor_oci_evidence.py
           tools/test_successor_registry_extract.py
