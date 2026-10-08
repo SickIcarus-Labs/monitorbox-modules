@@ -212,7 +212,7 @@ def test_expired_candidate_fails_but_expired_signed_current_orders(trusted):
                    expires=NOW - timedelta(days=3))
     with pytest.raises(ReleaseRefusal, match="untrusted"):
         verified_pair(*old, keys=keys, now=NOW)
-    new = fixtures(11, key=key)
+    new = fixtures(11, key=key, full_digit="3", supervisor_digit="4")
     decision, pair = evaluate_promotion(
         candidate_full=new[0], candidate_supervisor=new[1],
         current_full=old[0], current_supervisor=old[1],
