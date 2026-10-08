@@ -12,6 +12,9 @@ on:
       - "docs/release-intent-history/successor-signed-feed-stable-pointer-seq9.yml"
       - "tools/test_successor_signed_feed_stable_pointer_9.py"
       - "tools/successor_release_pairing.py"
+      - "tools/successor_release_manifest.py"
+      - "tools/test_successor_release_manifest.py"
+      - "platform/schema/qualified-release-candidate-v1.schema.json"
       - "tools/test_successor_release_pairing.py"
       - "tools/test_successor_active_release_surface.py"
       - ".github/workflows/successor-signed-feed-publication-contract.yml"
@@ -60,6 +63,7 @@ jobs:
           tools/test_successor_signed_feed_stable_pointer.py
           tools/test_successor_signed_feed_stable_pointer_9.py
           tools/test_successor_release_pairing.py
+          tools/test_successor_release_manifest.py
           tools/test_successor_active_release_surface.py
       - name: Build loopback feed server
         run: CGO_ENABLED=0 go build -trimpath -o "$RUNNER_TEMP/feed-server" tools/successor_feed_server.go
