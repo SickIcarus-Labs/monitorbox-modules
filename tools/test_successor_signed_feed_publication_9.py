@@ -1,10 +1,10 @@
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
-SIGNER=ROOT/".github/workflows/successor-signed-feed-publish-9.yml"
+SIGNER=ROOT/"docs/release-intent-history/successor-signed-feed-publish-seq9.yml"
 HISTORICAL=ROOT/"docs/release-intent-history/successor-signed-feed-publish-seq8.yml"
 
-def test_trusted_sequence9_signer_checks_immutable_handoff_before_key_admission():
+def test_historical_sequence9_signer_was_qualified_before_secret_admission():
     raw=SIGNER.read_text("utf-8")
     before,after=raw.split("  sign-publish:",1)
     assert "github.event.issue.number == 128" in raw
@@ -39,3 +39,11 @@ def test_obsolete_sequence8_signing_dispatch_is_inert():
     assert not (active / "successor-signed-feed-publish.yml").exists()
     for workflow in active.glob("*.yml"):
         assert "/publish-successor-signed-feed-8 sha256:" not in workflow.read_text("utf-8"), workflow.name
+
+
+def test_retired_sequence9_signer_is_never_executable_from_issue_comment():
+    active = ROOT / ".github" / "workflows"
+    assert not (active / "successor-signed-feed-publish-9.yml").exists()
+    for workflow in active.glob("*.yml"):
+        contents = workflow.read_text("utf-8")
+        assert "/publish-successor-signed-feed-9 sha256:" not in contents, workflow.name
