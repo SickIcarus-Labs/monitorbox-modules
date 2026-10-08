@@ -149,6 +149,11 @@ jobs:
         run: python tools/accept_ui_build34_settings_shell.py
       - name: Verify P2 build-35 Configuration peer navigation ownership
         run: python tools/accept_ui_build35_configuration_nav.py
+      - name: Preserve historical projected-card source and pre-route Core guard (UI40 over accepted UI35)
+        run: |
+          python tools/accept_ui_build40_card_contract.py
+          node --check sources/ui/1.4.1-build40/card-projection.js
+          node tools/accept_ui_build40_card_projection.mjs
       - name: Upload exact changed candidates for Broad Leaf acceptance
         uses: actions/upload-artifact@v4
         with:
