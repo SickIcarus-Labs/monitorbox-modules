@@ -27,3 +27,9 @@ The earlier #163 prototype expected one combined Supervisor signed index contain
 The helper implements **only** catalog authenticity, architecture-specific pairing and monotonic ordering. It does **not** retrieve OCI manifests, prove image labels, verify package bytes, validate CI source qualifications, authorize a release, or write registry tags. These are blocking follow-up gates.
 
 Catalog sequence is **internal anti-rollback metadata**, not MonitorBox's product version. Routine updates remain package-management operations inside the running appliance; they must not require fresh container pulls.
+
+## Read-only observation of the current moving stable pair
+
+The stable observation helper resolves the two independent GHCR `stable` pointers with **GET**, downloads both immutable OCI images by returned content digest, verifies the full OCI layer/catalog/ZIP chains and the signed architecture-specific Supervisor manager pair, then rereads both mutable pointers. It refuses a torn/mixed signed state and detectable mid-read tag movement. The historical current signed indexes may have expired, but must have authentic signatures and internally consistent historical issue/expiry timestamps and package signatures.
+
+**This is a witness, not a transaction.** A two-read snapshot cannot detect every ABA flip and does not serialize writers. Before any stable promotion, a separate protected actor must hold exclusive release authority, reread current digests immediately before committing, refuse rollback and alternate same-sequence releases, and implement a compensating rollback on partial failure with final dual-tag registry readback. This new read-only helper never changes a tag or contacts Portainer.
