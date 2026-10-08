@@ -7,7 +7,8 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from successor_release_pairing import (
-    Feed, SupervisorFeed, ReleaseRefusal, evaluate_promotion, verified_pair,
+    Feed, SupervisorFeed, Pair, ReleaseRefusal, evaluate_promotion, verified_pair,
+    compare_verified_pair_freshness,
 )
 from verify_platform_index import canonical
 
@@ -228,3 +229,31 @@ def test_divergent_current_pair_fails_before_promotion(trusted):
         evaluate_promotion(candidate_full=target[0], candidate_supervisor=target[1],
                            current_full=old_a[0], current_supervisor=old_b[1],
                            keys=keys, now=NOW)
+
+
+def test_readonly_exact_digest_pair_monotonic_preflight():
+    old = Pair(9, "sha256:" + "1" * 64, "sha256:" + "2" * 64)
+    new = Pair(10, "sha256:" + "3" * 64, "sha256:" + "4" * 64)
+    assert compare_verified_pair_freshness(new, old) == "newer-candidate"
+    assert compare_verified_pair_freshness(old, old) == "already-current"
+    with pytest.raises(ReleaseRefusal, match="downgrade"):
+        compare_verified_pair_freshness(old, new)
+    with pytest.raises(ReleaseRefusal, match="same-sequence"):
+        compare_verified_pair_freshness(
+            Pair(9, "sha256:" + "3" * 64, old.supervisor_digest), old)
+    with pytest.raises(ReleaseRefusal, match="reused"):
+        compare_verified_pair_freshness(
+            Pair(10, old.full_digest, new.supervisor_digest), old)
+    with pytest.raises(ReleaseRefusal, match="reused"):
+        compare_verified_pair_freshness(
+            Pair(10, new.full_digest, old.supervisor_digest), old)
+
+
+def test_operator_cli_labels_preflight_as_non_authorizing():
+    from pathlib import Path
+    source = (Path(__file__).parent / "successor_registry_readonly_cli.py").read_text("utf-8")
+    assert "--check-current-stable" in source
+    assert "compare_verified_pair_freshness" in source
+    assert '"publication_authorized": False' in source
+    assert '"channel_changed": False' in source
+    assert '"stable_pair_checked": stable is not None' in source
