@@ -320,6 +320,43 @@ async def accept() -> None:
     if evidence.endpoint != "https://service.example.test:443" or evidence.default_selected:
         raise AssertionError("HTTP discovery endpoint/selection contract changed")
 
+    # Original Core #91 compared both 0540 HTTP discovery groups, including
+    # management ports, and preserved the legacy http_service connection alias.
+    class AllHTTPPortProbe:
+        calls: list[tuple[str, int]]
+
+        def __init__(self) -> None:
+            self.calls = []
+
+        async def tcp_open(self, host: str, port: int) -> bool:
+            self.calls.append((host, port))
+            return host == "service.example.test" and port in (443, 80, 8443, 9090)
+
+    all_ports = AllHTTPPortProbe()
+    all_candidates = await integration.detect(
+        plugin_api.DiscoveryRequest(
+            system_id="service_host", label="Service host",
+            address="service.example.test",
+        ),
+        context, all_ports,
+    )
+    expected_endpoints = (
+        "https://service.example.test:443",
+        "http://service.example.test:80",
+        "https://service.example.test:8443",
+        "https://service.example.test:9090",
+    )
+    if (tuple(row.endpoint for row in all_candidates) != expected_endpoints
+            or any(row.confidence is not plugin_api.DiscoveryConfidence.POSSIBLE
+                   or row.default_selected for row in all_candidates)
+            or all_ports.calls != [
+                ("service.example.test", port) for port in (443, 80, 8443, 9090)
+            ]):
+        raise AssertionError("managed HTTP legacy primary/management probe groups drifted")
+
+    if set(managed.PLUGIN.connection_kinds) != {"http", "http_service"}:
+        raise AssertionError("managed HTTP lost legacy http_service connection ownership")
+
     plan = integration.plan(request, context)
     if plan.plugin_id != "http" or plan.system_id != "service_host":
         raise AssertionError("HTTP connection plan ownership changed")
@@ -329,6 +366,28 @@ async def accept() -> None:
         raise AssertionError("HTTP plan must emit one object intent and one protected-header secret")
     if SECRET in json.dumps(plan.public(), sort_keys=True):
         raise AssertionError("HTTP connection plan public diagnostics leaked protected header value")
+
+    service_alias = plugin_api.DiscoveryEvidence(
+        plugin_id="http",
+        system_id=candidate.system_id,
+        kind="http_service",
+        label=candidate.label,
+        endpoint=candidate.endpoint,
+        confidence=candidate.confidence,
+        evidence=candidate.evidence,
+        values=candidate.values,
+    )
+    alias_request = plugin_api.ConnectionRequest(
+        candidate=service_alias, values=request.values,
+    )
+    alias_plan = integration.plan(alias_request, context)
+    if alias_plan != plan:
+        raise AssertionError("managed HTTP legacy http_service alias changed canonical staging")
+    if integration.build_runtime_intent(alias_request, context) != integration.build_runtime_intent(request, context):
+        raise AssertionError("managed HTTP alias changed runtime intent")
+    if integration.identities(service_alias, context) != integration.identities(candidate, context):
+        raise AssertionError("managed HTTP alias changed stable endpoint identity")
+
 
     object_data = plan.operations[0].object_data
     provider = object_data["capabilities"][0]["providers"][0]
