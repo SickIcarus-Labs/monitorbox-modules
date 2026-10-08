@@ -1,0 +1,199 @@
+name: Successor runtime ABI proof (unreleaseable)
+on:
+  pull_request:
+    paths:
+      - "platform/runtime/**"
+      - "tools/package_self_contained_runtime.py"
+      - "tools/test_self_contained_runtime.py"
+      - "tools/freeze_runtime_debian_closure.py"
+      - "tools/test_frozen_runtime_debian.py"
+      - "tools/discover_archived_debian.py"
+      - "tools/test_archived_debian.py"
+      - "tools/build_platform_index.py"
+      - "tools/test_build_platform_index.py"
+      - ".github/workflows/successor-runtime-proof.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  runtime-proof:
+    name: Scratch Linux ${{ matrix.arch }} Python + Node ABI proof
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 24
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Synthetic source/path/determinism regressions
+        run: python -m unittest discover -s tools -p 'test_self_contained_runtime.py' -v
+      - name: Frozen Debian ABI manifest and tampering regressions
+        run: python -m unittest discover -s tools -p 'test_frozen_runtime_debian.py' -v
+      - name: Offline source-reviewed Debian signed snapshot regression tests
+        run: python -m unittest discover -s tools -p 'test_archived_debian.py' -v
+      - name: Obtain the Debian archive keyring from the exact pinned Python OCI
+        shell: bash
+        run: |
+          set -euo pipefail
+          id=$(docker create python:3.13-slim-bookworm@sha256:2325bb286ec344af3e5898cc224b5844e2707ac6e26b1632516fd3edc84a5e26)
+          trap 'docker rm -f "$id" >/dev/null 2>&1 || true' EXIT
+          docker cp "$id:/usr/share/keyrings/debian-archive-keyring.gpg" "$RUNNER_TEMP/debian-archive-keyring.gpg"
+          echo "506b815cbb32d9b6066b4a2aa524071e071761e7e7f68c3ac74f3061ba852017  $RUNNER_TEMP/debian-archive-keyring.gpg" | sha256sum --check --status
+      - name: Fetch ONLY immutable reviewed snapshot InRelease/Packages and native .deb, verify all signatures/hashes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/discover_archived_debian.py \
+            --arch ${{ matrix.arch }} \
+            --keyring "$RUNNER_TEMP/debian-archive-keyring.gpg" \
+            --approved-lock "platform/runtime/debian/snapshot-${{ matrix.arch }}.json" \
+            --output runtime-deb-download
+          mkdir -p platform/runtime/debian/debs
+          cp runtime-deb-download/*.deb platform/runtime/debian/debs/
+          python - <<'PY'
+          import json, platform
+          from pathlib import Path
+          from tools.freeze_runtime_debian_closure import load_lock,verify_archives
+          cpu={"x86_64":"amd64","aarch64":"arm64"}[platform.machine()]
+          native=Path("platform/runtime/debian")
+          approved=json.loads((native/f"snapshot-{cpu}.json").read_text())
+          actual=json.loads((Path("runtime-deb-download")/f"snapshot-proof-{cpu}.json").read_text())
+          assert actual==approved, "source-reviewed signed snapshot changed"
+          packages=verify_archives(load_lock(native),native/"debs")
+          print(
+              "Source-reviewed snapshot InRelease/Packages and exact offline runtime closure:",
+              ",".join(package.name for package in packages),
+          )
+          PY
+      - name: Verify immutable Python/Node digest lock and exact Dockerfile before building
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from tools.package_self_contained_runtime import load_upstream_lock, verify_locked_dockerfile
+          lock = load_upstream_lock()
+          verify_locked_dockerfile(Path("platform/runtime/Dockerfile"), lock)
+          print("Pinned Docker Official Images:", lock)
+          PY
+      - name: Package architecture-native Python and Node distributions
+        run: docker build --file platform/runtime/Dockerfile --target packer --tag mb-runtime-proof:${{ matrix.arch }} .
+      - name: Extract candidate ZIPs and isolated scratch roots
+        shell: bash
+        run: |
+          set -euo pipefail
+          id=$(docker create mb-runtime-proof:${{ matrix.arch }})
+          trap 'docker rm -f "$id" >/dev/null 2>&1 || true' EXIT
+          mkdir -p runtime-proof
+          docker cp "$id:/artifacts" runtime-proof/artifacts
+          docker cp "$id:/proof" runtime-proof/proof
+          python - <<'PY'
+          import json, platform, zipfile
+          upstream = json.load(open("platform/runtime/upstream-lock.json"))
+          from pathlib import Path
+          arch = {'x86_64':'amd64','aarch64':'arm64'}[platform.machine()]
+          for name in ('python','node'):
+              archive = Path(f'runtime-proof/artifacts/{name}-candidate.zip')
+              with zipfile.ZipFile(archive) as z:
+                  assert z.testzip() is None
+                  manifest = json.loads(z.read('package.json'))
+                  assert manifest['release_eligible'] is False
+                  assert manifest['packaging_stage'] == 'digest-pinned-upstream-runtime-proof'
+                  assert manifest['upstream']['python_image'] == upstream['python_image']
+                  assert manifest['upstream']['node_image'] == upstream['node_image']
+                  assert manifest['upstream']['os_packages'] == 'snapshot-locked-oci-base-abi-prototype'
+                  lock_path=Path(f'platform/runtime/debian/lock-{arch}.json')
+                  debian=json.loads(lock_path.read_text())
+                  evidence=manifest['upstream']['debian_abi']
+                  import hashlib
+                  assert evidence['lock_sha256']==hashlib.sha256(lock_path.read_bytes()).hexdigest()
+                  assert evidence['arch']==arch
+                  assert evidence['abi_versions']==debian['installed_abi_versions']
+                  assert evidence['base_ca_sha256']==debian['base_ca_sha256']
+                  assert evidence['installed_ca_sha256']==debian['installed_ca_sha256']
+                  assert evidence['changed_packages']==[
+                      {key: item[key] for key in ('package','version','sha256','size')}
+                      for item in debian['changed_packages']
+                  ]
+                  snap=Path(f'platform/runtime/debian/snapshot-{arch}.json')
+                  reviewed_snapshot=json.loads(snap.read_text())
+                  approved=evidence['snapshot']
+                  assert approved['source_lock_sha256']==hashlib.sha256(snap.read_bytes()).hexdigest()
+                  assert approved['checkpoint']=='20260926T000000Z'
+                  assert approved['debian_keyring_sha256']==reviewed_snapshot['keyring_sha256']
+                  assert approved['signed_inrelease_sha256']==reviewed_snapshot['inrelease']['sha256']
+                  assert approved['signed_packages_sha256']==reviewed_snapshot['packages']['sha256']
+                  assert approved['signed_packages_path']==reviewed_snapshot['packages']['path']
+                  assert approved['package_sha256']==debian['changed_packages'][0]['sha256']
+                  assert approved['provenance']=='independently-verified-external-Debian-snapshot-prototype'
+                  assert manifest['platform'] == {'os':'linux','arch':arch,'abi':'glibc'}
+                  assert manifest['dynamic_loader'] in z.namelist()
+                  assert manifest['entrypoint'] in z.namelist()
+                  if name == 'python':
+                      assert manifest['tools'] == {'ping': 'runtime/usr/bin/ping'}
+                      assert 'runtime/usr/bin/ping' in z.namelist()
+                  else:
+                      assert manifest['tools'] == {}
+                  for support in ("libgcc_s.so.1", "libstdc++.so.6", "libatomic.so.1", "libpthread.so.0"):
+                      assert "runtime/lib/" + support in z.namelist()
+              assert (Path('runtime-proof/proof')/name/'runtime/loader').is_dir()
+              print(name, manifest['version'], manifest['platform'])
+          PY
+      - name: Run Python 3.13 in an otherwise empty scratch image
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar -C runtime-proof/proof/python -cf - . | docker import - mb-python-scratch:proof
+          loader=$(python -c "import json;print('/'+json.load(open('runtime-proof/proof/python/package.json'))['dynamic_loader'])")
+          bin=$(python -c "import json;print('/'+json.load(open('runtime-proof/proof/python/package.json'))['entrypoint'])")
+          docker run --rm --read-only --user 10001:10001 \
+            -e PYTHONHOME=/runtime/usr/local \
+            -e PYTHONDONTWRITEBYTECODE=1 \
+            -e SSL_CERT_FILE=/runtime/etc/ssl/certs/ca-certificates.crt \
+            --entrypoint "$loader" mb-python-scratch:proof \
+            --library-path /runtime/lib:/runtime/usr/local/lib \
+            "$bin" -I -c 'import ssl,sqlite3,ctypes,zlib,hashlib,sys; assert sys.version_info[:2]==(3,13); assert ssl.create_default_context().get_ca_certs(); [ctypes.CDLL("/runtime/lib/"+n) for n in ("libgcc_s.so.1","libstdc++.so.6","libatomic.so.1","libpthread.so.0")]; print("scratch Python3.13 stdlib/SSL/SQLite/ctypes/ABI DSOs OK")'
+      - name: Run packaged ping as non-root with only NET_RAW
+        shell: bash
+        run: |
+          set -euo pipefail
+          loader=$(python -c "import json;print('/'+json.load(open('runtime-proof/proof/python/package.json'))['dynamic_loader'])")
+          ping=$(python -c "import json;print('/'+json.load(open('runtime-proof/proof/python/package.json'))['tools']['ping'])")
+          docker run --rm --read-only --user 10001:10001 \
+            --cap-drop ALL --cap-add NET_RAW --security-opt no-new-privileges \
+            --entrypoint "$loader" mb-python-scratch:proof \
+            --library-path /runtime/lib:/runtime/usr/local/lib \
+            "$ping" -n -c 1 -W 2 127.0.0.1
+      - name: Run Node 24 in an otherwise empty scratch image
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar -C runtime-proof/proof/node -cf - . | docker import - mb-node-scratch:proof
+          loader=$(python -c "import json;print('/'+json.load(open('runtime-proof/proof/node/package.json'))['dynamic_loader'])")
+          bin=$(python -c "import json;print('/'+json.load(open('runtime-proof/proof/node/package.json'))['entrypoint'])")
+          docker run --rm --read-only --user 10001:10001 \
+            --entrypoint "$loader" mb-node-scratch:proof \
+            --library-path /runtime/lib:/runtime/usr/local/lib \
+            "$bin" -e 'const c=require("crypto");if(!process.versions.node.startsWith("24."))process.exit(2);if(!c.createHash("sha256").update("ok").digest("hex"))process.exit(3); console.log("scratch Node24 crypto OK")'
+      - name: Retain short-lived UNRELEASABLE runtime ZIP proof for scaffold integration
+        uses: actions/upload-artifact@v4
+        with:
+          name: unreleaseable-runtime-zips-${{ matrix.arch }}-${{ github.sha }}
+          path: runtime-proof/artifacts/*-candidate.zip
+          retention-days: 2
+          compression-level: 0
+          if-no-files-found: error
+      - name: Retain unreleasable manifest evidence (no signed catalog)
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-proof-${{ matrix.arch }}-${{ github.sha }}
+          path: |
+            runtime-proof/proof/python/package.json
+            runtime-proof/proof/node/package.json
+          retention-days: 5

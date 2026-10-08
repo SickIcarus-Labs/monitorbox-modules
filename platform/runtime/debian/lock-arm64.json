@@ -1,0 +1,56 @@
+{
+  "schema": 1,
+  "release_eligible": false,
+  "packaging_stage": "sha256-locked-oci-base-debian-abi-proof",
+  "base_image": "python:3.13-slim-bookworm@sha256:2325bb286ec344af3e5898cc224b5844e2707ac6e26b1632516fd3edc84a5e26",
+  "requested": [
+    "libstdc++6",
+    "libgcc-s1",
+    "libatomic1",
+    "iputils-ping"
+  ],
+  "base_ca_sha256": "714d457d580922dbf1d0be8bd35ba236a842b50b0072ae791582a19adef772a5",
+  "installed_ca_sha256": "714d457d580922dbf1d0be8bd35ba236a842b50b0072ae791582a19adef772a5",
+  "baseline_abi_versions": {
+    "iputils-ping": null,
+    "libatomic1": null,
+    "libgcc-s1": "12.2.0-14+deb12u1",
+    "libstdc++6": "12.2.0-14+deb12u1"
+  },
+  "installed_abi_versions": {
+    "iputils-ping": "3:20221126-1+deb12u1",
+    "libatomic1": "12.2.0-14+deb12u1",
+    "libgcc-s1": "12.2.0-14+deb12u1",
+    "libstdc++6": "12.2.0-14+deb12u1"
+  },
+  "arch": "arm64",
+  "changed_packages": [
+    {
+      "package": "iputils-ping",
+      "version": "3:20221126-1+deb12u1",
+      "arch": "arm64",
+      "filename": "iputils-ping_3%3a20221126-1+deb12u1_arm64.deb",
+      "source_path": "pool/main/i/iputils/iputils-ping_20221126-1+deb12u1_arm64.deb",
+      "sha256": "590a9f9226ed2c7fc71132d84d5eff8cf0e932f3744b42cbd02712ba7c9a2aca",
+      "size": 46144
+    },
+    {
+      "package": "libatomic1",
+      "version": "12.2.0-14+deb12u1",
+      "arch": "arm64",
+      "filename": "libatomic1_12.2.0-14+deb12u1_arm64.deb",
+      "source_path": "pool/main/g/gcc-12/libatomic1_12.2.0-14+deb12u1_arm64.deb",
+      "sha256": "1693aa13ce2b30d061a519fc28b77b9bab8c8e45804ced5969d99821e1bc2159",
+      "size": 9568
+    },
+    {
+      "package": "libcap2-bin",
+      "version": "1:2.66-4+deb12u3+b1",
+      "arch": "arm64",
+      "filename": "libcap2-bin_1%3a2.66-4+deb12u3+b1_arm64.deb",
+      "source_path": "pool/main/libc/libcap2/libcap2-bin_2.66-4+deb12u3+b1_arm64.deb",
+      "sha256": "139adf54b27522e838f3ce895c10d27a5fb406809b7b12d477dd5c13d2b2d286",
+      "size": 34452
+    }
+  ]
+}

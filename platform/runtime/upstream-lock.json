@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "format": "docker-official-images-multiarch-index",
+  "python_image": "python:3.13-slim-bookworm@sha256:2325bb286ec344af3e5898cc224b5844e2707ac6e26b1632516fd3edc84a5e26",
+  "node_image": "node:24-bookworm-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6",
+  "platforms": [
+    "linux/amd64",
+    "linux/arm64"
+  ]
+}

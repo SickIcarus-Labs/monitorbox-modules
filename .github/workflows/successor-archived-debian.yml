@@ -1,0 +1,59 @@
+name: Immutable signed Debian snapshot proof (unreleaseable)
+on:
+  pull_request:
+    paths:
+      - "tools/discover_archived_debian.py"
+      - "tools/test_archived_debian.py"
+      - "platform/runtime/debian/snapshot-*.json"
+      - ".github/workflows/successor-archived-debian.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  snapshot-evidence:
+    name: Verify immutable Debian InRelease/Packages/deb / ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Offline adversarial signed snapshot lock/parser regression tests
+        run: python -m unittest discover -s tools -p 'test_archived_debian.py' -v
+      - name: Extract real Debian signed-archive keyring from approved pinned Python OCI
+        shell: bash
+        run: |
+          set -euo pipefail
+          id=$(docker create python:3.13-slim-bookworm@sha256:2325bb286ec344af3e5898cc224b5844e2707ac6e26b1632516fd3edc84a5e26)
+          trap 'docker rm -f "$id" >/dev/null 2>&1 || true' EXIT
+          docker cp "$id:/usr/share/keyrings/debian-archive-keyring.gpg" "$RUNNER_TEMP/debian-archive-keyring.gpg"
+          test -s "$RUNNER_TEMP/debian-archive-keyring.gpg"
+          sha256sum "$RUNNER_TEMP/debian-archive-keyring.gpg"
+          gpgv --version | head -1
+      - name: Cryptographically verify date-specific Debian archive, exact signed index and native .deb
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/discover_archived_debian.py \
+            --arch ${{ matrix.arch }} \
+            --keyring "$RUNNER_TEMP/debian-archive-keyring.gpg" \
+            --approved-lock "platform/runtime/debian/snapshot-${{ matrix.arch }}.json" \
+            --output snapshot-proof
+          test -s "snapshot-proof/snapshot-proof-${{ matrix.arch }}.json"
+      - name: Retain ONLY unreleaseable signed-index snapshot discovery bytes (not an official release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-signed-debian-snapshot-${{ matrix.arch }}-${{ github.sha }}
+          path: snapshot-proof
+          retention-days: 30
+          compression-level: 0
+          if-no-files-found: error
