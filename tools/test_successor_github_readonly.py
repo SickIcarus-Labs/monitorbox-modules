@@ -55,7 +55,7 @@ def test_do_not_forward_private_token_to_untrusted_redirect():
 
 def test_api_disallows_tag_refs_foreign_repos_and_unbounded_pages():
     client = GitHubReadOnly(opener=Opener())
-    with pytest.raises(ReleaseRefusal, match="exact source"):
+    with pytest.raises(ReleaseRefusal, match="immutable lowercase commit SHA"):
         client.compare_main(CORE_REPO, "main")
     with pytest.raises(ReleaseRefusal, match="unknown"):
         client.compare_main("OtherOrg/other", "a" * 40)
