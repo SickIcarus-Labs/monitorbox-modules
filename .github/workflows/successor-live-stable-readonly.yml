@@ -1,0 +1,43 @@
+name: Read-only live GHCR stable-pair acceptance
+
+# Runs only on trusted main after workflow/CLI changes, or via a deliberate
+# workflow_dispatch. PR code is NEVER executed with packages:read here.
+# Uses GITHUB_TOKEN read-only package scope; no private PAT secret is needed.
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/successor-live-stable-readonly.yml"
+      - "tools/successor_existing_stable_readonly.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: successor-stable-observation-readonly
+  cancel-in-progress: false
+
+jobs:
+  observe:
+    name: Validate existing signed stable pair (GET-only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          ref: main
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Install fixed read-only verifier dependencies
+        run: python -m pip install --disable-pip-version-check "cryptography>=45,<49" "jsonschema>=4,<5"
+      - name: Inspect existing GHCR stable pair using scoped GITHUB_TOKEN
+        env:
+          GHCR_USERNAME: ${{ github.actor }}
+          GHCR_READ_TOKEN: ${{ github.token }}
+        run: >-
+          python tools/successor_existing_stable_readonly.py
+          --trust-root trust/official-ed25519-1.pub

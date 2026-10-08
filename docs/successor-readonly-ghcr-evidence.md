@@ -49,6 +49,39 @@ Use `--check-current-stable` to read both existing GHCR `stable` tags **without 
 
 The operator command can combine `--require-source-ci --check-current-stable` to check both source/CI evidence and the existing channel state, but output always retains `publication_authorized=false` and `channel_changed=false`. A double-read witness is not exclusive publication serialization, cannot prevent every ABA race, and is not an atomic two-tag transaction. No user has approved live promotion as part of cleanup.
 
+## Live existing-stable acceptance (main only, no candidate)
+
+A dedicated `.github/workflows/successor-live-stable-readonly.yml` executes the
+existing signed-current feed witness against **actual GHCR** only after its
+workflow/CLI changes reach trusted `main`, or when manually dispatched from
+`main`. It cannot run arbitrary pull-request code with package-read access.
+
+The job has only `contents: read` and `packages: read` permissions. It tries
+`github.actor` + the ephemeral `github.token` as GHCR pull credentials;
+there is no long-lived PAT or signing secret. If GitHub package access for this
+repository has not been authorized, the run **must fail** and the missing
+permission must be resolved separately. Do not expand to package-write access.
+
+```sh
+# From accepted monitorbox-modules source, after optional GHCR_READ_TOKEN
+# read-only package credentials are configured locally:
+python tools/successor_existing_stable_readonly.py \
+  --trust-root trust/official-ed25519-1.pub
+```
+
+Unlike the candidate command, the stable observer requires **no new release
+manifest** and does not reject an existing signed catalog solely because its
+installation expiry has passed. It still requires official Ed25519 signatures,
+consistent signed sequence, exact manager pairing, correct OCI platform
+provenance and every ZIP's signature/byte closure. It double-reads both moving
+stable pointers to detect observable tag changes during verification.
+
+An Actions success proves a *specific* real-GHCR read-only observation was
+successful at its execution time; it is not a release, a protected approval,
+a new installable package, or proof of two-tag atomicity. A failed run is not
+an excuse to repoint old stable tags or bypass artifact signing. The original
+sequence-9 production pair and installed appliance remain unchanged.
+
 ## Remaining release blockers
 
 A manifest's claims are **not independent release authorization**, and this command does not verify whether the source commits passed required GitHub CI checks, who reviewed them, or whether a protected approver authorized publication. The command does not verify the build process used to produce the signed ZIPs beyond cryptographic package identity and embedded archive eligibility admission; that requires qualified build provenance. GHCR availability and access to private images have **not** yet been physically exercised through this runner.
