@@ -421,6 +421,109 @@ async def accept() -> None:
             or HTTPValidationRunner.temporary_name in os.environ):
         raise AssertionError("managed HTTP validation retained temporary onboarding credentials")
 
+    # Original Core #91 K0-r2 security assertions: TLS relaxation may only
+    # follow a classified certificate-trust failure, never an HTTP/auth error.
+    # Exercise the real managed ZIP validator (not a mocked integration).
+    class TLSFallbackObservation:
+        def __init__(self, state, summary: str) -> None:
+            self.state = state
+            self.summary = summary
+
+        def as_dict(self) -> dict[str, Any]:
+            return {"summary": self.summary, "metadata": {"tls_probe": True}}
+
+    class TLSFallbackRunner:
+        scenario = "trust"
+        seen: list[bool] = []
+        started = 0
+        closed = 0
+        ephemeral_envs: list[str] = []
+
+        async def start(self) -> None:
+            type(self).started += 1
+
+        async def run(self, check) -> TLSFallbackObservation:
+            kind = type(self)
+            if check.adapter != "http" or check.agent_id != "monitor":
+                raise AssertionError("TLS acceptance lost managed HTTP adapter/Agent scope")
+            verify = check.options["verify_tls"]
+            kind.seen.append(verify)
+            env = check.options["request_header_value_env"]
+            if (not env.startswith("MONITORBOX_ONBOARDING_")
+                    or os.environ.get(env) != SECRET):
+                raise AssertionError("TLS validation lost temporary protected header")
+            kind.ephemeral_envs.append(env)
+            state = sys.modules["monitorbox.v2.model"].State
+            if kind.scenario == "trust" and verify:
+                return TLSFallbackObservation(
+                    state.UNKNOWN, "unable to get local issuer certificate"
+                )
+            if kind.scenario == "auth":
+                return TLSFallbackObservation(state.UNKNOWN, "HTTP 401")
+            if kind.scenario == "trust-still-failed":
+                return TLSFallbackObservation(state.UNKNOWN, "self-signed certificate")
+            return TLSFallbackObservation(state.HEALTHY, "HTTP 200 in 8.5 ms")
+
+        async def close(self) -> None:
+            type(self).closed += 1
+
+    for scenario, expected_attempts, expected_accepted in (
+        ("trust", [True, False], True),
+        ("auth", [True], False),
+        ("trust-still-failed", [True, False], False),
+    ):
+        TLSFallbackRunner.scenario = scenario
+        TLSFallbackRunner.seen = []
+        TLSFallbackRunner.started = TLSFallbackRunner.closed = 0
+        TLSFallbackRunner.ephemeral_envs = []
+        verdict = await managed.HttpIntegration(
+            runner_factory=TLSFallbackRunner,
+        ).validate(request, context)
+        if TLSFallbackRunner.seen != expected_attempts:
+            raise AssertionError(
+                f"managed HTTP {scenario} TLS policy: "
+                f"{TLSFallbackRunner.seen!r} != {expected_attempts!r}"
+            )
+        if (TLSFallbackRunner.started != len(expected_attempts)
+                or TLSFallbackRunner.closed != len(expected_attempts)):
+            raise AssertionError(
+                f"managed HTTP {scenario} leaked an adapter or missed a retry"
+            )
+        if verdict.accepted != expected_accepted:
+            raise AssertionError(
+                f"managed HTTP {scenario} returned unsafe acceptance verdict"
+            )
+        if verdict.values.get("verify_tls") != (scenario != "trust"):
+            raise AssertionError(
+                f"managed HTTP {scenario} returned wrong effective TLS policy"
+            )
+        if scenario == "trust":
+            if (verdict.observation["metadata"].get("tls_trust_fallback") is not True
+                    or verdict.metadata.get("tls_trust_fallback") is not True
+                    or not verdict.summary.startswith(
+                        "Validated after accepting the provider's untrusted local TLS certificate:"
+                    )):
+                raise AssertionError(
+                    "managed HTTP trust exception lost explicit fallback provenance"
+                )
+        elif verdict.metadata.get("tls_trust_fallback") or verdict.accepted:
+            raise AssertionError(
+                f"managed HTTP {scenario} falsely advertised TLS-fallback success"
+            )
+        if SECRET in json.dumps({
+            "summary": verdict.summary,
+            "observation": verdict.observation,
+            "metadata": verdict.metadata,
+        }, sort_keys=True):
+            raise AssertionError(
+                f"managed HTTP {scenario} public validation leaked protected header"
+            )
+        if (len(set(TLSFallbackRunner.ephemeral_envs)) != len(expected_attempts)
+                or any(name in os.environ for name in TLSFallbackRunner.ephemeral_envs)):
+            raise AssertionError(
+                f"managed HTTP {scenario} reused or retained temporary credentials"
+            )
+
     presentation = integration.describe(context)
     fields = {item.key: item for item in presentation.fields}
     if not fields["request_header_value"].secret:
