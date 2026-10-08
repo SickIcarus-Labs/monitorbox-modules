@@ -1,0 +1,58 @@
+name: Successor integrated source and signer contract
+
+# PR-only, read-only acceptance of first-party successor source against the
+# trusted signing controls in the exact combined tree. Never publishes packages.
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/successor-integrated-source-contract.yml"
+      - ".github/workflows/successor-signed-feed-publish*.yml"
+      - ".github/workflows/successor-signed-feed-stable-pointer*.yml"
+      - ".github/workflows/successor-module-requalification.yml"
+      - "platform/modules/**"
+      - "platform/runtime/**"
+      - "platform/schema/**"
+      - "platform/successor-signing/**"
+      - "tools/build_platform_index.py"
+      - "tools/verify_platform_index.py"
+      - "tools/build_successor_acceptance_feed_source.py"
+      - "tools/build_successor_first_party_modules.py"
+      - "tools/verify_trusted_successor_signer_snapshot.py"
+      - "tools/test_successor_signed_feed_*.py"
+      - "tools/test_successor_first_party_modules.py"
+      - "tools/test_build_successor_acceptance_feed_source.py"
+      - "tools/test_build_platform_index.py"
+      - "tools/test_platform_index.py"
+      - "tools/test_trusted_successor_signer_snapshot.py"
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    name: Test signer and source policy together (no publication)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Install isolated contract test dependencies
+        run: python -m pip install --disable-pip-version-check pytest "cryptography>=45,<49" "jsonschema>=4,<5"
+      - name: Verify signer trust snapshot
+        run: python tools/verify_trusted_successor_signer_snapshot.py
+      - name: Exercise integrated source + protected publisher contracts
+        run: |
+          python -m pytest -q \
+            tools/test_trusted_successor_signer_snapshot.py \
+            tools/test_successor_signed_feed_publication.py \
+            tools/test_successor_signed_feed_publication_9.py \
+            tools/test_successor_signed_feed_stable_pointer.py \
+            tools/test_successor_signed_feed_stable_pointer_9.py \
+            tools/test_build_platform_index.py \
+            tools/test_platform_index.py \
+            tools/test_build_successor_acceptance_feed_source.py \
+            tools/test_successor_first_party_modules.py
