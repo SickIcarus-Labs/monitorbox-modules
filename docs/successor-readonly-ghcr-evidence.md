@@ -24,6 +24,25 @@ python tools/successor_registry_readonly_cli.py \
 
 The command outputs a compact JSON result with `status=validated-read-only`, exact full/Supervisor digests, internal catalog sequence and `publication_authorized=false`. Temporary extracted files are automatically deleted. It does not query or alter currently installed appliance state.
 
+## Optional live GitHub source-CI evidence
+
+Add `--require-source-ci` to the manual command to *also* require that each exact Core, Modules, and Python source commit is an ancestor of its corresponding accepted repository's `main` branch, and that the fixed required workflows ran on that exact commit with their **actual test jobs succeeding** (not skipped). This only uses HTTPS GET to `api.github.com` against the two fixed private repositories. For private source, provide `GH_SOURCE_READ_TOKEN` with read-only Contents and Actions permissions on both; the tool never forwards it to redirects.
+
+The fixed minimum policy is: Core and reviewed Python source require the `monitorbox` CI workflow's `Validate MonitorBox` job; Modules source requires the integrated signer/source contract job, signed platform contract job, and signed-feed publication contract job, all at that exact Modules commit. A successful wrapper with the required job skipped is refused; a past success cannot hide a later failed run on the same workflow/source. PR head runs can count only when the exact source commit subsequently became a `main` ancestor.
+
+The extended invocation is:
+
+```sh
+python tools/successor_registry_readonly_cli.py \
+  --candidate /path/to/reviewed-qualified-release-candidate.json \
+  --trust-root trust/official-ed25519-1.pub \
+  --require-source-ci
+```
+
+Without this switch, output explicitly declares `source_ci_verified=false`. With it, qualification fails closed if the API has no permission, any exact-SHA check is absent, or a required test job was skipped/failed.
+
+This evidence is necessary but not sufficient: it is **not** proof of protected main-branch rules, reviewed release approval, exact build recipe reproducibility or signed publisher authorization. Current private-repository branch protection remains blocked by GitHub plan/permission limitations.
+
 ## Remaining release blockers
 
 A manifest's claims are **not independent release authorization**, and this command does not verify whether the source commits passed required GitHub CI checks, who reviewed them, or whether a protected approver authorized publication. The command does not verify the build process used to produce the signed ZIPs beyond cryptographic package identity and embedded archive eligibility admission; that requires qualified build provenance. GHCR availability and access to private images have **not** yet been physically exercised through this runner.
