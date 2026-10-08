@@ -9,6 +9,7 @@ integrity, authorize publication or write any registry tags.
 from __future__ import annotations
 
 import hashlib
+import re
 from typing import Mapping
 
 from successor_release_pairing import ARCHES, ReleaseRefusal
@@ -109,8 +110,7 @@ def verify_immutable_oci_index(index_raw: bytes, *,
         for layer in layers:
             if (not isinstance(layer, dict) or
                     not isinstance(layer.get("digest"), str) or
-                    not layer["digest"].startswith("sha256:") or
-                    len(layer["digest"]) != 71 or
+                    re.fullmatch(r"sha256:[0-9a-f]{64}", layer["digest"]) is None or
                     not isinstance(layer.get("size"), int) or layer["size"] <= 0):
                 raise ReleaseRefusal("invalid OCI layer descriptor")
         config_raw = platform_configs[arch]
