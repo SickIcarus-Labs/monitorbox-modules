@@ -88,14 +88,14 @@ def plan_interrupted_recovery(plan: TransactionPlan,
     if not isinstance(plan, TransactionPlan) or not isinstance(observed, PointerSnapshot):
         raise ReleaseRefusal("missing verified recovery transaction evidence")
     p, t = _snapshot(plan.previous), _snapshot(plan.target)
+    if plan.no_op and observed != p:
+        raise ReleaseRefusal("no-op release unexpectedly changed stable pointers")
     for field in ("full_digest", "supervisor_digest"):
         value = getattr(observed, field)
         if value not in (getattr(p, field), getattr(t, field)):
             raise ReleaseRefusal("unknown concurrent pointer: stop for manual repair")
     if observed == p:
         return RecoveryPlan("already-previous", ())
-    if plan.no_op:
-        raise ReleaseRefusal("no-op release unexpectedly changed stable pointers")
     steps = []
     # Reverse the promotion order: first full then Supervisor, only when
     # that pointer currently equals our exact target digest.
