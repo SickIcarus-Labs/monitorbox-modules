@@ -112,7 +112,8 @@ def _qualified_checks(api: GitHubEvidenceAPI, repo: str, sha: str,
             if isinstance(run, Mapping)
             and run.get("path") == path
             and run.get("head_sha") == sha
-            and run.get("head_repository", {}).get("full_name") == repo
+            and isinstance(run.get("head_repository"), Mapping)
+            and run["head_repository"].get("full_name") == repo
             and run.get("event") in ("pull_request", "workflow_dispatch", "push")
             and type(run.get("id")) is int and run["id"] > 0
             and type(run.get("run_attempt")) is int
