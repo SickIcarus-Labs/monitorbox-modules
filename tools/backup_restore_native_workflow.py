@@ -57,6 +57,7 @@ def _serialized_native_job(operation):
             return operation(self, *args, **kwargs)
         finally:
             os.close(fd)
+    return wrapped
 
 
 class NativeBackupWorkflow:
