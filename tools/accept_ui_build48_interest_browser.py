@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""UI48: actual Chromium verifies one existing live fetch carries bounded card interests."""
+"""Actual Chromium verifies viewer leases and selected LIVE card interest.
+
+Default UI48 preserves historical #100 parity; selected mainline UI54
+proves the same browser contract on the latest independently packaged UI.
+"""
 from __future__ import annotations
 
 import asyncio
@@ -8,7 +12,13 @@ from urllib.parse import parse_qs, urlsplit
 
 from playwright.async_api import async_playwright
 
-import build_first_party_ui_build48 as ui
+import importlib
+import os
+
+BUILD = os.environ.get("MONITORBOX_INTEREST_UI_BUILD", "48")
+if BUILD not in {"48", "54"}:
+    raise SystemExit(f"unsupported viewed-card interest test UI build: {BUILD}")
+ui = importlib.import_module("build_first_party_ui_build" + BUILD)
 
 ROOT = Path(__file__).resolve().parent.parent
 PACKAGE = ui._package_files(ROOT)
@@ -61,6 +71,10 @@ async def main() -> None:
                 await page.add_script_tag(content=asset("card-item-registry.js"))
                 await page.add_script_tag(content="""
                     globalThis.MonitorBoxCardLayout={
+                      // The original UI47/48 test uses a v1-v4 layout. UI54
+                      // still supports these imported legacy preferences, but
+                      // its renderer now requires explicit schema dispatch.
+                      isModern(_site,_key){return false;},
                       displayFor(_site,key){
                         const make=(obj,check,metric)=>({
                           key:JSON.stringify(['object',obj,'live',check,metric]),
