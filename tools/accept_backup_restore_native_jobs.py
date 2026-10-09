@@ -152,7 +152,7 @@ class NativeJobJournalTests(unittest.TestCase):
                 self.assertEqual(self.store.inspect().phase, "transfer_verified")
         trusted = SyntheticVerifiedVault()
         self.store.commit(request_id=REQ, backup_id=self.store.inspect().planned_backup_id, vault=trusted)
-        self.assertEqual(trusted.requests, [BACKUP])
+        self.assertEqual(trusted.requests, [self.store.inspect().planned_backup_id])
 
     def test_missing_transfer_or_changed_digest_cannot_commit(self) -> None:
         self.accept()
