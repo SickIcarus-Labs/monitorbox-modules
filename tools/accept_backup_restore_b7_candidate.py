@@ -111,6 +111,10 @@ class PackageAcceptance(unittest.IsolatedAsyncioTestCase):
         sys.path.insert(0,str(cls.archive_one))
         import importlib
         cls.module=importlib.import_module(PREFIX)
+        operator=importlib.import_module(PREFIX+"_native_operator")
+        # Exercise the real packaged startup worker without waiting five
+        # seconds per regression; only alter synthetic test runner cadence.
+        operator.PROGRESS_INTERVAL_SECONDS=0.02
 
     @classmethod
     def tearDownClass(cls):
@@ -197,10 +201,52 @@ class PackageAcceptance(unittest.IsolatedAsyncioTestCase):
         listing=await self.client.get(endpoint+"/native/backups",headers=self.headers())
         self.assertEqual((await listing.json())["backups"],[])
         self.native.phase="ready"
-        # In a synthetic test, explicitly run the verified worker step.
-        workflow=self.app # obtain no private client bearer via public HTTP
-        _=workflow
-        await asyncio.sleep(0.01)
+        # The installed, versioned module's real startup task (not a tools/
+        # prototype) must observe its durable job and commit signed ZIP+metadata.
+        committed=None
+        for _ in range(80):
+            await asyncio.sleep(0.025)
+            state=await self.client.get(endpoint+"/native/status",headers=self.headers())
+            content=await state.json()
+            if content.get("job",{}).get("phase")=="committed":
+                committed=content["job"]
+                break
+        self.assertIsNotNone(committed,"packaged Core progress task failed to commit")
+        self.assertEqual(committed["backup_id"],committed["planned_backup_id"])
+        listing=await self.client.get(endpoint+"/native/backups",headers=self.headers())
+        records=(await listing.json())["backups"]
+        self.assertEqual(len(records),1)
+        self.assertEqual(records[0]["backup_id"],committed["backup_id"])
+        download=await self.client.get(
+            endpoint+"/native/backups/"+committed["backup_id"]+"/download",
+            headers=self.headers(),
+        )
+        self.assertEqual(download.status,200)
+        self.assertEqual(await download.read(),self.synthetic.read_bytes())
+
+    async def test_installed_scheduled_route_waits_for_signed_vault_publication(self):
+        endpoint="/api/v2/config/backup-restore"
+        response=await self.client.post(
+            endpoint+"/native/schedule/run",data="{}",headers=self.headers(),
+        )
+        self.assertEqual(response.status,202)
+        item=await response.json()
+        self.assertFalse(item["committed"])
+        self.assertIsNone(item["backup_id"])
+        before=await self.client.get(endpoint+"/native/backups",headers=self.headers())
+        self.assertEqual((await before.json())["backups"],[])
+        self.native.phase="ready"
+        for _ in range(80):
+            await asyncio.sleep(0.025)
+            status=await self.client.get(endpoint+"/native/status",headers=self.headers())
+            result=await status.json()
+            if result.get("job",{}).get("phase")=="committed":
+                self.assertEqual(result["job"]["kind"],"scheduled")
+                break
+        else:
+            self.fail("signed scheduled ZIP did not become committed")
+        saved=await self.client.get(endpoint+"/native/backups",headers=self.headers())
+        self.assertEqual((await saved.json())["backups"][0]["kind"],"scheduled")
 
     async def test_candidate_policy_requires_csrf_and_preserves_native_schedule(self):
         endpoint="/api/v2/config/backup-restore/native/policy"
