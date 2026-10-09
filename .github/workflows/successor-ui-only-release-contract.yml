@@ -7,6 +7,10 @@ on:
       - "tools/test_successor_ui_only_release.py"
       - "tools/stage_successor_ui58_release.py"
       - "tools/publish_successor_ui58.sh"
+      - "tools/verify_successor_ui58_immutable.py"
+      - "tools/successor_registry_extract.py"
+      - "tools/test_successor_registry_extract.py"
+      - ".github/workflows/resume-successor-ui58.yml"
       - "docs/successor-ui58-channel-publication.md"
       - ".github/workflows/publish-successor-ui58.yml"
       - "tools/build_successor_first_party_modules.py"
@@ -31,7 +35,7 @@ jobs:
       - name: Requalify exact first-party artifacts
         run: python -m unittest discover -s tools -p test_successor_first_party_modules.py -v
       - name: Compile all publication transformations
-        run: python -m py_compile tools/successor_ui_only_release.py tools/stage_successor_ui58_release.py tools/build_successor_acceptance_feed_source.py tools/build_platform_index.py
+        run: python -m py_compile tools/successor_ui_only_release.py tools/stage_successor_ui58_release.py tools/build_successor_acceptance_feed_source.py tools/build_platform_index.py tools/verify_successor_ui58_immutable.py
       - name: Parse-check the protected publisher
         run: bash -n tools/publish_successor_ui58.sh
       - name: Validate release workflow syntax and restrict signing to trusted triggers
