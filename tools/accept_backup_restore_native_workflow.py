@@ -6,6 +6,7 @@ native vault acceptance fixture.
 """
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import os
 import shutil
@@ -83,6 +84,35 @@ class NativeWorkflowTests(unittest.TestCase):
         self.authority = NativeAuthority(self.source)
         self.platform = SimpleNamespace(root=self.root, native_full_archive=self.authority)
         self.workflow = NativeBackupWorkflow(self.platform)
+
+    def test_overlapping_core_worker_lock_refuses_second_start_and_transfer(self):
+        lock=self.workflow.vault.path / ".native-fullzip-operation.lock"
+        fd=os.open(lock,os.O_RDWR|os.O_CREAT,0o600)
+        try:
+            fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            with self.assertRaisesRegex(NativeBackupWorkflowError,"already active"):
+                self.workflow.request(kind="manual")
+            with self.assertRaisesRegex(NativeBackupWorkflowError,"already active"):
+                self.workflow.advance()
+            self.assertIsNone(NativeBackupJobStore(self.root).inspect())
+            self.assertEqual(self.authority.started,0)
+        finally:
+            fcntl.flock(fd,fcntl.LOCK_UN)
+            os.close(fd)
+        accepted=self.workflow.request(kind="manual")
+        self.assertEqual(accepted.phase,"accepted")
+        self.assertEqual(self.authority.started,1)
+
+    def test_symlinked_cross_process_lock_is_rejected_before_quiescing_core(self):
+        target=self.root / "untrusted-lock"
+        target.write_text("not an authority")
+        lock=self.workflow.vault.path / ".native-fullzip-operation.lock"
+        lock.symlink_to(target)
+        with self.assertRaisesRegex(NativeBackupWorkflowError,"lock unavailable"):
+            self.workflow.request(kind="manual")
+        self.assertEqual(target.read_text(),"not an authority")
+        self.assertEqual(self.authority.started,0)
+        self.assertIsNone(NativeBackupJobStore(self.root).inspect())
 
     def test_manual_start_is_accepted_until_signed_zip_in_vault(self):
         submitted = self.workflow.request(kind="manual", include_previous=True)
