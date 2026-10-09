@@ -20,6 +20,8 @@ from aiohttp import web
 
 from monitorbox_backup_restore_b7_native_jobs import NativeBackupJobError
 from monitorbox_backup_restore_b7_native_vault import BackupVaultError
+from monitorbox_backup_restore_b7_destinations import BackupDestinationError
+from monitorbox_backup_restore_b7_policy import BackupPolicyError
 from monitorbox_backup_restore_b7_native_workflow import NativeBackupWorkflow, NativeBackupWorkflowError
 
 LOG = logging.getLogger(__name__)
@@ -94,10 +96,38 @@ class NativeBackupOperator:
             # archive output path, native job ID or signed generation.
             if request.content_length is not None and request.content_length > 2048:
                 raise web.HTTPRequestEntityTooLarge(max_size=2048, actual_size=request.content_length)
-            raw = await request.read()
+            raw = await request.content.read(2049)
+            if len(raw) > 2048:
+                raise web.HTTPRequestEntityTooLarge(max_size=2048, actual_size=len(raw))
             if raw not in (b"", b"{}"):
                 raise web.HTTPBadRequest(text="native archive selection is not available in this operation")
             async with self._lock:
+                if kind == "manual" and self.scheduled is not None:
+                    previous = await asyncio.to_thread(self.workflow.inspect)
+                    if (
+                        previous is not None
+                        and previous.phase == "committed"
+                        and previous.kind == "scheduled"
+                    ):
+                        # The terminal journal contains the only durable
+                        # pointer to the preceding schedule's pending NAS
+                        # copy. A new manual request must not overwrite it
+                        # before post-commit destination/retention succeeds.
+                        try:
+                            finalized = await asyncio.to_thread(
+                                self.scheduled.finalize_committed
+                            )
+                            if finalized.get("finalized") is not True:
+                                raise NativeBackupWorkflowError(
+                                    "scheduled finalization still pending"
+                                )
+                        except (
+                            BackupVaultError, BackupDestinationError,
+                            BackupPolicyError, NativeBackupWorkflowError,
+                        ) as exc:
+                            raise web.HTTPConflict(
+                                text="previous signed scheduled backup destination requires attention"
+                            ) from exc
                 if kind == "scheduled" and self.scheduled is not None:
                     decision = await asyncio.to_thread(self.scheduled.run_due, force=True)
                     if not decision.get("accepted"):
