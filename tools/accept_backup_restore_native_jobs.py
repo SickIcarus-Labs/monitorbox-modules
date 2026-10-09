@@ -94,9 +94,9 @@ class NativeJobJournalTests(unittest.TestCase):
 
     def test_conflicting_live_jobs_and_generation_mutation_refuse(self) -> None:
         self.accept()
-        with self.assertRaisesRegex(native.NativeBackupJobError, "already"):
+        with self.assertRaisesRegex(native.NativeBackupJobError, "another native backup job is pending"):
             self.accept(request_id="a" * 32, job_id="b" * 32)
-        with self.assertRaisesRegex(native.NativeBackupJobError, "already"):
+        with self.assertRaisesRegex(native.NativeBackupJobError, "another native backup job is pending"):
             self.store.accept(
                 request_id=REQ, job_id=JOB, generation="c" * 32,
                 kind="manual", include_previous=True,
