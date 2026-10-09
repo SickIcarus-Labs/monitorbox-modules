@@ -22,6 +22,10 @@ on:
       - tools/accept_backup_restore_native_operator.py
       - tools/backup_restore_native_schedule.py
       - tools/accept_backup_restore_native_schedule.py
+      - tools/build_first_party_backup_restore_b7.py
+      - tools/stage_691_backup_restore_b7.py
+      - tools/accept_backup_restore_b7_candidate.py
+      - release-intents/**
       - .github/workflows/backup-restore-acceptance.yml
   push:
     branches:
@@ -46,6 +50,10 @@ on:
       - tools/accept_backup_restore_native_operator.py
       - tools/backup_restore_native_schedule.py
       - tools/accept_backup_restore_native_schedule.py
+      - tools/build_first_party_backup_restore_b7.py
+      - tools/stage_691_backup_restore_b7.py
+      - tools/accept_backup_restore_b7_candidate.py
+      - release-intents/**
       - .github/workflows/backup-restore-acceptance.yml
 
 permissions:
@@ -91,3 +99,5 @@ jobs:
         run: python tools/accept_backup_restore_native_operator.py
       - name: Verify native scheduled backup policy, destination and retention
         run: python tools/accept_backup_restore_native_schedule.py
+      - name: Verify fully bundled unsigned v3 Backup Restore B7 candidate and UI
+        run: python tools/accept_backup_restore_b7_candidate.py
