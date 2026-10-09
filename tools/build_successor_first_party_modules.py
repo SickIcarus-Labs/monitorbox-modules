@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Any
 
 from portable_contracts import materialize_contract
+from successor_ui_channel_selector import apply as apply_successor_channel_selector
 
 ROOT = Path(__file__).resolve().parents[1]
 AUTHORITY = ROOT / "platform" / "modules" / "first-party-successor-v1.json"
@@ -875,6 +876,7 @@ def _apply_ui_successor_overlay(
     if ".modules-release-channel {" in css_text:
         raise SuccessorModuleError("UI predecessor unexpectedly already has release-channel CSS")
     files[css_member] = (css_text.rstrip() + "\n" + release_css.lstrip()).encode("utf-8")
+    apply_successor_channel_selector(files)
 
 
 def _successor_runtime_overlays(
