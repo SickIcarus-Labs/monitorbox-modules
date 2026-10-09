@@ -172,6 +172,41 @@ def inspect_native_archive(path: Path) -> NativeArchiveInspection:
                 size, digest, _ = _member_meta(declared)
                 if item.get("sha256") != digest or item.get("size") != size:
                     raise NativeArchiveError("native ZIP package contradicts member integrity")
+            # A perfectly hashed ZIP is still untrusted input. Only the
+            # selected signed authority files, selected state trees and
+            # explicitly listed package closure may be present. In particular
+            # an archive cannot smuggle loose auth/session objects or caches
+            # into the vault merely by listing their hashes in manifest.json.
+            allowed_authority: set[str] = set()
+            allowed_state_prefixes: list[str] = []
+            for role, selection in (
+                ("active", active), ("previous", manifest.get("previous"))
+            ):
+                if selection is None:
+                    continue
+                prefix = f"authority/{role}"
+                if (
+                    selection.get("receipt") != prefix + "/receipt.json"
+                    or selection.get("config") != prefix + "/config.json"
+                    or selection.get("state_root") != prefix + "/state"
+                    or selection.get("agent_receipt", "") not in (
+                        "", prefix + "/agent-receipt.json"
+                    )
+                ):
+                    raise NativeArchiveError("native ZIP selected authority paths are invalid")
+                allowed_authority.update((
+                    prefix + "/receipt.json", prefix + "/config.json"
+                ))
+                if selection.get("agent_receipt"):
+                    allowed_authority.add(prefix + "/agent-receipt.json")
+                allowed_state_prefixes.append(prefix + "/state/")
+            for name in described:
+                if (
+                    name not in allowed_authority
+                    and name not in seen_packages
+                    and not any(name.startswith(prefix) for prefix in allowed_state_prefixes)
+                ):
+                    raise NativeArchiveError("native ZIP contains unreferenced archive member")
             payload_bytes = 0
             for name, meta in described.items():
                 _name(name)
