@@ -14,7 +14,7 @@ from unittest.mock import patch
 
 MODULE = (
     Path(__file__).resolve().parents[1]
-    / "sources/backup-restore/1.1.0-build7/monitorbox_backup_restore_b7_native_jobs.py"
+    / "tools/backup_restore_native_jobs.py"
 )
 spec = importlib.util.spec_from_file_location("backup_restore_b7_native_jobs", MODULE)
 assert spec is not None and spec.loader is not None
