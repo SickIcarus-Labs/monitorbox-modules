@@ -414,6 +414,45 @@ class PackageAcceptance(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(forbidden.status,404)
 
+    async def test_core_restart_reaps_only_stale_private_preview_not_recent_or_unowned(self):
+        import importlib
+        preflight=importlib.import_module(PREFIX+"_restore_preflight")
+        scratch=self.root/"saved-backups"/".native-restore-preflight"
+        scratch.mkdir(mode=0o700,exist_ok=True)
+        stale=scratch/".inspect-abcdefgh"
+        stale.mkdir(mode=0o700)
+        (stale/"uploaded.zip").write_bytes(b"PRIVATE_ARCHIVE_CANNOT_PERSIST")
+        os.chmod(stale/"uploaded.zip",0o600)
+        recent=scratch/".inspect-ijklmnop"
+        recent.mkdir(mode=0o700)
+        outsider=scratch/"module-elsewhere"
+        outsider.mkdir(mode=0o700)
+        now=__import__("time").time()
+        old=now-preflight.ABANDONED_UPLOAD_SECONDS-60
+        os.utime(stale,(old,old))
+        os.utime(outsider,(old,old))
+        verifier=preflight.NativeRestorePreflight(
+            SimpleNamespace(),SimpleNamespace(
+                vault=SimpleNamespace(path=self.root/"saved-backups")
+            ),
+        )
+        await verifier.recover_abandoned(self.app)
+        self.assertFalse(stale.exists())
+        self.assertTrue(recent.exists())
+        self.assertTrue(outsider.exists())
+
+        # A stale-looking but symlinked owned stage must not be traversed
+        # toward arbitrary data outside the protected vault.
+        external=self.root/"unrelated-data"
+        external.mkdir(mode=0o700)
+        (external/"keep.txt").write_text("NOT_PART_OF_UPLOAD")
+        link=scratch/".inspect-qrstuvwx"
+        link.symlink_to(external,target_is_directory=True)
+        with self.assertRaises(Exception):
+            await verifier.recover_abandoned(self.app)
+        self.assertEqual((external/"keep.txt").read_text(),"NOT_PART_OF_UPLOAD")
+        link.unlink()
+
     async def test_chunked_oversize_signed_upload_refuses_before_verification(self):
         import importlib
         preflight=importlib.import_module(PREFIX+"_restore_preflight")
