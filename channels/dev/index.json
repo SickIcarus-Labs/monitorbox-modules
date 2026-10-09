@@ -3,7 +3,7 @@
   "signed": {
     "repository_id": "official-dev",
     "display_name": "MonitorBox Official Dev",
-    "generated_at": "2026-09-27T03:52:47.992112Z",
+    "generated_at": "2026-10-09T17:10:01.173142Z",
     "modules": [
       {
         "manifest": {
@@ -201,6 +201,40 @@
           "sha256": "428ae54efcabf62674987fee83ece8a1c4b576cfcce5bab9d7bfe511e3816c2c",
           "signature_identity": "official-ed25519-1",
           "signature": "gtllxbJBZJsKgr8wYviFvO3OR918hbmW5fa3GfRuyz6Niu6sBNzq3ufBRChg0urflzeQiFQievioDybGbHFkCg=="
+        }
+      },
+      {
+        "manifest": {
+          "module_id": "com.sickicarus.monitorbox.backup-restore",
+          "display_name": "Backup / Restore",
+          "description": "Unsigned native v3 Full ZIP Backup/Restore candidate; restore is disabled pending P0 acceptance.",
+          "version": "2.0.0",
+          "build": 7,
+          "schema": 1,
+          "state_schema": 1,
+          "module_type": "recovery",
+          "entrypoints": {
+            "recovery": "monitorbox_backup_restore_b7:install"
+          },
+          "requires_core": ">=3.0.0 <4.0.0",
+          "requires_runtime_api": ">=1 <2",
+          "dependencies": [],
+          "publisher_id": "com.sickicarus",
+          "permissions": [
+            "recovery.snapshot",
+            "recovery.inspect",
+            "recovery.schedule",
+            "recovery.destination",
+            "saved-backup-vault"
+          ],
+          "lifecycle_policy": "optional"
+        },
+        "package": {
+          "url": "packages/com.sickicarus.monitorbox.backup-restore-2.0.0-build7.zip",
+          "filename": "com.sickicarus.monitorbox.backup-restore-2.0.0-build7.zip",
+          "sha256": "f4f6824bea5b23daf6726f06bd3879418c9aa8b56d0cd673c9e8eebea5ad2b9d",
+          "signature_identity": "official-ed25519-1",
+          "signature": "LG32p4AcTCxD+JRK86LpkRCuEj4ip312fwyTchWtO7GrE17Kz+QkdFJe5JkS9w5p0XP6Lnoc8cis6Od5lVIgBQ=="
         }
       },
       {
@@ -2257,6 +2291,6 @@
   "signature": {
     "algorithm": "ed25519",
     "identity": "official-ed25519-1",
-    "value": "4H26nR7QeurvlkH8sEXeZWZkvJc43Fdz2Gj2QM4hYYFjaNTnp5rNiLx7ea56doj3nm7pcadwEnqoO6oA5WzHBQ=="
+    "value": "Z1Sk/OoMJF5YxGEy2H75NLEJy8F2bBre5tgoSYiVTiY0TVJMNooMvj2YEMJZ+helUpGvqzmFcDUXbaQM2ilmDQ=="
   }
 }
