@@ -204,7 +204,7 @@ class NativeVaultTests(unittest.TestCase):
 
     def test_bad_manifest_member_size_rejected_before_publishing(self) -> None:
         bad = self.source(break_digest=True)
-        with self.assertRaises(NativeArchiveError):
+        with self.assertRaisesRegex(BackupVaultError, "structural verification"):
             self.publish(bad)
         self.assertEqual(self.vault.list(), ())
 
@@ -212,7 +212,7 @@ class NativeVaultTests(unittest.TestCase):
         for options in ({"extra_member": True}, {"legacy_format": True}):
             with self.subTest(options=options):
                 bad = self.source(**options)
-                with self.assertRaises(NativeArchiveError):
+                with self.assertRaisesRegex(BackupVaultError, "structural verification"):
                     self.publish(bad)
         self.assertEqual(self.vault.list(), ())
 
