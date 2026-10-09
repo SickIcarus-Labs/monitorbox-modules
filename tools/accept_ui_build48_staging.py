@@ -17,6 +17,17 @@ UI42_SHA256="06f66ff549efb6ab0d5e06d5ca87d3088039018565251ca8303fdcf763882039"
 
 def main()->None:
     source=json.loads((ROOT/"catalog.source.json").read_text())
+    # The historical UI48 stager intentionally refuses all later UI builds.
+    # Reconstruct its UI42 predecessor in a *temporary catalog copy* rather
+    # than falsely asserting that modern cumulative main stops at UI42.
+    # Never rewrite catalog.source.json or weaken the release-stage policy.
+    cumulative=source["modules"]
+    assert any(identity(row)[0]==MODULE and identity(row)[2]>48
+               for row in cumulative), "expected modern cumulative UI descendants"
+    source["modules"]=[
+        copy.deepcopy(row) for row in cumulative
+        if identity(row)[0]!=MODULE or identity(row)[2]<=42
+    ]
     original=copy.deepcopy(source["modules"])
     predecessor=[i for i,row in enumerate(original) if row==UI42_ENTRY]
     assert len(predecessor)==1
