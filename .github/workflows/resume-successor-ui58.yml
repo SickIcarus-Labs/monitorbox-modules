@@ -26,7 +26,7 @@ jobs:
       github.ref == 'refs/heads/main' &&
       github.actor == 'SickIcarus' &&
       ((github.event_name == 'issue_comment' &&
-        github.event.issue.number == RELEASE_PR &&
+        github.event.issue.number == 185 &&
         github.event.issue.pull_request &&
         github.event.comment.body == '/resume-successor-ui58-stable') ||
        (github.event_name == 'workflow_dispatch' &&
@@ -52,7 +52,7 @@ jobs:
           ${{ github.token }}: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh api "repos/$GITHUB_REPOSITORY/pulls/RELEASE_PR" | jq -e '
+          gh api "repos/$GITHUB_REPOSITORY/pulls/185" | jq -e '
             .state == "closed" and .merged_at != null and
             .base.ref == "main" and
             .head.repo.full_name == "SickIcarus-Labs/monitorbox-modules"
