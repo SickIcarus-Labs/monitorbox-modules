@@ -93,7 +93,9 @@ def _container(
     unhealthy: bool = False,
     standalone: bool = False,
 ) -> dict[str, Any]:
-    # Preserve the actual historically missed 21st Goliath workload as an\n    # explicit named witness; generic positional counts alone masked ntopng.\n    service = "ntopng" if prefix == "goliath" and number == 21 else f"svc{number:02d}"
+    # Preserve the actual historically missed 21st Goliath workload as an
+    # explicit named witness; generic positional counts alone masked ntopng.
+    service = "ntopng" if prefix == "goliath" and number == 21 else f"svc{number:02d}"
     labels = {} if standalone else {
         "com.docker.compose.project": prefix,
         "com.docker.compose.service": service,
