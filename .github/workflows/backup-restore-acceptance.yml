@@ -20,6 +20,8 @@ on:
       - tools/accept_backup_restore_native_workflow.py
       - tools/backup_restore_native_operator.py
       - tools/accept_backup_restore_native_operator.py
+      - tools/backup_restore_native_schedule.py
+      - tools/accept_backup_restore_native_schedule.py
       - .github/workflows/backup-restore-acceptance.yml
   push:
     branches:
@@ -42,6 +44,8 @@ on:
       - tools/accept_backup_restore_native_workflow.py
       - tools/backup_restore_native_operator.py
       - tools/accept_backup_restore_native_operator.py
+      - tools/backup_restore_native_schedule.py
+      - tools/accept_backup_restore_native_schedule.py
       - .github/workflows/backup-restore-acceptance.yml
 
 permissions:
@@ -85,3 +89,5 @@ jobs:
         run: python tools/accept_backup_restore_native_workflow.py
       - name: Verify development-only native admin HTTP admission and restart poller
         run: python tools/accept_backup_restore_native_operator.py
+      - name: Verify native scheduled backup policy, destination and retention
+        run: python tools/accept_backup_restore_native_schedule.py
