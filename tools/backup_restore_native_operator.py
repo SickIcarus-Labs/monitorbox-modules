@@ -82,7 +82,9 @@ class NativeBackupOperator:
             except (NativeBackupJobError, BackupVaultError, NativeBackupWorkflowError) as exc:
                 LOG.warning("native backup progress deferred exception_type=%s", type(exc).__name__)
             except Exception as exc:
-                LOG.exception("native backup progress encountered error exception_type=%s", type(exc).__name__)
+                # ZIP/provider failures can carry protected state paths or
+                # credentials in exception text/traceback. Log only the type.
+                LOG.error("native backup progress encountered error exception_type=%s", type(exc).__name__)
             await asyncio.sleep(PROGRESS_INTERVAL_SECONDS)
 
     async def _request(self, request: web.Request, *, kind: str) -> web.Response:
