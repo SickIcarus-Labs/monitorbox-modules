@@ -1,6 +1,6 @@
 # Successor first-party portable configuration contracts
 
-Tracks [modules #120](https://github.com/SickIcarus-Labs/monitorbox-modules/issues/120) and [Core #418](https://github.com/SickIcarus-Labs/monitorbox/issues/418).
+Tracks original modules #120 and [Core #418](https://github.com/SickIcarus-Labs/monitorbox/issues/418). **Status (2026-10-09):** this is the signed first-party *module settings/credential-reference* contract, not the complete installed-generation/ZIP archive manifest. Its twelve-module list excludes the independently signed Supervisor/manager and cross-platform Python/Node runtime artifacts, all of which belong in the actual signed Full ZIP package closure. The administrator password/verifier is **destination-owned**, not module-owned portable authority, under accepted [P0 #691](https://github.com/SickIcarus-Labs/monitorbox/issues/691); legacy verifier-bearing Config JSON compatibility and runtime edits remain in progress. Keep the signed module-owned provider-credential reference contract distinct from export of appliance administrator authentication. Never infer currently working Full ZIP restore solely from this module manifest.
 
 The successor platform treats portable configuration semantics as package-owned authority. Every selectable first-party module package must contain exactly one `portable-config.json` member. Because the complete package ZIP is digest-pinned and Ed25519-verified, this member is covered by the same immutable package signature as the module implementation.
 

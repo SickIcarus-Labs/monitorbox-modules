@@ -1,6 +1,6 @@
 # Successor release pairing: actual signed transport contract
 
-**Status:** Read-only verifier corrected for the accepted sequence-9 artifact layout. Not a release permission, publisher, or product-version decision. Tracking: issue #157.
+**Status (2026-10-09):** the normative architecture-specific read-only pairing verifier remains applicable to the accepted signed v3 feeds. This document was originally proven against **sequence 9**; [Core #630](https://github.com/SickIcarus-Labs/monitorbox/issues/630) records the subsequently delivered, installed **sequence-10 UI58** Stable/Beta/Dev publication with matching signed full and Supervisor catalogs. Sequence 9 is an immutable historical acceptance baseline, **not** necessarily today's moving Stable pointer. Neither the verifier nor this documentation authorizes a new registry write, source release, product version or production update. Tracking: #157.
 
 ## Actual accepted topology
 
@@ -22,7 +22,7 @@ The earlier #163 prototype expected one combined Supervisor signed index contain
 4. The signed catalog verifier authenticates the full signed index and both separate Supervisor indexes, matches release order and both manager artifacts, then the package verifier checks every signed ZIP byte, signature, length and hash.
 5. The protected promotion job reads **both** current GHCR stable pointers, validates them as a coherent signed pair and rejects stale, mixed or alternate same-order requests. Catalog expiry may prevent an old catalog from being installed; its valid historical signature can still establish ordering.
 6. Operator approval and exclusive workflow serialization precede pointer movement. GHCR has no atomic two-tag transaction: a failed partial write requires compensating restoration of the verified previous pair and final readback. An authoritative single-pointer model would remove this two-tag atomicity problem but is not implemented.
-7. Mark success only after current full/Supervisor registry readbacks prove the intended coherent pair. Never modify accepted sequence-9 stable pointers as part of repository cleanup.
+7. Mark success only after current full/Supervisor registry readbacks prove the intended coherent pair. Never modify the **currently accepted signed Stable pair** as part of repository cleanup. The immutable sequence-9 digest remains preserved as historical release evidence; the sequence-10 moving pointer is a separately accepted later publication.
 
 The helper implements **only** catalog authenticity, architecture-specific pairing and monotonic ordering. It does **not** retrieve OCI manifests, prove image labels, verify package bytes, validate CI source qualifications, authorize a release, or write registry tags. These are blocking follow-up gates.
 

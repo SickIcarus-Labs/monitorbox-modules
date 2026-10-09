@@ -1,6 +1,6 @@
 # Read-only GHCR immutable release evidence
 
-Status: **candidate qualification only**, not authorization to publish or promote. Tracks Modules #157 and parent monitorbox #635.
+Status (2026-10-09): **read-only qualification only**, not authority to publish or promote. The two official signed v3 feed OCI packages are now **publicly readable**; anonymous read should be the normal path. Optional `GHCR_USERNAME`/`GHCR_READ_TOKEN` is transport support for genuinely private repository access, not a required MonitorBox production Compose variable. The fixed `monitorbox:latest` scaffold image and source repo remain private, with Docker/Portainer image-pull authorization separate from the in-app signed feed. Tracks Modules #157 and parent MonitorBox #635.
 
 ## Contract
 
