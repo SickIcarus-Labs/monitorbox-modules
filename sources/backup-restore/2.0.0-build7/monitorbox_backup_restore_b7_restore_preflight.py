@@ -206,4 +206,7 @@ class NativeRestorePreflight:
             finally:
                 # A preflight never publishes a file into the saved vault and
                 # never retains uploaded protected credentials after response.
-                shutil.rmtree(stage, ignore_errors=True)
+                # Failure to erase sensitive uploaded credentials is an
+                # operation failure, never silently report a successful
+                # signed preview while retaining an unprotected upload.
+                shutil.rmtree(stage)
