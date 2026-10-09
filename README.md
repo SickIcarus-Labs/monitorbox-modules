@@ -2,27 +2,31 @@
 
 The signed first-party distribution repository for independently updateable MonitorBox modules.
 
-> **Two distribution contracts coexist during the successor migration.** The root [`index.json`](index.json) and `catalog.source.json` describe the historical HTTPS module catalog (including still-supported 2.x consumers). The modular successor has separately signed, multi-architecture full-feed and Supervisor-bootstrap OCI images in GHCR. Do not treat the root `index.json` or the fixed first-stage image as a replacement for the successor's signed package authority. See [successor release pairing](docs/successor-release-pairing-contract.md) and the [read-only GHCR verification contract](docs/successor-readonly-ghcr-evidence.md).
+> **Current MonitorBox 3 distribution:** independently signed **full platform/module** and **Supervisor bootstrap** multi-architecture OCI feeds in GHCR, resolved and verified **inside** the installed appliance. The two signed-feed packages are publicly readable while the `monitorbox:latest` first-stage image/source remain private. Package publication, package activation, and Docker image distribution are separate authorities. See [current v3 architecture](https://github.com/SickIcarus-Labs/monitorbox/blob/main/design.md), [signed release pairing](docs/successor-release-pairing-contract.md) and [read-only GHCR verification](docs/successor-readonly-ghcr-evidence.md).
 
-MonitorBox consumes [`index.json`](index.json) over HTTPS. Both the catalog and every module ZIP are signed with the repository's Ed25519 key; Core pins the public trust root and rejects unsigned, modified, or incorrectly identified content.
+> **Historical 2.x distribution only:** the root [`index.json`](index.json), [`catalog.source.json`](catalog.source.json) and existing signed package ZIPs implement the legacy HTTPS `official` catalog. Older 2.x Core consumes `index.json` over HTTPS. These artifacts and their signatures are retained for compatibility/provenance, **not** as a v3 update feed or a replacement for the signed v3 Supervisor/package closure.
 
 ## Versioning
 
 Module releases follow the canonical [`VERSIONING.md`](VERSIONING.md) policy: independent `MAJOR.MINOR.PATCH` semantic versions plus monotonically increasing per-module build numbers. First independently versioned module releases start at `1.0.0`; build numbers identify exact immutable artifacts but do not substitute for semantic version progression.
 
-## Publishing
+## Signed publishing and retained 2.x catalog
 
-1. Choose the semantic version required by [`VERSIONING.md`](VERSIONING.md) and increment the module build number.
-2. Add the immutable first-party source snapshot under `sources/` and update or add its deterministic package builder under `tools/`.
-3. Add the release manifest and generated package filename to `catalog.source.json`.
-4. Extend first-party acceptance and publication workflow coverage when introducing a new independently published first-party module.
-5. Merge to `main`. The publish workflow deterministically rebuilds `packages/`, calculates package digests, signs the packages and catalog, and commits changed generated artifacts plus the regenerated `index.json`.
+For **v3**, source merge or a generated root `index.json` does not publish a new Supervisor/full-feed generation. Independent module source changes must be qualified against the signed Core/Agent/runtime/module contract and exact multiarch closure; immutable signed package publication and coupled full/Supervisor channel movement require separately protected, reviewed release authority. **Do not invoke an old sequence-pinned publisher as a general release procedure.** See [read-only GHCR evidence](docs/successor-readonly-ghcr-evidence.md), [paired stable transaction design](docs/successor-stable-transaction-contract.md), and [production v3 lifecycle](https://github.com/SickIcarus-Labs/monitorbox/blob/main/design.md). This documentation does **not** authorize new release writes.
 
-Do not hand-author or hand-modify first-party package ZIPs. Their checked-in bytes are generated publication artifacts and must reproduce exactly from the immutable source snapshots and builders.
+The following steps describe **legacy 2.x HTTPS catalog maintenance** only (preserved for reproducibility and older clients):
+
+1. Select the module SemVer/build according to [`VERSIONING.md`](VERSIONING.md).
+2. Add the immutable first-party source snapshot under `sources/` and maintain the deterministic builder under `tools/`.
+3. Add the release manifest and ZIP reference to `catalog.source.json`.
+4. Maintain legacy first-party acceptance/publication workflow coverage as required.
+5. The historical publish path deterministically generated `packages/`, digests, signatures, and `index.json`; a merge to `main` must **not** be mistaken for authorized v3 stable publication.
+
+Do not hand-author or hand-modify generated first-party package ZIP bytes. The immutable signed artifacts must remain reproducible from their approved source/builders.
 
 The private signing key exists only as the Actions secret `MONITORBOX_MODULE_SIGNING_KEY`. Never commit it. Public trust material is in [`trust/official-ed25519-1.pub`](trust/official-ed25519-1.pub).
 
-Module packages are inert distribution artifacts. Installation, compatibility checks, activation preflight, rollback, and LKG recovery remain Core responsibilities.
+Module archives are inert transport artifacts. For v3, the **signed Supervisor/scaffold lifecycle** admits and activates the complete compatible generation, while Core/application modules own their appropriate semantics and settings; do not assign Supervisor/bootstrap or Core image-update authority to the legacy HTTPS module manager.
 
 ## Issue and PR ownership
 

@@ -1,6 +1,8 @@
-# Successor platform package contract — Phase 0
+# Historical Phase-0 successor platform package candidate contract
 
-**Candidate contract for review, not a published catalog.** Tracks [modules #112](https://github.com/SickIcarus-Labs/monitorbox-modules/issues/112) and [native scaffold #414](https://github.com/SickIcarus-Labs/monitorbox/issues/414). Existing released 2.x signed module catalogs, immutable ZIP bytes, promotion actions and trust roots must not change in this PR.
+**Historical proof/specification, not current MonitorBox 3 publishing instructions.** The successor has since been implemented through signed GHCR full/Supervisor OCI feeds. See [the accepted signed release-pairing contract](successor-release-pairing-contract.md) and [read-only GHCR evidence](successor-readonly-ghcr-evidence.md). Preserve this Phase-0 schema and trust reasoning as a dated development artifact.
+
+**Original candidate status:** Candidate contract for review, not a published catalog. Tracks [modules #112](https://github.com/SickIcarus-Labs/monitorbox-modules/issues/112) and [native scaffold #414](https://github.com/SickIcarus-Labs/monitorbox/issues/414). Existing released 2.x signed module catalogs, immutable ZIP bytes, promotion actions and trust roots must not change in this PR.
 
 ## Signed feed separation
 

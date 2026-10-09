@@ -1,6 +1,8 @@
 # Successor platform signed catalog candidate builder
 
-**Development tooling only.** This is the next slice of [modules #112](https://github.com/SickIcarus-Labs/monitorbox-modules/issues/112), stacked on the schema and verifier in draft PR #113. It generates a **candidate index**; it does not publish a channel, promote any packages, or alter the existing 2.x official module catalogs. Real signing must run in the existing isolated, approval-gated signing environment after the native scaffold and package contracts are accepted.
+**Historical candidate-builder proof, not the current protected v3 publisher or authority to move GHCR channel pointers.** Refer to [accepted signed release pairing](successor-release-pairing-contract.md), [read-only existing-feed verification](successor-readonly-ghcr-evidence.md) and [paired stable transaction specification](successor-stable-transaction-contract.md) for post-cutover behavior. Preserve the original prototype requirements below for engineering history.
+
+**Original development status:** Development tooling only. This is the next slice of [modules #112](https://github.com/SickIcarus-Labs/monitorbox-modules/issues/112), stacked on the schema and verifier in draft PR #113. It generates a **candidate index**; it does not publish a channel, promote any packages, or alter the existing 2.x official module catalogs. Real signing must run in the existing isolated, approval-gated signing environment after the native scaffold and package contracts are accepted.
 
 ## Separate source of intent
 
