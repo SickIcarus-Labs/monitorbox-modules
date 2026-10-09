@@ -206,7 +206,7 @@ class NativeVaultTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(NativeBackupJobError, "unavailable or unverifiable"):
             job_store.commit(
-                request_id=request, backup_id="20261009T150000Z-a1b2c3d4",
+                request_id=request, backup_id=job_store.inspect().planned_backup_id,
                 vault=self.vault,
             )
         self.assertEqual(job_store.inspect().phase, "transfer_verified")
