@@ -11,9 +11,11 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re
 import shutil
 import stat
 import tempfile
+import time
 from pathlib import Path
 from typing import Any
 
@@ -28,6 +30,10 @@ PREFIX = "/api/v2/config/backup-restore"
 MAX_UPLOAD_BYTES = MAX_BYTES + (4 << 20)
 CHUNK_BYTES = 1 << 20
 UPLOAD_TIMEOUT_SECONDS = 45 * 60
+# More than double the maximum live upload window. A previous Core may
+# briefly overlap with a restarted Core and still be writing its preview.
+ABANDONED_UPLOAD_SECONDS = 2 * 60 * 60
+_OWNED_STAGE = re.compile(r"\.inspect-[A-Za-z0-9_-]{8,32}\Z")
 
 
 def _private_directory(path: Path) -> None:
@@ -71,6 +77,7 @@ class NativeRestorePreflight:
         self._upload_lock = asyncio.Lock()
 
     def install(self, app: web.Application) -> None:
+        app.on_startup.append(self.recover_abandoned)
         app.router.add_post(
             PREFIX + "/native/restore/preflight/{backup_id}", self.saved
         )
@@ -78,6 +85,33 @@ class NativeRestorePreflight:
             PREFIX + "/native/restore/preflight-file", self.upload
         )
         # Deliberately DO NOT add /native/restore/commit.
+
+    async def recover_abandoned(self, _app: web.Application) -> None:
+        """Reclaim abandoned protected ZIP uploads without following links.
+
+        Never remove the private staging root itself, a non-owned entry, a
+        symlink, or a directory recent enough to belong to overlapping Core.
+        A malformed owned entry fails closed rather than traversing it.
+        """
+        await asyncio.to_thread(self._reap_abandoned)
+
+    def _reap_abandoned(self) -> None:
+        vault = self.workflow.vault.path
+        _private_directory(vault)
+        scratch = vault / ".native-restore-preflight"
+        if not scratch.exists() and not scratch.is_symlink():
+            return
+        _private_directory(scratch)
+        cutoff = time.time() - ABANDONED_UPLOAD_SECONDS
+        for stage in scratch.iterdir():
+            if not _OWNED_STAGE.fullmatch(stage.name):
+                continue
+            _private_directory(stage)
+            if stage.lstat().st_mtime <= cutoff:
+                # stage has been verified to be a genuine private directory
+                # under a non-symlinked module-owned parent. Python rmtree
+                # refuses recursive traversal of directory symlink children.
+                shutil.rmtree(stage)
 
     async def saved(self, request: web.Request) -> web.Response:
         self.platform.auth.require(request, csrf=True)
