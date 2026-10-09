@@ -1,0 +1,30 @@
+name: Successor UI-only release delta contract
+
+on:
+  pull_request:
+    paths:
+      - "tools/successor_ui_only_release.py"
+      - "tools/test_successor_ui_only_release.py"
+      - "tools/build_successor_first_party_modules.py"
+      - "platform/modules/first-party-successor-v1.json"
+      - ".github/workflows/successor-ui-only-release-contract.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  delta-contract:
+    name: Reject package, sequence, or provenance drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Validate isolated release policy
+        run: PYTHONPATH=tools python -m unittest -v tools/test_successor_ui_only_release.py
+      - name: Requalify exact first-party artifacts
+        run: python -m unittest discover -s tools -p test_successor_first_party_modules.py -v
+      - name: Compile all publication transformations
+        run: python -m py_compile tools/successor_ui_only_release.py tools/build_successor_acceptance_feed_source.py tools/build_platform_index.py
