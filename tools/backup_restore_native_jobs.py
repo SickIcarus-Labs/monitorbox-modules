@@ -294,13 +294,36 @@ class NativeBackupJobStore:
             self._write_locked(next_job)
             return next_job
 
-    def commit(self, *, request_id: str, backup_id: str) -> NativeBackupJob:
+    def commit(self, *, request_id: str, backup_id: str, vault: object) -> NativeBackupJob:
+        """Publish journal success only after re-reading verified vault authority.
+
+        The module must provide its configured NativeBackupVault instance;
+        caller-supplied ZIP bytes, metadata dicts or a filename are NOT enough.
+        Signed package verification occurs in vault.get(..., verify=True).
+        Re-running after a process crash is safe for the same exact saved ZIP.
+        """
+        if not _BACKUP_ID.fullmatch(backup_id or ""):
+            raise NativeBackupJobError("invalid committed native vault backup identity")
         with self._locked():
             current = self._current_locked(request_id)
-            if current.phase == "committed" and current.backup_id == backup_id:
-                return current
-            if current.phase != "transfer_verified":
+            if current.phase not in {"transfer_verified", "committed"}:
                 raise NativeBackupJobError("native ZIP cannot be called saved before vault commit")
+            try:
+                record = vault.get(backup_id, verify=True)
+            except Exception as exc:
+                raise NativeBackupJobError(
+                    "signed native vault record unavailable or unverifiable"
+                ) from exc
+            if (
+                record.backup_id != backup_id
+                or record.bytes != current.bytes
+                or record.sha256 != current.sha256
+            ):
+                raise NativeBackupJobError("saved vault record does not match verified transfer")
+            if current.phase == "committed":
+                if current.backup_id == backup_id:
+                    return current
+                raise NativeBackupJobError("native backup was committed under another identity")
             result = _validate(NativeBackupJob(
                 **{**current.public(), "phase": "committed", "backup_id": backup_id}
             ))
