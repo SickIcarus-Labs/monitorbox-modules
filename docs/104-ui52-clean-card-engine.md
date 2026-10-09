@@ -1,5 +1,8 @@
 # UI52 / #104 — remove legacy homepage card-generation authority
 
+> **Historical signed UI49–UI54 design/physical-acceptance milestone.** Version-specific experiments, pending fixes, old release candidates and prior UI composition behavior below are dated evidence, **not** instructions for the currently installed signed UI or the v3 package/update plane. Current authority is the exact installed UI release and its signed module/configuration contract.
+
+
 2026-09-26. Operator instruction: the actual Broad Leaf onboarding wizard completes with its own real modules, credentials, configured monitoring and discovered live capabilities. That real first-launch completion is an acceptance target. The ordinary **Reset/Regenerate dashboard** action on an already configured site is an equally authoritative acceptance path: it must invoke the *identical post-bootstrap card generator* using the site's **current** canonical monitoring configuration, active modules and present discovered capabilities. The operator must never need to rerun the wizard merely to reset the dashboard. Do NOT make a synthetic Broad Leaf clone, reuse obsolete Broad Leaf featured-device preferences, reset the live appliance to blank, or import production credentials into tests.
 
 ## Preimplementation module-touch scope

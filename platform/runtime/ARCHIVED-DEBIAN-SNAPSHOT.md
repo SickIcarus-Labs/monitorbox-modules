@@ -1,5 +1,8 @@
 # Reviewed archived Debian signed-index provenance (#112 / #419)
 
+> **Historical signed-index / Debian ABI reproducibility milestone.** The 'development-only' and `release_eligible:false` statements below refer to that archived test input, not every currently signed production runtime. Retain its exact-provenance and supply-chain constraints, but resolve present authority from the accepted signed feed/receipt.
+
+
 **Draft, development-only; all runtime packages remain `release_eligible:false`.**
 
 The original successor Python/Node candidate used the immutable official

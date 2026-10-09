@@ -1,4 +1,7 @@
 # UI50 #104 physical correction — clean-bootstrap dashboard experiment
+
+> **Historical signed UI49–UI54 design/physical-acceptance milestone.** Version-specific experiments, pending fixes, old release candidates and prior UI composition behavior below are dated evidence, **not** instructions for the currently installed signed UI or the v3 package/update plane. Current authority is the exact installed UI release and its signed module/configuration contract.
+
 2026-09-26. Explicit operator direction supersedes UI49's previous preservation-of-manual-layout assumption.
 
 ## Pre-implementation module-touch scope

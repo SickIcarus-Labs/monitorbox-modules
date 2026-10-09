@@ -1,5 +1,8 @@
 # Self-contained Python/Node runtime proof (#112 / Core #419)
 
+> **Historical pre-production runtime-package provenance proof.** Any 'candidate-only', 'unreleasable', staged-PR or not-yet-published statement below describes the original test at that date, not the current signed v3 Python/Node/runtime availability. Preserve exact ABI/supply-chain evidence; use accepted signed full-feed package receipts for current authority.
+
+
 **Status: unreleasable candidate only.** Stacked on signed candidate publisher PR #115, which depends on index contract PR #113. This work does not modify the existing 2.x catalogs or accepted Broad Leaf deployment.
 
 The successor's fixed scaffold is a statically linked native executable in a minimal image: **no Python or Node is bundled into the scaffold image**. A runtime package must therefore contain the interpreter and sufficient OS/ABI dependencies to execute without a distro filesystem. A plain Debian-linked binary copied into scratch is not sufficient.
