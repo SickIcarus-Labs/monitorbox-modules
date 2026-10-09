@@ -172,7 +172,14 @@ class OperatorHTTPTests(unittest.IsolatedAsyncioTestCase):
         # The background loop starts independently of any HTTP request and
         # picks up the recovered journal's accepted work after a Core restart.
         self.workflow.job=FakeJob(kind="scheduled",phase="accepted")
-        await asyncio.sleep(0.1)
+        # Simulate Core restart AFTER a prior instance's first empty scan.
+        # The new progress task must immediately inspect durable state.
+        await self.operator.stop(self.app)
+        await self.operator.start(self.app)
+        for _ in range(30):
+            if ("advance",) in self.workflow.calls:
+                break
+            await asyncio.sleep(0.01)
         self.assertIn(("advance",),self.workflow.calls)
 
     async def test_report_committed_only_when_durable_journal_says_committed(self):
