@@ -54,6 +54,7 @@ from backup_restore_native_archive import (  # noqa: E402
 from backup_restore_native_vault import (  # noqa: E402
     NativeBackupVault, BackupVaultError,
 )
+from backup_restore_native_jobs import NativeBackupJobStore, NativeBackupJobError  # noqa: E402
 
 TRUST_ROOT = b"synthetic-test-trust-not-a-real-package-signer"
 ACTIVE_ID = "a" * 32
@@ -187,6 +188,38 @@ class NativeVaultTests(unittest.TestCase):
         self.assertEqual(
             NativeBackupVault(self.root, verify_signed_closure=verify_test_signed_closure).list(),
             self.vault.list()
+        )
+
+    def test_job_cannot_claim_committed_until_native_vault_reverifies_signed_zip(self) -> None:
+        source = self.source()
+        digest = hashlib.sha256(source.read_bytes()).hexdigest()
+        job_store = NativeBackupJobStore(self.root)
+        request = "1" * 32
+        job_store.reserve(
+            request_id=request, generation="2" * 32,
+            kind="manual", include_previous=True,
+        )
+        job_store.accept(request_id=request, job_id="3" * 32)
+        job_store.mark_transfer_verified(
+            request_id=request, bytes_count=source.stat().st_size, sha256=digest,
+        )
+        with self.assertRaisesRegex(NativeBackupJobError, "unavailable or unverifiable"):
+            job_store.commit(
+                request_id=request, backup_id="20261009T150000Z-a1b2c3d4",
+                vault=self.vault,
+            )
+        self.assertEqual(job_store.inspect().phase, "transfer_verified")
+        record = self.publish(source)
+        saved = job_store.commit(
+            request_id=request, backup_id=record.backup_id,
+            vault=self.vault,
+        )
+        self.assertEqual(saved.backup_id, record.backup_id)
+        self.assertEqual(saved.phase, "committed")
+        self.assertEqual(NativeBackupJobStore(self.root).inspect(), saved)
+        self.assertEqual(
+            job_store.commit(request_id=request, backup_id=record.backup_id, vault=self.vault),
+            saved,
         )
 
     def test_no_independent_signer_no_vault_admission(self) -> None:
