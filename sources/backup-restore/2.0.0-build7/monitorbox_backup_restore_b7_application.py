@@ -60,6 +60,10 @@ a{color:var(--accent)}[hidden]{display:none!important}
 <div class="warning" role="alert"><strong>Restore is intentionally unavailable in this unsigned development candidate.</strong>
 The native restore transaction, password/session preservation and independent Core-down recovery tests are being completed in campaign #691.
 No legacy v2 restore mechanism is invoked by this module.</div>
+<p class="muted">You can inspect a saved or uploaded signed native ZIP without starting a restore. A successful inspection does not authorize applying it.</p>
+<div class="row"><label>Inspect an uploaded signed ZIP (read-only)<input type="file" accept=".zip,application/zip" id="inspectZip"></label>
+<button id="inspectFile">Inspect ZIP signatures</button></div>
+<div id="inspectResult" class="status" role="status" aria-live="polite">No restore preflight requested.</div>
 <button disabled aria-disabled="true">Restore from saved backup</button>
 <button disabled aria-disabled="true">Restore from file</button></section>
 </div></main>
@@ -107,9 +111,38 @@ function renderArchives(rows){
   const meta=document.createElement('div');meta.className='muted';
   meta.textContent=item.kind+' · '+item.backup_id+' · '+item.bytes+' bytes';
   const link=document.createElement('a');link.href=API+'/native/backups/'+encodeURIComponent(item.backup_id)+'/download';
-  link.textContent='Download signed ZIP';row.append(name,meta,link);target.append(row);
+  link.textContent='Download signed ZIP';
+  const inspect=document.createElement('button');inspect.textContent='Inspect (read-only)';
+  inspect.onclick=()=>inspectSaved(item.backup_id);
+  row.append(name,meta,link,inspect);target.append(row);
  }
 }
+function showPreflight(data){
+ $('inspectResult').textContent='Independent signed Full ZIP verified ('+data.source+
+  '). '+data.file_count+' files; '+data.package_count+' signed packages; '+
+  data.zip_bytes+' ZIP bytes; previous generation: '+(data.includes_previous?'included':'not included')+
+  '. READ-ONLY: Restore is still unavailable.';
+}
+async function inspectSaved(id){
+ $('inspectResult').textContent='Verifying signed saved ZIP without restoring…';
+ try{
+  const data=await request(API+'/native/restore/preflight/'+encodeURIComponent(id),'POST');
+  showPreflight(data);
+ }catch(error){$('inspectResult').textContent='Inspection refused: '+error.message}
+}
+$('inspectFile').onclick=async()=>{
+ const file=$('inspectZip').files[0];
+ if(!file){$('inspectResult').textContent='Select a native Full ZIP.';return}
+ $('inspectResult').textContent='Checking signed ZIP locally — no restore will occur…';
+ try{
+  const response=await fetch(API+'/native/restore/preflight-file',{
+   method:'POST',headers:{'Content-Type':'application/zip',
+   'X-MonitorBox-CSRF':csrf},body:file
+  });
+  if(!response.ok)throw new Error('Signed restore preflight refused: HTTP '+response.status);
+  const checked=await response.json();showPreflight(checked);
+ }catch(error){$('inspectResult').textContent='Inspection refused: '+error.message}
+};
 function renderPolicy(data){
  const p=data.policy;$('scheduleEnabled').checked=Boolean(p.enabled);
  $('intervalHours').value=p.interval_hours;$('retentionCount').value=p.retention_count;
