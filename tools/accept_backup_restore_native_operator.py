@@ -109,6 +109,27 @@ class OperatorHTTPTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(data["status_url"],PREFIX+"/native/status")
         self.assertIn(("request","manual",True),self.workflow.calls)
 
+    async def test_forced_schedule_uses_policy_adapter_not_legacy_vault_create(self):
+        calls=[]
+        class PolicyScheduler:
+            def run_due(self, *, force=False):
+                calls.append(force)
+                if not force:
+                    return {"created":False,"reason":"schedule_disabled"}
+                self_job=FakeJob(kind="scheduled")
+                workflow.job=self_job
+                return {"accepted":True,"request_id":self_job.request_id}
+        workflow=self.workflow
+        self.operator.scheduled=PolicyScheduler()
+        result=await self.client.post(
+            PREFIX+"/native/schedule/run",data="{}",
+            headers=self.authorized(),
+        )
+        self.assertEqual(result.status,202)
+        self.assertEqual((await result.json())["phase"],"accepted")
+        self.assertIn(True,calls)
+        self.assertFalse(any(row[0]=="request" for row in workflow.calls))
+
     async def test_requested_scheduled_run_is_not_claimed_as_automatic_schedule(self):
         result=await self.client.post(
             PREFIX+"/native/schedule/run",data="{}",
