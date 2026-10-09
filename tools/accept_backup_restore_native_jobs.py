@@ -37,10 +37,43 @@ class NativeJobJournalTests(unittest.TestCase):
         self.store = native.NativeBackupJobStore(self.root)
 
     def accept(self, request_id: str = REQ, job_id: str = JOB):
-        return self.store.accept(
-            request_id=request_id, job_id=job_id,
+        self.store.reserve(
+            request_id=request_id,
             generation=GEN, kind="manual", include_previous=True,
         )
+        return self.store.accept(request_id=request_id, job_id=job_id)
+
+    def test_pre_supervisor_intent_is_durable_and_cannot_claim_saved_backup(self) -> None:
+        pending = self.store.reserve(
+            request_id=REQ, generation=GEN, kind="manual",
+            include_previous=True,
+        )
+        self.assertEqual(pending.phase, "requested")
+        self.assertIsNone(pending.job_id)
+        self.assertIsNone(pending.backup_id)
+        after_core_restart = native.NativeBackupJobStore(self.root)
+        self.assertEqual(after_core_restart.inspect(), pending)
+        self.assertEqual(after_core_restart.reserve(
+            request_id=REQ, generation=GEN, kind="manual",
+            include_previous=True,
+        ), pending)
+        with self.assertRaisesRegex(native.NativeBackupJobError, "cannot be called saved"):
+            after_core_restart.commit(request_id=REQ, backup_id=BACKUP)
+        with self.assertRaisesRegex(native.NativeBackupJobError, "not awaiting transfer"):
+            after_core_restart.mark_transfer_verified(
+                request_id=REQ, bytes_count=42, sha256=DIGEST,
+            )
+        accepted = after_core_restart.accept(request_id=REQ, job_id=JOB)
+        self.assertEqual(accepted.phase, "accepted")
+        self.assertEqual(accepted.job_id, JOB)
+        self.assertEqual(self.store.inspect(), accepted)
+        with self.assertRaisesRegex(native.NativeBackupJobError, "not requested"):
+            self.store.accept(request_id=REQ, job_id="4" * 32)
+
+    def test_bind_supervisor_job_requires_prior_durable_reservation(self) -> None:
+        with self.assertRaisesRegex(native.NativeBackupJobError, "not current"):
+            self.store.accept(request_id=REQ, job_id=JOB)
+        self.assertIsNone(self.store.inspect())
 
     def test_unpublished_accepted_job_survives_core_restart(self) -> None:
         one = self.accept()
@@ -97,8 +130,8 @@ class NativeJobJournalTests(unittest.TestCase):
         with self.assertRaisesRegex(native.NativeBackupJobError, "another native backup job is pending"):
             self.accept(request_id="a" * 32, job_id="b" * 32)
         with self.assertRaisesRegex(native.NativeBackupJobError, "another native backup job is pending"):
-            self.store.accept(
-                request_id=REQ, job_id=JOB, generation="c" * 32,
+            self.store.reserve(
+                request_id=REQ, generation="c" * 32,
                 kind="manual", include_previous=True,
             )
         self.assertEqual(self.store.inspect().generation, GEN)
@@ -131,10 +164,11 @@ class NativeJobJournalTests(unittest.TestCase):
         for request_id, job_id, generation in bad:
             with self.subTest(request_id=request_id, job_id=job_id):
                 with self.assertRaises(native.NativeBackupJobError):
-                    self.store.accept(
-                        request_id=request_id, job_id=job_id, generation=generation,
+                    self.store.reserve(
+                        request_id=request_id, generation=generation,
                         kind="manual", include_previous=False,
                     )
+                    self.store.accept(request_id=request_id, job_id=job_id)
         self.assertIsNone(self.store.inspect())
 
     def test_reject_symlink_or_world_readable_journal(self) -> None:
