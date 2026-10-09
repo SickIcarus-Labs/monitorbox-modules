@@ -306,6 +306,22 @@ class PackageAcceptance(unittest.IsolatedAsyncioTestCase):
         finally:
             await client.close()
 
+    async def test_chunked_large_request_is_rejected_before_snapshot(self):
+        endpoint="/api/v2/config/backup-restore/native/backups"
+        async def upload():
+            yield b"{}"
+            yield b"x"*4096
+        response=await self.client.post(
+            endpoint,data=upload(),headers=self.headers(),
+        )
+        self.assertEqual(response.status,413)
+        status=await self.client.get(
+            endpoint.replace("/backups","/status"),
+            headers=self.headers(),
+        )
+        self.assertIsNone((await status.json())["job"])
+        self.assertEqual(self.native.started,0)
+
     async def test_candidate_policy_requires_csrf_and_preserves_native_schedule(self):
         endpoint="/api/v2/config/backup-restore/native/policy"
         unauthorized=await self.client.get(endpoint)
