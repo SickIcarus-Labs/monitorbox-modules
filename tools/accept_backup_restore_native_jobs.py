@@ -68,6 +68,8 @@ class NativeJobJournalTests(unittest.TestCase):
         self.assertEqual(pending.phase, "requested")
         self.assertIsNone(pending.job_id)
         self.assertIsNone(pending.backup_id)
+        self.assertRegex(pending.planned_backup_id, r"^\d{8}T\d{6}Z-[0-9a-f]{8}$")
+        self.assertTrue(pending.planned_backup_id.endswith("-" + REQ[:8]))
         after_core_restart = native.NativeBackupJobStore(self.root)
         self.assertEqual(after_core_restart.inspect(), pending)
         self.assertEqual(after_core_restart.reserve(
@@ -75,7 +77,7 @@ class NativeJobJournalTests(unittest.TestCase):
             include_previous=True,
         ), pending)
         with self.assertRaisesRegex(native.NativeBackupJobError, "cannot be called saved"):
-            after_core_restart.commit(request_id=REQ, backup_id=BACKUP, vault=SyntheticVerifiedVault())
+            after_core_restart.commit(request_id=REQ, backup_id=self.store.inspect().planned_backup_id, vault=SyntheticVerifiedVault())
         with self.assertRaisesRegex(native.NativeBackupJobError, "not awaiting transfer"):
             after_core_restart.mark_transfer_verified(
                 request_id=REQ, bytes_count=42, sha256=DIGEST,
@@ -116,14 +118,25 @@ class NativeJobJournalTests(unittest.TestCase):
         self.assertEqual(self.store.mark_transfer_verified(
             request_id=REQ, bytes_count=2097157, sha256=DIGEST
         ), after_restart)
-        committed = self.store.commit(request_id=REQ, backup_id=BACKUP, vault=SyntheticVerifiedVault())
+        committed = self.store.commit(request_id=REQ, backup_id=self.store.inspect().planned_backup_id, vault=SyntheticVerifiedVault())
         self.assertEqual(committed.phase, "committed")
         self.assertEqual(native.NativeBackupJobStore(self.root).inspect(), committed)
-        self.assertEqual(self.store.commit(request_id=REQ, backup_id=BACKUP, vault=SyntheticVerifiedVault()), committed)
+        self.assertEqual(self.store.commit(request_id=REQ, backup_id=self.store.inspect().planned_backup_id, vault=SyntheticVerifiedVault()), committed)
         with self.assertRaisesRegex(native.NativeBackupJobError, "already settled"):
             self.accept()
         later = self.accept(request_id="4" * 32, job_id="5" * 32)
         self.assertEqual(later.phase, "accepted")
+
+    def test_alternate_saved_identity_cannot_complete_matching_transfer(self) -> None:
+        self.accept()
+        self.store.mark_transfer_verified(request_id=REQ, bytes_count=2097157, sha256=DIGEST)
+        with self.assertRaisesRegex(native.NativeBackupJobError, "reserved request identity"):
+            self.store.commit(
+                request_id=REQ,
+                backup_id="20261009T150000Z-a1b2c3d4",
+                vault=SyntheticVerifiedVault(),
+            )
+        self.assertEqual(self.store.inspect().phase, "transfer_verified")
 
     def test_wrong_or_unverified_saved_vault_record_cannot_claim_success(self) -> None:
         self.accept()
@@ -135,16 +148,16 @@ class NativeJobJournalTests(unittest.TestCase):
         ):
             with self.subTest(vault=vault):
                 with self.assertRaises(native.NativeBackupJobError):
-                    self.store.commit(request_id=REQ, backup_id=BACKUP, vault=vault)
+                    self.store.commit(request_id=REQ, backup_id=self.store.inspect().planned_backup_id, vault=vault)
                 self.assertEqual(self.store.inspect().phase, "transfer_verified")
         trusted = SyntheticVerifiedVault()
-        self.store.commit(request_id=REQ, backup_id=BACKUP, vault=trusted)
+        self.store.commit(request_id=REQ, backup_id=self.store.inspect().planned_backup_id, vault=trusted)
         self.assertEqual(trusted.requests, [BACKUP])
 
     def test_missing_transfer_or_changed_digest_cannot_commit(self) -> None:
         self.accept()
         with self.assertRaisesRegex(native.NativeBackupJobError, "cannot be called saved"):
-            self.store.commit(request_id=REQ, backup_id=BACKUP, vault=SyntheticVerifiedVault())
+            self.store.commit(request_id=REQ, backup_id=self.store.inspect().planned_backup_id, vault=SyntheticVerifiedVault())
         with self.assertRaises(native.NativeBackupJobError):
             self.store.mark_transfer_verified(
                 request_id=REQ, bytes_count=0, sha256=DIGEST
@@ -179,7 +192,7 @@ class NativeJobJournalTests(unittest.TestCase):
             request_id=REQ, failure_code="vault_failed"
         ), failed)
         with self.assertRaises(native.NativeBackupJobError):
-            self.store.commit(request_id=REQ, backup_id=BACKUP, vault=SyntheticVerifiedVault())
+            self.store.commit(request_id=REQ, backup_id=self.store.inspect().planned_backup_id, vault=SyntheticVerifiedVault())
         with self.assertRaises(native.NativeBackupJobError):
             self.store.fail(
                 request_id=REQ, failure_code="SECRET_API_TOKEN_should_not_appear"
