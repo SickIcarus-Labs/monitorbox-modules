@@ -169,7 +169,13 @@ class NativeJobJournalTests(unittest.TestCase):
                         kind="manual", include_previous=False,
                     )
                     self.store.accept(request_id=request_id, job_id=job_id)
-        self.assertIsNone(self.store.inspect())
+        # An invalid Supervisor reply after a *valid* intent must leave the
+        # pre-begin request recoverable, not silently erase the journal.
+        restored = self.store.inspect()
+        self.assertIsNotNone(restored)
+        self.assertEqual(restored.phase, "requested")
+        self.assertIsNone(restored.job_id)
+        self.assertIsNone(restored.backup_id)
 
     def test_reject_symlink_or_world_readable_journal(self) -> None:
         hidden = self.root / "hidden.json"
