@@ -2,7 +2,7 @@
 # Protected GH Actions executor for successor UI58. No local registry overrides.
 set -euo pipefail
 
-mode="${1:?expected preflight or publish}"
+mode="${1:?expected preflight, publish or promote}"
 test "${GITHUB_REPOSITORY:-}" = "SickIcarus-Labs/monitorbox-modules"
 test "${GITHUB_REF:-}" = "refs/heads/main"
 FULL="ghcr.io/sickicarus-labs/monitorbox-successor-signed-feed"
@@ -138,6 +138,39 @@ sup={arch:(root/f"supervisor-{arch}/platform/channels/stable/index.json").read_b
 pair=verified_pair(Feed(os.environ["NEW_FULL"], full),SupervisorFeed(os.environ["NEW_SUP"], sup),keys={"official-ed25519-1":key})
 assert pair.sequence==10
 PY
+    # Persist immutable recovery authority BEFORE any moving-tag write.
+    python - "$ROOT/promotion-receipt.json" <<'PY'
+import json,os,sys
+from pathlib import Path
+root=Path(os.environ["RUNNER_TEMP"])/"successor-ui58/staged"
+intent=json.loads((root/"release-intent.json").read_text())
+intent.update({
+    "previous_full_digest":os.environ["EXPECTED_FULL"],
+    "previous_supervisor_digest":os.environ["EXPECTED_SUP"],
+    "target_full_digest":os.environ["NEW_FULL"],
+    "target_supervisor_digest":os.environ["NEW_SUP"],
+    "source_commit":os.environ["GITHUB_SHA"],
+    "status":"immutable-verified-not-promoted"
+})
+Path(sys.argv[1]).write_text(json.dumps(intent,sort_keys=True,indent=2)+"\\n")
+PY
+    echo "Immutable UI58 pair verified. Stable pointers untouched; promotion receipt ready."
+    ;;
+  promote)
+    test -s "$ROOT/promotion-receipt.json"
+    export NEW_FULL="$(python -c 'import json,sys;print(json.load(open(sys.argv[1]))["target_full_digest"])' "$ROOT/promotion-receipt.json")"
+    export NEW_SUP="$(python -c 'import json,sys;print(json.load(open(sys.argv[1]))["target_supervisor_digest"])' "$ROOT/promotion-receipt.json")"
+    python - "$ROOT/promotion-receipt.json" <<'PY'
+import json,os,sys
+r=json.load(open(sys.argv[1]))
+assert r["status"]=="immutable-verified-not-promoted"
+assert r["source_commit"]==os.environ["GITHUB_SHA"]
+assert r["old_sequence"]==9 and r["new_sequence"]==10
+assert r["previous_full_digest"]==os.environ["EXPECTED_FULL"]
+assert r["previous_supervisor_digest"]==os.environ["EXPECTED_SUP"]
+PY
+    test "$(resolve "$FULL:$TAG")" = "$NEW_FULL"
+    test "$(resolve "$SUP:$TAG")" = "$NEW_SUP"
     # Stable pair is a two-pointer transaction. It must retain exact old refs.
     # The other channels contain the identical signed baseline release and may
     # only start absent or at the exact expected previous stable image.
