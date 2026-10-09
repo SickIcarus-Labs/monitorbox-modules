@@ -323,6 +323,21 @@ class NativeVaultTests(unittest.TestCase):
         self.assertFalse(list(recovered.path.glob("*.zip")))
         self.assertTrue(list(recovered.quarantine.iterdir()))
 
+    def test_native_vault_rejects_untrusted_root_before_permission_mutation(self) -> None:
+        alias = self.root.parent / ("vault-link-" + os.urandom(4).hex())
+        alias.symlink_to(self.root, target_is_directory=True)
+        try:
+            with self.assertRaisesRegex(BackupVaultError, "real absolute"):
+                NativeBackupVault(alias, verify_signed_closure=verify_test_signed_closure)
+        finally:
+            alias.unlink(missing_ok=True)
+
+        other = self.root / "public-vault-root"
+        other.mkdir(mode=0o755)
+        with self.assertRaisesRegex(BackupVaultError, "must be private"):
+            NativeBackupVault(other, verify_signed_closure=verify_test_signed_closure)
+        self.assertEqual(other.stat().st_mode & 0o777, 0o755)
+
     def test_symlink_or_public_transfer_source_denied(self) -> None:
         src = self.source()
         link = self.root / "source-link.zip"
