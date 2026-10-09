@@ -17,7 +17,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator
 
-from monitorbox.v2.appliance_backup import ApplianceBackupError, ApplianceBackupManager
+# v3 vault storage MUST NOT import the v2 appliance archive writer.
+# The independent native adapter injects signed-closure verification.
 
 _BACKUP_ID_RE = re.compile(r"^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$")
 _TRANSACTION_RE = re.compile(
@@ -32,6 +33,10 @@ LOG = logging.getLogger(__name__)
 
 class BackupVaultError(ValueError):
     """Raised for module-owned saved-backup policy/storage failures."""
+
+
+class ArchiveVerifierError(ValueError):
+    """Internal storage-side verification failure; never a Core v2 import."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,14 +107,12 @@ class BackupVault:
     """
 
     def __init__(self, root: Path) -> None:
-        self.root = Path(root)
-        self.path = self.root / "saved-backups"
-        self.transactions = self.path / ".transactions"
-        self.quarantine = self.path / ".quarantine"
-        self.lock_path = self.path / ".vault.lock"
-        self.manager = ApplianceBackupManager(self.root)
-        self.ensure()
-        self.reconcile()
+        # This class is a crash-safe journal *primitive* only on v3.
+        # The NativeBackupVault subclass must first supply independent
+        # Supervisor verification before any mutation/reconciliation.
+        raise BackupVaultError(
+            "native v3 vault requires signed Supervisor verifier injection"
+        )
 
     def ensure(self) -> None:
         for path in (self.path, self.transactions, self.quarantine):
@@ -247,7 +250,7 @@ class BackupVault:
     ) -> BackupRecord:
         try:
             self.manager.inspect(archive)
-        except ApplianceBackupError as exc:
+        except ArchiveVerifierError as exc:
             raise BackupVaultError(str(exc)) from exc
         if archive.suffix != ARCHIVE_SUFFIX:
             raise BackupVaultError("saved backup archive must be a ZIP file")
@@ -339,7 +342,7 @@ class BackupVault:
             raise BackupVaultError("saved-backup transaction archive failed integrity verification")
         try:
             self.manager.inspect(archive)
-        except ApplianceBackupError as exc:
+        except ArchiveVerifierError as exc:
             raise BackupVaultError(str(exc)) from exc
         return record, archive, metadata
 
@@ -394,7 +397,7 @@ class BackupVault:
                 return False
             self.manager.inspect(archive)
             return True
-        except (BackupVaultError, ApplianceBackupError, OSError):
+        except (BackupVaultError, ArchiveVerifierError, OSError):
             return False
 
     def _quarantine_path_locked(self, path: Path, *, reason: str) -> None:
@@ -510,24 +513,9 @@ class BackupVault:
             self._reconcile_locked()
 
     def create(self, *, label: str | None = None, kind: str = "manual") -> BackupRecord:
-        _normalize_label(label, fallback="Backup")
-        _validate_kind(kind)
-        with self._locked():
-            self._reconcile_locked()
-            backup_id = self._new_unused_id_locked()
-            transaction = self._begin_transaction_locked(backup_id)
-            archive = transaction / "archive.zip"
-            try:
-                self.manager.create(archive)
-                self._checkpoint("archive_written")
-                self._prepare_transaction_locked(transaction, label=label, kind=kind)
-                return self._commit_transaction_locked(transaction)
-            except BackupVaultError:
-                self._rollback_failed_transaction_locked(transaction)
-                raise
-            except (ApplianceBackupError, OSError) as exc:
-                self._rollback_failed_transaction_locked(transaction)
-                raise BackupVaultError(str(exc)) from exc
+        # Only NativeBackupVault.create_from_verified_transfer may publish
+        # signed ZIPs; no historical Core v2 fallback can write this vault.
+        raise BackupVaultError("native v3 backup requires Supervisor snapshot")
 
     def _list_locked(self) -> tuple[BackupRecord, ...]:
         records: list[BackupRecord] = []
@@ -557,7 +545,7 @@ class BackupVault:
                 raise BackupVaultError(f"saved backup {backup_id} failed vault integrity verification")
             try:
                 self.manager.inspect(archive)
-            except ApplianceBackupError as exc:
+            except ArchiveVerifierError as exc:
                 raise BackupVaultError(str(exc)) from exc
         return record
 
@@ -633,7 +621,7 @@ class BackupVault:
             except BackupVaultError:
                 self._rollback_failed_transaction_locked(transaction)
                 raise
-            except (OSError, ApplianceBackupError) as exc:
+            except (OSError, ArchiveVerifierError) as exc:
                 self._rollback_failed_transaction_locked(transaction)
                 raise BackupVaultError(f"unable to copy saved backup: {exc}") from exc
 
