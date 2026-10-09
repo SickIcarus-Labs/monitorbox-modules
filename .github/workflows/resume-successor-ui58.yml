@@ -49,7 +49,7 @@ jobs:
       - name: Require merged reviewed recovery PR
         if: github.event_name == 'issue_comment'
         env:
-          ${{ github.token }}: ${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           gh api "repos/$GITHUB_REPOSITORY/pulls/185" | jq -e '
