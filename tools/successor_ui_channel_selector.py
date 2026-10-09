@@ -200,20 +200,13 @@ def apply(files: dict) -> None:
         "    const [buildResult, stateResult, channelResult] = await Promise.allSettled([",
         "app-shell hydrate result destructuring")
     shell = _once(shell,
-        "      fetch('/api/v2/state', {headers:{Accept:'application/json'}, cache:'no-store'}).then(response => {\n"
-        "        if (!response.ok) throw new Error(" + String.fromCharCode(96) + "state \${response.status}" + String.fromCharCode(96) + ");\n"
-        "        return response.json();\n"
-        "      }),\n"
-        "    ]);",
-        "      fetch('/api/v2/state', {headers:{Accept:'application/json'}, cache:'no-store'}).then(response => {\n"
-        "        if (!response.ok) throw new Error(" + String.fromCharCode(96) + "state \${response.status}" + String.fromCharCode(96) + ");\n"
-        "        return response.json();\n"
+        "      }),\n    ]);\n\n    if (buildResult.status === 'fulfilled')",
         "      }),\n"
         "      fetch('/api/v2/modules', {headers:{Accept:'application/json'}, cache:'no-store'}).then(response => {\n"
         "        if (!response.ok) throw new Error('module authority ' + response.status);\n"
         "        return response.json();\n"
         "      }),\n"
-        "    ]);",
+        "    ]);\n\n    if (buildResult.status === 'fulfilled')",
         "app-shell authoritative channel fetch")
     shell = _once(shell,
         "      const label = buildLabel(buildResult.value);\n",
