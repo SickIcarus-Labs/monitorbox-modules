@@ -56,3 +56,8 @@ jobs:
           assert raw.index("ui58-protected-promotion-receipt") < raw.index("Guarded stable-pair")
           print("Restricted owner-only signer/publisher YAML parsed")
           PY
+
+      - name: Test signed OCI multiarch extraction safety
+        run: |
+          python -m pip install --disable-pip-version-check pytest 'cryptography>=45,<49' 'jsonschema>=4,<5'
+          PYTHONPATH=tools python -m pytest -q tools/test_successor_registry_extract.py tools/test_successor_ghcr_readonly.py
