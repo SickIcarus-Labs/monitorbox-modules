@@ -121,6 +121,7 @@ class NativeBackupVault(BackupVault):
         source: Path, *,
         transport_bytes: int, transport_sha256: str,
         label: str | None = None, kind: str = "manual",
+        planned_backup_id: str | None = None,
     ) -> BackupRecord:
         """Copy a fully transferred signed ZIP into the existing vault journal.
 
@@ -158,7 +159,23 @@ class NativeBackupVault(BackupVault):
 
         with self._locked():
             self._reconcile_locked()
-            backup_id = self._new_unused_id_locked()
+            backup_id = (
+                self._validate_id(planned_backup_id)
+                if planned_backup_id is not None
+                else self._new_unused_id_locked()
+            )
+            if self._archive(backup_id).exists() or self._metadata(backup_id).exists():
+                # Crash after ZIP+metadata publication but before the module's
+                # terminal journal write: reverify exact committed identity and
+                # transfer bytes, never create a duplicate saved backup.
+                prior = self._get_locked(backup_id, verify=True)
+                if (
+                    prior.bytes == transport_bytes
+                    and prior.sha256 == transport_sha256
+                    and prior.kind == kind
+                ):
+                    return prior
+                raise BackupVaultError("reserved vault backup identity already has different bytes")
             transaction = self._begin_transaction_locked(backup_id)
             staged = transaction / "archive.zip"
             try:
