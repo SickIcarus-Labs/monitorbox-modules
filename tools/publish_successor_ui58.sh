@@ -207,6 +207,10 @@ PY
     docker buildx imagetools create --tag "$FULL:stable" "$FULL@$NEW_FULL"
     test "$(resolve "$FULL:stable")" = "$NEW_FULL"
     test "$(resolve "$SUP:stable")" = "$NEW_SUP"
+    # Independently reobserve both newly selected GHCR stable pointers and
+    # re-verify every signed ZIP/manager pair from the published OCI layers.
+    PYTHONPATH=tools python tools/successor_existing_stable_readonly.py \
+      --trust-root trust/official-ed25519-1.pub
     trap - ERR
     {
       echo "### Signed UI58 release"
