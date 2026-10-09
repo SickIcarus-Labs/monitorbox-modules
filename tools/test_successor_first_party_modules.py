@@ -36,8 +36,10 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
 
     def test_successor_ui_advances_for_scaffold_lifecycle_operator_contract(self) -> None:
         ui = self.records[subject.UI_ID]
-        self.assertEqual(57, ui["build"])
-        self.assertEqual(57, ui["module_runtime"]["build"])
+        self.assertEqual("1.18.0", ui["version"])
+        self.assertEqual(58, ui["build"])
+        self.assertEqual("1.18.0", ui["module_runtime"]["version"])
+        self.assertEqual(58, ui["module_runtime"]["build"])
 
     def test_successor_portainer_advances_for_bounded_parallel_inventory(self) -> None:
         portainer = self.records[subject.PORTAINER_ID]
