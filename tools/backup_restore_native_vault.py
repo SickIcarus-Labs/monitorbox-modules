@@ -44,7 +44,13 @@ class _NativeSignedInspector:
         self._verified = verify_signed_closure
 
     def inspect(self, path: Path) -> NativeArchiveInspection:
-        inspection = inspect_native_archive(path)
+        try:
+            inspection = inspect_native_archive(path)
+        except NativeArchiveError as exc:
+            # The historical vault's reconciliation machinery recognizes its
+            # own BackupVaultError, not a new native format exception. Invalid
+            # staged ZIPs must be quarantined, not strand startup.
+            raise BackupVaultError("native ZIP failed structural verification") from exc
         try:
             # This callback must be provided by the already-authenticated
             # native Supervisor trust-root/package-closure verification API.
