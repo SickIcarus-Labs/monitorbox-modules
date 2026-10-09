@@ -89,5 +89,5 @@ def build(output_dir: Path) -> Path:
 
 if __name__ == "__main__":
     parser=argparse.ArgumentParser()
-    parser.add_argument("--output-dir",type=Path,required=True)
+    parser.add_argument("--output-dir",type=Path,default=ROOT / "packages")
     build(parser.parse_args().output_dir)
