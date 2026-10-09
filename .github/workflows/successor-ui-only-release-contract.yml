@@ -1,0 +1,54 @@
+name: Successor UI-only release delta contract
+
+on:
+  pull_request:
+    paths:
+      - "tools/successor_ui_only_release.py"
+      - "tools/test_successor_ui_only_release.py"
+      - "tools/stage_successor_ui58_release.py"
+      - "tools/publish_successor_ui58.sh"
+      - "docs/successor-ui58-channel-publication.md"
+      - ".github/workflows/publish-successor-ui58.yml"
+      - "tools/build_successor_first_party_modules.py"
+      - "platform/modules/first-party-successor-v1.json"
+      - ".github/workflows/successor-ui-only-release-contract.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  delta-contract:
+    name: Reject package, sequence, or provenance drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Validate isolated release policy
+        run: PYTHONPATH=tools python -m unittest -v tools/test_successor_ui_only_release.py
+      - name: Requalify exact first-party artifacts
+        run: python -m unittest discover -s tools -p test_successor_first_party_modules.py -v
+      - name: Compile all publication transformations
+        run: python -m py_compile tools/successor_ui_only_release.py tools/stage_successor_ui58_release.py tools/build_successor_acceptance_feed_source.py tools/build_platform_index.py
+      - name: Parse-check the protected publisher
+        run: bash -n tools/publish_successor_ui58.sh
+      - name: Validate release workflow syntax and restrict signing to trusted triggers
+        run: |
+          python -m pip install --disable-pip-version-check 'PyYAML>=6,<7'
+          python - <<'PY'
+          import yaml
+          from pathlib import Path
+          path=Path(".github/workflows/publish-successor-ui58.yml")
+          raw=path.read_text()
+          doc=yaml.safe_load(raw)
+          assert "publish" in doc["jobs"]
+          assert "pull_request:" not in raw
+          assert "github.actor == 'SickIcarus'" in raw
+          assert "publish-ui58-signed-channels" in raw
+          assert "github.event.issue.number == 184" in raw
+          assert "actions/upload-artifact" in raw
+          assert raw.index("ui58-protected-promotion-receipt") < raw.index("Guarded stable-pair")
+          print("Restricted owner-only signer/publisher YAML parsed")
+          PY
