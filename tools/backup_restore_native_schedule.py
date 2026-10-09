@@ -129,6 +129,17 @@ class NativeScheduledBackup:
         policy=self.policy_store.load()
         if not force and not policy.enabled:
             return {"created":False,"reason":"schedule_disabled"}
+        if not force and current is not None and current.phase=="failed":
+            # Five-second progress polling must not create an endless stream
+            # of costly snapshots after one authoritative failure. Keep the
+            # failed job visible for diagnosis until the configured interval
+            # has elapsed, unless an administrator explicitly forces retry.
+            checked=now or datetime.now(timezone.utc)
+            failed_at=datetime.fromisoformat(current.created_at)
+            if checked.tzinfo is None or failed_at.tzinfo is None:
+                raise BackupPolicyError("scheduled retry clock is invalid")
+            if checked < failed_at+timedelta(hours=policy.interval_hours):
+                return {"created":False,"reason":"failed_retry_backoff"}
         if not force and not self.is_due(now=now):
             return {"created":False,"reason":"not_due"}
         item=self.workflow.request(kind="scheduled",include_previous=True)
