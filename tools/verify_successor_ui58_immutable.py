@@ -128,6 +128,13 @@ def resume(*, prior: Path, prior_index: Path, output: Path,
 
     signed_supervisor = {}
     for arch in ARCHES:
+        sup_root = stage / f"supervisor-{arch}" / "platform"
+        present = set(_inventory(sup_root))
+        candidates = {x for x in present if x.startswith("packages/")}
+        if len(candidates) != 1 or present != (
+            {"channels/stable/index.json"} | candidates
+        ):
+            raise ValueError("Supervisor signed feed must be manager-only stable index")
         raw = (stage / f"supervisor-{arch}/platform/channels/stable/index.json").read_bytes()
         index = verify_index(raw, keys=keys, channel="stable", min_sequence=10)
         if index["sequence"] != 10 or len(index["artifacts"]) != 1:
