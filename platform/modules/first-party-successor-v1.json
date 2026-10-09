@@ -514,8 +514,8 @@
     },
     {
       "artifact_id": "com.sickicarus.monitorbox.ui",
-      "version": "1.17.1",
-      "build": 57,
+      "version": "1.18.0",
+      "build": 58,
       "predecessor": {
         "filename": "com.sickicarus.monitorbox.ui-1.17.1-build54.zip",
         "sha256": "c51119fc0615f8d6108d6f6d6b43745209424e0385637c6853201c8b2742fb14"
@@ -524,8 +524,8 @@
         "module_id": "com.sickicarus.monitorbox.ui",
         "display_name": "MonitorBox UI",
         "description": "MonitorBox web interface, shared shell and operator presentation.",
-        "version": "1.17.1",
-        "build": 57,
+        "version": "1.18.0",
+        "build": 58,
         "schema": 1,
         "state_schema": 1,
         "module_type": "ui",

@@ -36,8 +36,10 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
 
     def test_successor_ui_advances_for_scaffold_lifecycle_operator_contract(self) -> None:
         ui = self.records[subject.UI_ID]
-        self.assertEqual(57, ui["build"])
-        self.assertEqual(57, ui["module_runtime"]["build"])
+        self.assertEqual("1.18.0", ui["version"])
+        self.assertEqual(58, ui["build"])
+        self.assertEqual("1.18.0", ui["module_runtime"]["version"])
+        self.assertEqual(58, ui["module_runtime"]["build"])
 
     def test_successor_portainer_advances_for_bounded_parallel_inventory(self) -> None:
         portainer = self.records[subject.PORTAINER_ID]
@@ -247,9 +249,24 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
                             self.assertIn("preferred_channel", decoded)
                             self.assertIn("changeReleaseChannel", decoded)
                             self.assertIn("modules-release-channel", decoded)
-                            self.assertIn(
-                                "Bounded by deployment ceiling", decoded
-                            )
+                            self.assertIn("Repositories enabled:", decoded)
+                            self.assertIn("verifyChannelCommit", decoded)
+                            self.assertIn('window.confirm("Switch MonitorBox to "', decoded)
+                            self.assertIn("channelAuthority.preferred_channel", decoded)
+                            self.assertIn('option.disabled = !allowed.includes(channel)', decoded)
+                            self.assertNotIn('capabilities.append(releaseControl)', decoded)
+                        elif (
+                            artifact_id == subject.UI_ID
+                            and name.endswith("/assets/app-shell.js")
+                        ):
+                            predecessor_shell = old.read(name)
+                            successor_shell = new.read(name)
+                            self.assertNotEqual(predecessor_shell, successor_shell)
+                            decoded = successor_shell.decode("utf-8")
+                            self.assertIn("channelResult", decoded)
+                            self.assertIn("release.preferred_channel", decoded)
+                            self.assertIn("monitorbox:channel-committed", decoded)
+                            self.assertIn("identity.channel = ''", decoded)
                         elif (
                             artifact_id == subject.UI_ID
                             and name.endswith(subject.UI_MODULES_CSS_MEMBER_SUFFIX)
