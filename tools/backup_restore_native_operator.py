@@ -28,9 +28,15 @@ PROGRESS_INTERVAL_SECONDS = 5
 
 
 class NativeBackupOperator:
-    def __init__(self, platform: Any, *, workflow: NativeBackupWorkflow | None = None):
+    def __init__(
+        self, platform: Any, *, workflow: NativeBackupWorkflow | None = None,
+        scheduled: Any | None = None,
+    ):
         self.platform = platform
         self.workflow = workflow if workflow is not None else NativeBackupWorkflow(platform)
+        # A production build must inject a policy-backed NativeScheduledBackup,
+        # never the v2 scheduler's legacy vault.create implementation.
+        self.scheduled = scheduled
         self._lock = asyncio.Lock()
         self._task: asyncio.Task[None] | None = None
 
@@ -66,6 +72,11 @@ class NativeBackupOperator:
                         "requested", "accepted", "transfer_verified",
                     }:
                         await asyncio.to_thread(self.workflow.advance)
+                    elif self.scheduled is not None:
+                        # Once the previous job has actually been committed,
+                        # apply destination/retention before any new due job.
+                        # Due requests only admit pending Supervisor work.
+                        await asyncio.to_thread(self.scheduled.run_due)
             except asyncio.CancelledError:
                 raise
             except (NativeBackupJobError, BackupVaultError, NativeBackupWorkflowError) as exc:
@@ -85,10 +96,20 @@ class NativeBackupOperator:
             if raw not in (b"", b"{}"):
                 raise web.HTTPBadRequest(text="native archive selection is not available in this operation")
             async with self._lock:
-                accepted = await asyncio.to_thread(
-                    self.workflow.request,
-                    kind=kind, include_previous=True,
-                )
+                if kind == "scheduled" and self.scheduled is not None:
+                    decision = await asyncio.to_thread(self.scheduled.run_due, force=True)
+                    if not decision.get("accepted"):
+                        raise NativeBackupWorkflowError(
+                            "native scheduled backup remains pending or blocked"
+                        )
+                    accepted = await asyncio.to_thread(self.workflow.inspect)
+                    if accepted is None or accepted.request_id != decision.get("request_id"):
+                        raise NativeBackupWorkflowError("native scheduled job identity unavailable")
+                else:
+                    accepted = await asyncio.to_thread(
+                        self.workflow.request,
+                        kind=kind, include_previous=True,
+                    )
             LOG.info("native %s backup admitted actor=%s request=%s",kind,session.actor,accepted.request_id)
             return web.json_response({
                 "request_id": accepted.request_id,
