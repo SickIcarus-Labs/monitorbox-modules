@@ -34,6 +34,7 @@ EXPECTED={
         "", "_application", "_native_jobs","_native_archive",
         "_native_vault","_native_workflow","_native_operator",
         "_native_schedule","_vault","_policy","_destinations",
+        "_restore_preflight",
     )
 }
 sys.path.insert(0,str(ROOT/"tools"))
@@ -81,6 +82,7 @@ def check_bundle(package:Path)->str:
         for required in (
             "native/status","native/backups","native/schedule/run",
             "committed","pending","Restore is intentionally unavailable",
+            "Inspect ZIP signatures","native/restore/preflight-file",
             'disabled aria-disabled="true"',
         ):
             assert required in page,required
@@ -321,6 +323,125 @@ class PackageAcceptance(unittest.IsolatedAsyncioTestCase):
         )
         self.assertIsNone((await status.json())["job"])
         self.assertEqual(self.native.started,0)
+
+    async def test_uploaded_signed_zip_preflight_is_read_only_and_fails_closed(self):
+        api="/api/v2/config/backup-restore/native/restore/preflight-file"
+        data=self.synthetic.read_bytes()
+        missing=await self.client.post(api,data=data,headers={"Content-Type":"application/zip"})
+        self.assertEqual(missing.status,401)
+        invalid=await self.client.post(
+            api,data=data,headers={
+                **self.headers(csrf=False),"Content-Type":"application/zip"
+            },
+        )
+        self.assertEqual(invalid.status,403)
+        before=len(await self._saved_list())
+        signed=await self.client.post(
+            api,data=data,headers={**self.headers(),"Content-Type":"application/zip"}
+        )
+        self.assertEqual(signed.status,200)
+        response=await signed.json()
+        self.assertTrue(response["verified"])
+        self.assertFalse(response["restorable"])
+        self.assertEqual(response["source"],"uploaded-file")
+        self.assertEqual(response["format"],"monitorbox-successor-full-v1")
+        self.assertEqual(response["zip_bytes"],len(data))
+        self.assertEqual(response["sha256"],hashlib.sha256(data).hexdigest())
+        self.assertNotIn("config",response)
+        self.assertNotIn("password",response)
+        self.assertNotIn("restore_token",response)
+        self.assertEqual(len(await self._saved_list()),before)
+        scratch=self.root/"saved-backups"/".native-restore-preflight"
+        self.assertTrue(scratch.is_dir())
+        self.assertEqual(list(scratch.iterdir()),[])
+
+        corrupted=data[:len(data)//2]+bytes([data[len(data)//2]^0x80])+data[len(data)//2+1:]
+        refused=await self.client.post(
+            api,data=corrupted,headers={**self.headers(),"Content-Type":"application/zip"}
+        )
+        self.assertEqual(refused.status,422)
+        self.assertEqual(list(scratch.iterdir()),[])
+        self.assertEqual(len(await self._saved_list()),before)
+
+        # Entirely self-consistent unsigned archive with no executable trust
+        # must still fail the Supervisor validator, not just member hashes.
+        self.native.invalid_signature=True
+        independent=await self.client.post(
+            api,data=data,headers={**self.headers(),"Content-Type":"application/zip"}
+        )
+        self.assertEqual(independent.status,422)
+        self.assertEqual(list(scratch.iterdir()),[])
+        self.assertEqual(len(await self._saved_list()),before)
+        self.native.invalid_signature=False
+
+    async def test_saved_vault_zip_preview_does_not_commit_or_modify_backup(self):
+        endpoint="/api/v2/config/backup-restore"
+        self.native.phase="ready"
+        begin=await self.client.post(
+            endpoint+"/native/backups",data="{}",headers=self.headers()
+        )
+        self.assertEqual(begin.status,202)
+        committed=None
+        for _ in range(80):
+            await asyncio.sleep(0.025)
+            state=await self.client.get(endpoint+"/native/status",headers=self.headers())
+            result=await state.json()
+            if result.get("job",{}).get("phase")=="committed":
+                committed=result["job"]
+                break
+        self.assertIsNotNone(committed)
+        backup=committed["backup_id"]
+        existing=await self._saved_list()
+        self.assertEqual(len(existing),1)
+
+        path=endpoint+"/native/restore/preflight/"+backup
+        no_auth=await self.client.post(path,data="{}")
+        self.assertEqual(no_auth.status,401)
+        no_csrf=await self.client.post(path,data="{}",headers=self.headers(csrf=False))
+        self.assertEqual(no_csrf.status,403)
+        bad_body=await self.client.post(path,data="{}",headers=self.headers())
+        self.assertEqual(bad_body.status,400)
+        checked=await self.client.post(path,data=b"",headers=self.headers())
+        self.assertEqual(checked.status,200)
+        result=await checked.json()
+        self.assertEqual(result["source"],"saved-vault")
+        self.assertFalse(result["restorable"])
+        self.assertEqual(result["sha256"],existing[0]["sha256"])
+        self.assertEqual(await self._saved_list(),existing)
+        forbidden=await self.client.post(
+            endpoint+"/native/restore/commit",
+            data="{}",headers=self.headers()
+        )
+        self.assertEqual(forbidden.status,404)
+
+    async def test_chunked_oversize_signed_upload_refuses_before_verification(self):
+        import importlib
+        preflight=importlib.import_module(PREFIX+"_restore_preflight")
+        original=preflight.MAX_UPLOAD_BYTES
+        preflight.MAX_UPLOAD_BYTES=512
+        try:
+            async def chunks():
+                yield b"x"*350
+                yield b"y"*350
+            reply=await self.client.post(
+                "/api/v2/config/backup-restore/native/restore/preflight-file",
+                data=chunks(),
+                headers={**self.headers(),"Content-Type":"application/zip"},
+            )
+            self.assertEqual(reply.status,413)
+            scratch=self.root/"saved-backups"/".native-restore-preflight"
+            self.assertTrue(scratch.is_dir())
+            self.assertEqual(list(scratch.iterdir()),[])
+        finally:
+            preflight.MAX_UPLOAD_BYTES=original
+
+    async def _saved_list(self):
+        response=await self.client.get(
+            "/api/v2/config/backup-restore/native/backups",
+            headers=self.headers(),
+        )
+        self.assertEqual(response.status,200)
+        return (await response.json())["backups"]
 
     async def test_candidate_policy_requires_csrf_and_preserves_native_schedule(self):
         endpoint="/api/v2/config/backup-restore/native/policy"
