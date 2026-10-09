@@ -46,9 +46,10 @@ def apply(files: dict) -> None:
     # The signed lifecycle channel exists even before a legacy repository is
     # provisioned. Do not hide its selector behind the empty legacy repo list.
     text = _once(text,
-        '    if (!items.length) {\n      const empty = document.createElement("div");',
-        '    if (!items.length && !model?.capabilities?.scaffold_lifecycle) {\n'
-        '      const empty = document.createElement("div");',
+        '    const items = model && Array.isArray(model.repositories) ? model.repositories : [];\n'
+        '    if (!items.length) {',
+        '    const items = model && Array.isArray(model.repositories) ? model.repositories : [];\n'
+        '    if (!items.length && !model?.capabilities?.scaffold_lifecycle) {',
         "empty legacy repository list")
 
     # Replaces only the summary content when successor lifecycle authority
