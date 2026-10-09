@@ -104,7 +104,10 @@ class NativeWorkflowTests(unittest.TestCase):
 
     def test_scheduled_uses_same_native_writer_and_never_legacy_create(self):
         self.authority.phase = "ready"
-        result = self.workflow.request(kind="scheduled", include_previous=False)
+        accepted = self.workflow.request(kind="scheduled", include_previous=False)
+        self.assertEqual(accepted.phase, "accepted")
+        self.assertIsNone(accepted.backup_id)
+        result = self.workflow.advance()
         self.assertEqual(result.phase, "committed")
         self.assertEqual(result.kind, "scheduled")
         self.assertFalse(self.authority.previous)
@@ -141,8 +144,10 @@ class NativeWorkflowTests(unittest.TestCase):
     def test_native_signer_rejects_forged_package_before_vault_commit(self):
         self.authority.phase = "ready"
         self.authority.invalid_signature = True
+        accepted = self.workflow.request(kind="manual")
+        self.assertEqual(accepted.phase, "accepted")
         with self.assertRaises(Exception):
-            self.workflow.request(kind="manual")
+            self.workflow.advance()
         status = self.workflow.inspect()
         self.assertEqual(status.phase, "transfer_verified")
         self.assertIsNone(status.backup_id)
@@ -151,7 +156,9 @@ class NativeWorkflowTests(unittest.TestCase):
 
     def test_failed_supervisor_job_never_reports_saved_backup(self):
         self.authority.phase = "failed"
-        result = self.workflow.request(kind="scheduled")
+        accepted = self.workflow.request(kind="scheduled")
+        self.assertEqual(accepted.phase, "accepted")
+        result = self.workflow.advance()
         self.assertEqual(result.phase, "failed")
         self.assertEqual(result.failure_code, "archive_failed")
         self.assertEqual(self.workflow.vault.list(), ())
@@ -174,8 +181,10 @@ class NativeWorkflowTests(unittest.TestCase):
                 raise SystemExit("synthetic Core termination after atomic ZIP/metadata")
             return original(phase)
         self.workflow.vault._checkpoint = crash
+        admitted = self.workflow.request(kind="manual")
+        self.assertEqual(admitted.phase, "accepted")
         with self.assertRaises(SystemExit):
-            self.workflow.request(kind="manual")
+            self.workflow.advance()
         before = NativeBackupJobStore(self.root).inspect()
         self.assertEqual(before.phase, "transfer_verified")
         resumed = NativeBackupWorkflow(self.platform)
