@@ -3,7 +3,7 @@
   "signed": {
     "repository_id": "official-dev",
     "display_name": "MonitorBox Official Dev",
-    "generated_at": "2026-10-09T17:10:01.173142Z",
+    "generated_at": "2026-10-09T17:16:28.804795Z",
     "modules": [
       {
         "manifest": {
@@ -232,9 +232,9 @@
         "package": {
           "url": "packages/com.sickicarus.monitorbox.backup-restore-2.0.0-build7.zip",
           "filename": "com.sickicarus.monitorbox.backup-restore-2.0.0-build7.zip",
-          "sha256": "f4f6824bea5b23daf6726f06bd3879418c9aa8b56d0cd673c9e8eebea5ad2b9d",
+          "sha256": "05b6a65cff8ba1899ec41548cd29258820d22557432442512868b45ccd58d73b",
           "signature_identity": "official-ed25519-1",
-          "signature": "LG32p4AcTCxD+JRK86LpkRCuEj4ip312fwyTchWtO7GrE17Kz+QkdFJe5JkS9w5p0XP6Lnoc8cis6Od5lVIgBQ=="
+          "signature": "s5sDjWamJ2C86r/hZXJYJxfbnAvvhMR6BET/nsZlyQuAMs/2NFOYOnFflPCkTkl91L6ehwZqmROUtBDFNLy9AQ=="
         }
       },
       {
@@ -2291,6 +2291,6 @@
   "signature": {
     "algorithm": "ed25519",
     "identity": "official-ed25519-1",
-    "value": "Z1Sk/OoMJF5YxGEy2H75NLEJy8F2bBre5tgoSYiVTiY0TVJMNooMvj2YEMJZ+helUpGvqzmFcDUXbaQM2ilmDQ=="
+    "value": "RbQiBaJXRPKb416Gt2qXa+qoqRyIt5u/fvxVfg8YUpZFSSCfqpLfn+8Xx8lNeQ7ApgzvstGfH9BQLpLTXcrVCA=="
   }
 }
