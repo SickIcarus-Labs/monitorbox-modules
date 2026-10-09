@@ -11,6 +11,8 @@ may kill Core during snapshot; the next Core resumes from the durable journal.
 """
 from __future__ import annotations
 
+import fcntl
+import functools
 import os
 import secrets
 import stat
@@ -23,6 +25,38 @@ from backup_restore_native_vault import NativeBackupVault, BackupVaultError, ope
 
 class NativeBackupWorkflowError(RuntimeError):
     """Credential-free native backup operation failed or is not yet ready."""
+
+
+def _serialized_native_job(operation):
+    """One snapshot/transfer step across concurrent and restarted Core processes.
+
+    The original module-owned journal uses a short lock for each atomic state
+    transition; it cannot protect the *entire* multi-minute transfer interval.
+    This independent process-wide nonblocking flock serializes starts and
+    transfers without holding the journal's metadata lock during I/O. Crash
+    releases flock via the kernel; new Core can then resume the durable job.
+    """
+    @functools.wraps(operation)
+    def wrapped(self, *args, **kwargs):
+        lock_path = self.vault.path / ".native-fullzip-operation.lock"
+        flags = os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
+        try:
+            fd = os.open(lock_path, flags, 0o600)
+        except OSError as exc:
+            raise NativeBackupWorkflowError("native backup lock unavailable") from exc
+        try:
+            mode = os.fstat(fd).st_mode
+            if not stat.S_ISREG(mode) or mode & 0o077:
+                raise NativeBackupWorkflowError("native backup lock file is unsafe")
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError as exc:
+                raise NativeBackupWorkflowError(
+                    "native backup operation is already active"
+                ) from exc
+            return operation(self, *args, **kwargs)
+        finally:
+            os.close(fd)
 
 
 class NativeBackupWorkflow:
@@ -46,6 +80,7 @@ class NativeBackupWorkflow:
         ):
             raise NativeBackupWorkflowError("native transfer staging is unsafe")
 
+    @_serialized_native_job
     def request(self, *, kind: str = "manual", include_previous: bool = False) -> NativeBackupJob:
         """Durably reserve first, then begin/reclaim one exact Supervisor job."""
         try:
@@ -90,6 +125,7 @@ class NativeBackupWorkflow:
         except NativeBackupJobError:
             return None
 
+    @_serialized_native_job
     def advance(self) -> NativeBackupJob:
         """One bounded synchronous progress iteration; never invent success."""
         item = self.jobs.inspect()
