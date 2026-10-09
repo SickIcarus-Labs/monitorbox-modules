@@ -10,6 +10,8 @@ The signed first-party distribution repository for independently updateable Moni
 
 Module releases follow the canonical [`VERSIONING.md`](VERSIONING.md) policy: independent `MAJOR.MINOR.PATCH` semantic versions plus monotonically increasing per-module build numbers. First independently versioned module releases start at `1.0.0`; build numbers identify exact immutable artifacts but do not substitute for semantic version progression.
 
+The approved future **aggregate appliance** version is a separate [normative, documentation-only design](PLATFORM-VERSIONING.md), based on activated Core/Agent/UI version numbers; its software implementation remains **intentionally deferred under MonitorBox #647**. It is not the version of any individual module, scaffold, OCI catalog, or publication sequence.
+
 ## Signed publishing and retained 2.x catalog
 
 For **v3**, source merge or a generated root `index.json` does not publish a new Supervisor/full-feed generation. Independent module source changes must be qualified against the signed Core/Agent/runtime/module contract and exact multiarch closure; immutable signed package publication and coupled full/Supervisor channel movement require separately protected, reviewed release authority. **Do not invoke an old sequence-pinned publisher as a general release procedure.** See [read-only GHCR evidence](docs/successor-readonly-ghcr-evidence.md), [paired stable transaction design](docs/successor-stable-transaction-contract.md), and [production v3 lifecycle](https://github.com/SickIcarus-Labs/monitorbox/blob/main/design.md). This documentation does **not** authorize new release writes.
