@@ -3,6 +3,8 @@
 **Primary ticket:** [MonitorBox #630](https://github.com/SickIcarus-Labs/monitorbox/issues/630).  
 **Source:** UI module v1.18.0 build 58, already merged into Modules main via PR #183.
 
+**Outcome updated 2026-10-09:** The signed full/Supervisor Stable/Beta/Dev catalogs were promoted to sequence **10**, and UI58 was installed/active on the operator appliance, as recorded in [#630](https://github.com/SickIcarus-Labs/monitorbox/issues/630). **Do not re-run the historical sequence-9-to-10 publication procedure below.** A separate image-default/Supervisor bug still constrains the UI to Stable without a temporary explicit `MONITORBOX_CHANNEL_MAX=dev` workaround. The accepted long-term application preference/optional-ceiling fix is **not yet complete**; see #630/#539.
+
 ## Intended result
 
 The permanent `ghcr.io/sickicarus-labs/monitorbox:latest` **scaffold is untouched**.

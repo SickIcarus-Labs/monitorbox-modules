@@ -2,7 +2,7 @@
 
 This document is the canonical versioning policy for MonitorBox modules published through the official module repository.
 
-Release confidence (`dev` / `beta` / `stable`) is orthogonal to semantic version/build identity. See [`RELEASE-CHANNELS.md`](RELEASE-CHANNELS.md) and the cross-component MonitorBox Core policy at `docs/RELEASE-CHANNELS.md`.
+Release confidence (`dev` / `beta` / `stable`) is orthogonal to semantic version/build identity. See [module release channels](RELEASE-CHANNELS.md). **The examples referencing Core 2.3, Docker-image channels, and the older HTTPS catalog below are historical illustrations**, not v3 platform-version calculations or channel deployment instructions. V3's Core/Agent/UI/Supervisor are independently signed package identities, rather than versions inherited from an immutable Core Docker image.
 
 ## Release identity
 
@@ -105,9 +105,11 @@ At policy adoption, the official repository already contains historical UI and P
 
 ## Independent module progression
 
+For MonitorBox 3, a supported install may have **Core 3.x, Agent 3.x and a UI 1.x** alongside independently versioned integrations; separate signed Supervisor and language-runtime packages may have yet other identities. These numbers are examples of compatible components, not a single appliance-version formula. The approved **future** locally derived v3 platform version is tracked by [#647](https://github.com/SickIcarus-Labs/monitorbox/issues/647), with its unmerged [normative specification PR #172](https://github.com/SickIcarus-Labs/monitorbox-modules/pull/172). Do not claim that `PLATFORM-VERSIONING.md` exists on `main` before that PR merges, and do not compute product version from signed catalog sequence or scaffold image tag.
+
 Module versions are independent of MonitorBox Core and of one another. They are not required to align with the MonitorBox appliance version.
 
-A valid installation may therefore contain identities such as:
+For **historical 2.x illustration**, a valid installation could contain identities such as:
 
 ```text
 MonitorBox Core       2.3.0 build 0547
