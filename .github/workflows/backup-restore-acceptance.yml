@@ -12,6 +12,10 @@ on:
       - tools/build_first_party_backup_restore_b5.py
       - tools/accept_backup_restore_build5_revision_restore.py
       - tools/accept_backup_restore_native_jobs.py
+      - tools/backup_restore_native_jobs.py
+      - tools/backup_restore_native_archive.py
+      - tools/backup_restore_native_vault.py
+      - tools/accept_backup_restore_native_vault.py
       - .github/workflows/backup-restore-acceptance.yml
   push:
     branches:
@@ -26,6 +30,10 @@ on:
       - tools/build_first_party_backup_restore_b5.py
       - tools/accept_backup_restore_build5_revision_restore.py
       - tools/accept_backup_restore_native_jobs.py
+      - tools/backup_restore_native_jobs.py
+      - tools/backup_restore_native_archive.py
+      - tools/backup_restore_native_vault.py
+      - tools/accept_backup_restore_native_vault.py
       - .github/workflows/backup-restore-acceptance.yml
 
 permissions:
@@ -61,5 +69,7 @@ jobs:
           diff -u /tmp/backup-b5-first.sha /tmp/backup-b5-second.sha
       - name: Execute build 5 retained-revision restore acceptance
         run: python tools/accept_backup_restore_build5_revision_restore.py
-      - name: Verify unpublished build 7 native backup job journal contract
+      - name: Verify development-only native backup job journal
         run: python tools/accept_backup_restore_native_jobs.py
+      - name: Verify native signed ZIP structural and crash-safe vault admission
+        run: python tools/accept_backup_restore_native_vault.py
