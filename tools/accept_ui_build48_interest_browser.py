@@ -71,6 +71,10 @@ async def main() -> None:
                 await page.add_script_tag(content=asset("card-item-registry.js"))
                 await page.add_script_tag(content="""
                     globalThis.MonitorBoxCardLayout={
+                      // The original UI47/48 test uses a v1-v4 layout. UI54
+                      // still supports these imported legacy preferences, but
+                      // its renderer now requires explicit schema dispatch.
+                      isModern(_site,_key){return false;},
                       displayFor(_site,key){
                         const make=(obj,check,metric)=>({
                           key:JSON.stringify(['object',obj,'live',check,metric]),
