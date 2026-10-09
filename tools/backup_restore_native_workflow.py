@@ -54,12 +54,25 @@ class NativeBackupWorkflow:
                 request_id=secrets.token_hex(16), generation=generation,
                 kind=kind, include_previous=include_previous,
             )
-            return self.advance()
+            # Always report admitted / pending on initial request, never a
+            # terminal saved backup even if a tiny ZIP is already ready.
+            # Snapshot quiescence can restart Core during this one RPC.
+            try:
+                job_id = self.native.begin_backup(
+                    include_previous=reservation.include_previous
+                )
+            except Exception as exc:
+                # A job may have started before Core died; keep the durable
+                # pre-begin request so restart can reattach. No ZIP is saved.
+                raise NativeBackupWorkflowError(
+                    "native backup begin is unresolved; retry after Core restart"
+                ) from exc
+            return self.jobs.accept(
+                request_id=reservation.request_id, job_id=job_id
+            )
         except (NativeBackupJobError, NativeBackupWorkflowError):
             raise
         except Exception as exc:
-            # The reserved intent is *not* failed if begin may have started
-            # quiescence before the lifecycle reply; reattach on next Core.
             raise NativeBackupWorkflowError("native backup start is pending recovery") from exc
 
     def inspect(self) -> NativeBackupJob | None:
