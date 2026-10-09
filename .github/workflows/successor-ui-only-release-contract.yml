@@ -5,6 +5,9 @@ on:
     paths:
       - "tools/successor_ui_only_release.py"
       - "tools/test_successor_ui_only_release.py"
+      - "tools/stage_successor_ui58_release.py"
+      - "tools/publish_successor_ui58.sh"
+      - ".github/workflows/publish-successor-ui58.yml"
       - "tools/build_successor_first_party_modules.py"
       - "platform/modules/first-party-successor-v1.json"
       - ".github/workflows/successor-ui-only-release-contract.yml"
@@ -27,4 +30,6 @@ jobs:
       - name: Requalify exact first-party artifacts
         run: python -m unittest discover -s tools -p test_successor_first_party_modules.py -v
       - name: Compile all publication transformations
-        run: python -m py_compile tools/successor_ui_only_release.py tools/build_successor_acceptance_feed_source.py tools/build_platform_index.py
+        run: python -m py_compile tools/successor_ui_only_release.py tools/stage_successor_ui58_release.py tools/build_successor_acceptance_feed_source.py tools/build_platform_index.py
+      - name: Parse-check the protected publisher
+        run: bash -n tools/publish_successor_ui58.sh
