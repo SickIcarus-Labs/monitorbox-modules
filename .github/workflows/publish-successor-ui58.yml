@@ -1,0 +1,70 @@
+name: Protected UI58 successor release publisher
+
+# Only the operator on reviewed main may invoke this. A PR cannot sign or move
+# GHCR channel pointers. Full and Supervisor OCI catalogs advance together;
+# all unchanged runtime/application ZIPs are copied by digest without rebuild.
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type publish-ui58-signed-channels
+        type: string
+        required: true
+      expected_full:
+        description: Current full-feed stable sha256 digest (read from registry)
+        type: string
+        required: true
+      expected_supervisor:
+        description: Current Supervisor stable sha256 digest (read from registry)
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: successor-signed-feed-publication
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Verify immutable baseline, sign UI58-only delta, validate and promote
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.actor == 'SickIcarus' &&
+      inputs.confirmation == 'publish-ui58-signed-channels'
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    permissions:
+      contents: read
+      packages: write
+    env:
+      EXPECTED_FULL: ${{ inputs.expected_full }}
+      EXPECTED_SUP: ${{ inputs.expected_supervisor }}
+      GHCR_USERNAME: ${{ github.actor }}
+      GHCR_READ_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Install signed-distribution verification dependencies
+        run: python -m pip install --disable-pip-version-check 'cryptography>=45,<49' 'jsonschema>=4,<5'
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - name: Verify stable pair and source qualification without signing key
+        shell: bash
+        run: bash tools/publish_successor_ui58.sh preflight
+      - name: Sign, publish immutable refs, verify, and guard moving pointers
+        shell: bash
+        env:
+          MONITORBOX_PLATFORM_SIGNING_KEY: ${{ secrets.MONITORBOX_MODULE_SIGNING_KEY }}
+        run: bash tools/publish_successor_ui58.sh publish
