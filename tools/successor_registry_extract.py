@@ -109,7 +109,12 @@ def _extract_verified_layer(layer_path: Path, root: Path, *,
                 if not (len(parts) >= 2 and parts[0] == "feed"):
                     continue
                 relative = "/".join(parts[1:])
-                if relative != CATALOG and not (
+                channel_index = (
+                    len(parts) == 5 and parts[1:3] == ("platform", "channels")
+                    and parts[3] in ("stable", "beta", "dev")
+                    and parts[4] == "index.json"
+                )
+                if not channel_index and not (
                     len(parts) == 4 and parts[1:3] == ("platform", "packages")
                     and ZIP_NAME.fullmatch(parts[-1])
                 ):

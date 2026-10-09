@@ -55,6 +55,30 @@ def make_tar(files, *, injected=None):
     return stream.getvalue()
 
 
+def test_oci_extract_allows_only_exact_known_signed_channel_index_paths(tmp_path):
+    # The lower-level layer extractor admits channel INDEX files, not arbitrary
+    # release data. The signed-index verifier checks their signatures separately.
+    from successor_registry_extract import _extract_verified_layer
+    path = tmp_path / "accepted.tar.gz"
+    path.write_bytes(make_tar([
+        ("feed/platform/channels/beta/index.json", b"beta-candidate"),
+        ("feed/platform/channels/dev/index.json", b"dev-candidate"),
+    ]))
+    dst = tmp_path / "out"
+    _extract_verified_layer(path, dst, seen=set(), total=[0], compression="gzip")
+    assert (dst / "platform/channels/beta/index.json").read_bytes() == b"beta-candidate"
+    assert (dst / "platform/channels/dev/index.json").read_bytes() == b"dev-candidate"
+
+    for path_name in ("feed/platform/channels/evil/index.json",
+                      "feed/platform/channels/beta/metadata.json",
+                      "feed/platform/packages/../evil.zip"):
+        bad = tmp_path / "rejected.tar.gz"
+        bad.write_bytes(make_tar([(path_name, b"untrusted")]))
+        with pytest.raises(ReleaseRefusal):
+            _extract_verified_layer(bad, tmp_path / "reject",
+                                    seen=set(), total=[0], compression="gzip")
+
+
 def publish_fixture(registry, repo, arch_content, labels, *, injected=None):
     descriptors = []
     for arch in ("amd64", "arm64"):
