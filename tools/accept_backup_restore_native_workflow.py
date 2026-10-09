@@ -58,7 +58,9 @@ class NativeAuthority:
         assert dest.name.endswith(".zip")
         assert dest.parent.name == ".native-transfers"
         self.downloads += 1
-        with self.source.open("rb") as reader, dest.open("xb") as stream:
+        # Mirror the real Core downloader: mode 0600, O_EXCL, fsync.
+        fd = os.open(dest, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with self.source.open("rb") as reader, os.fdopen(fd, "wb") as stream:
             shutil.copyfileobj(reader, stream)
             stream.flush()
             os.fsync(stream.fileno())
