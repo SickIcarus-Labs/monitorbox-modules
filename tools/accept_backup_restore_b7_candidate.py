@@ -261,6 +261,51 @@ class PackageAcceptance(unittest.IsolatedAsyncioTestCase):
         saved=await self.client.get(endpoint+"/native/backups",headers=self.headers())
         self.assertEqual((await saved.json())["backups"][0]["kind"],"scheduled")
 
+    async def test_pending_destination_prevents_new_manual_job(self):
+        import importlib
+        operator_module=importlib.import_module(PREFIX+"_native_operator")
+        destination_module=importlib.import_module(PREFIX+"_destinations")
+        class Existing:
+            kind="scheduled"
+            phase="committed"
+        class FakeWorkflow:
+            def __init__(self):
+                self.job=Existing()
+                self.calls=0
+            def inspect(self):
+                return self.job
+            def request(self,**kwargs):
+                self.calls+=1
+                return SimpleNamespace(request_id="f"*32,phase="accepted")
+        class FakeSchedule:
+            fail=True
+            def finalize_committed(self):
+                if self.fail:
+                    raise destination_module.BackupDestinationError("unavailable")
+                return {"finalized":True}
+            def run_due(self,**kwargs):
+                return {"created":False}
+        workflow=FakeWorkflow()
+        schedule=FakeSchedule()
+        app=web.Application()
+        operator_module.NativeBackupOperator(
+            SimpleNamespace(auth=Auth()),workflow=workflow,scheduled=schedule,
+        ).install(app)
+        client=TestClient(TestServer(app))
+        await client.start_server()
+        try:
+            endpoint="/api/v2/config/backup-restore/native/backups"
+            blocked=await client.post(endpoint,data="{}",headers=self.headers())
+            self.assertEqual(blocked.status,409)
+            self.assertEqual(workflow.calls,0)
+            self.assertIsInstance(workflow.job,Existing)
+            schedule.fail=False
+            accepted=await client.post(endpoint,data="{}",headers=self.headers())
+            self.assertEqual(accepted.status,202)
+            self.assertEqual(workflow.calls,1)
+        finally:
+            await client.close()
+
     async def test_candidate_policy_requires_csrf_and_preserves_native_schedule(self):
         endpoint="/api/v2/config/backup-restore/native/policy"
         unauthorized=await self.client.get(endpoint)
