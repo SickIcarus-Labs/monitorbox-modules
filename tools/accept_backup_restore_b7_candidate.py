@@ -58,6 +58,9 @@ def check_bundle(package:Path)->str:
         for name in names:
             source=archive.read(name).decode("utf-8")
             compile(source,name,"exec")
+            if name.endswith("_vault.py"):
+                assert "from monitorbox.v2.appliance_backup" not in source
+                assert "ApplianceBackupManager(" not in source
         entry=archive.read(PREFIX+".py").decode()
         app=archive.read(PREFIX+"_application.py").decode()
         for piece in (
@@ -166,6 +169,16 @@ class PackageAcceptance(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(response.status,200)
         assert (await response.json())=={"active":False,"job":None}
+
+    async def test_inherited_v2_writer_cannot_be_constructed_or_called(self):
+        import importlib
+        raw_vault=importlib.import_module(PREFIX+"_vault")
+        with self.assertRaisesRegex(raw_vault.BackupVaultError,"signed Supervisor"):
+            raw_vault.BackupVault(self.root)
+        with self.assertRaisesRegex(raw_vault.BackupVaultError,"Supervisor snapshot"):
+            raw_vault.BackupVault.create(
+                object(),label="legacy-must-not-run",kind="manual"
+            )
 
     async def test_no_restore_routes_or_legacy_handoff(self):
         for route in (
