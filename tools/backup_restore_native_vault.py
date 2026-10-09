@@ -97,6 +97,18 @@ class NativeBackupVault(BackupVault):
         self.quarantine = self.path / ".quarantine"
         self.lock_path = self.path / ".vault.lock"
         self.manager = _NativeSignedInspector(verify_signed_closure)
+        # The inherited ensure() chmods existing directories. Check every
+        # existing ancestor BEFORE that inherited mutation, not afterwards:
+        # a symlinked saved-backups/.transactions/.quarantine must not be
+        # followed or accidentally granted private-vault authority.
+        for directory in (self.path, self.transactions, self.quarantine):
+            if directory.exists() or directory.is_symlink():
+                mode = directory.lstat().st_mode
+                if (
+                    not stat.S_ISDIR(mode) or mode & 0o077
+                    or directory.resolve(strict=True) != directory
+                ):
+                    raise BackupVaultError("existing native vault directory is unsafe")
         self.ensure()
         self.reconcile()
 
