@@ -50,6 +50,7 @@ class NativeBackupJob:
     kind: str
     include_previous: bool
     created_at: str
+    planned_backup_id: str
     phase: str
     bytes: int | None = None
     sha256: str | None = None
@@ -82,6 +83,12 @@ def _validate(record: NativeBackupJob) -> NativeBackupJob:
         raise NativeBackupJobError("invalid native backup timestamp") from exc
     if date.tzinfo is None or date.utcoffset() is None:
         raise NativeBackupJobError("native backup timestamp must include UTC offset")
+    expected_id = (
+        date.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        + "-" + record.request_id[:8]
+    )
+    if record.planned_backup_id != expected_id:
+        raise NativeBackupJobError("native vault reservation is not bound to request identity")
     if record.phase not in {"requested", "accepted", "transfer_verified", "committed", "failed"}:
         raise NativeBackupJobError("invalid native backup phase")
     if record.phase in {"requested", "accepted"}:
@@ -231,11 +238,13 @@ class NativeBackupJobStore:
         Supervisor returns the existing matching job ID instead of starting
         another quiescing archive snapshot.
         """
+        created = datetime.now(timezone.utc)
         record = _validate(NativeBackupJob(
             schema=_SCHEMA, request_id=request_id, job_id=None,
             generation=generation, kind=kind,
             include_previous=include_previous,
-            created_at=datetime.now(timezone.utc).isoformat(),
+            created_at=created.isoformat(),
+            planned_backup_id=created.strftime("%Y%m%dT%H%M%SZ") + "-" + request_id[:8],
             phase="requested",
         ))
         with self._locked():
@@ -308,6 +317,8 @@ class NativeBackupJobStore:
             current = self._current_locked(request_id)
             if current.phase not in {"transfer_verified", "committed"}:
                 raise NativeBackupJobError("native ZIP cannot be called saved before vault commit")
+            if backup_id != current.planned_backup_id:
+                raise NativeBackupJobError("native vault result does not match reserved request identity")
             try:
                 record = vault.get(backup_id, verify=True)
             except Exception as exc:
