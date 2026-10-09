@@ -78,8 +78,18 @@ jobs:
       - name: Verify stable pair and source qualification without signing key
         shell: bash
         run: bash tools/publish_successor_ui58.sh preflight
-      - name: Sign, publish immutable refs, verify, and guard moving pointers
+      - name: Sign and publish exact immutable feed pair (no moving pointers)
         shell: bash
         env:
           MONITORBOX_PLATFORM_SIGNING_KEY: ${{ secrets.MONITORBOX_MODULE_SIGNING_KEY }}
         run: bash tools/publish_successor_ui58.sh publish
+      - name: Persist exact prior/target recovery receipt before channel mutation
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui58-protected-promotion-receipt
+          path: ${{ runner.temp }}/successor-ui58/promotion-receipt.json
+          retention-days: 90
+          if-no-files-found: error
+      - name: Guarded stable-pair and Beta/Dev pointer promotion
+        shell: bash
+        run: bash tools/publish_successor_ui58.sh promote
