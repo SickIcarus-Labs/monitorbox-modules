@@ -24,6 +24,7 @@ EXPECTED_SUFFIXES = (
     "", "_application", "_native_archive", "_native_jobs",
     "_native_vault", "_native_workflow", "_native_operator",
     "_native_schedule", "_vault", "_policy", "_destinations",
+    "_restore_preflight",
 )
 EXPECTED = frozenset(PREFIX + suffix + ".py" for suffix in EXPECTED_SUFFIXES)
 
@@ -53,6 +54,7 @@ def build(output_dir: Path) -> Path:
         "restore/confirm",
         "restore/file/preview",
         "/restore/preview",
+        "/native/restore/commit",
     ):
         if banned in entry or banned in application:
             raise ValueError("build 7 unexpectedly exposes legacy restore: " + banned)
