@@ -76,6 +76,18 @@ class NativeBackupVault(BackupVault):
         verify_signed_closure: SignedArchiveVerifier | None = None,
     ) -> None:
         self.root = Path(root)
+        # The inherited ensure() mutates directory permissions. Refuse a
+        # symlinked or nonprivate root BEFORE invoking it; in particular do
+        # not chmod an attacker-selected directory through a symlink.
+        if (
+            not self.root.is_absolute()
+            or Path(os.path.normpath(self.root)) != self.root
+            or self.root.resolve(strict=True) != self.root
+        ):
+            raise BackupVaultError("native vault root must be a clean real absolute directory")
+        root_mode = self.root.lstat().st_mode
+        if not stat.S_ISDIR(root_mode) or root_mode & 0o077:
+            raise BackupVaultError("native vault root must be private")
         # The existing implementation uses /saved-backups, .transactions and
         # .quarantine as stable state. Set the adapter inspector BEFORE calling
         # reconcile so existing native ZIPs are never misread/quarantined by
