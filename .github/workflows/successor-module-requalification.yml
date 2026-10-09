@@ -6,6 +6,7 @@ on:
       - "platform/modules/first-party-successor-v1.json"
       - "platform/portable/first-party-contracts-v1.json"
       - "tools/build_successor_first_party_modules.py"
+      - "tools/successor_ui_channel_selector.py"
       - "tools/test_successor_first_party_modules.py"
       - "tools/qualify_successor_module_api.py"
       - "tools/build_platform_index.py"
@@ -39,6 +40,24 @@ jobs:
           python tools/build_successor_first_party_modules.py --output-dir /tmp/monitorbox-successor-a
           python tools/build_successor_first_party_modules.py --output-dir /tmp/monitorbox-successor-b
           diff -rq /tmp/monitorbox-successor-a /tmp/monitorbox-successor-b
+
+      - name: Parse-check modified successor UI JavaScript
+        run: |
+          python - <<'PY'
+          import pathlib, subprocess, tempfile, zipfile
+          root = pathlib.Path("/tmp/monitorbox-successor-a")
+          packages = list(root.glob("com.sickicarus.monitorbox.ui-*.zip"))
+          assert len(packages) == 1, packages
+          with zipfile.ZipFile(packages[0]) as archive:
+              for suffix in ("/assets/modules.js", "/assets/app-shell.js"):
+                  members = [name for name in archive.namelist() if name.endswith(suffix)]
+                  assert len(members) == 1, (suffix, members)
+                  with tempfile.NamedTemporaryFile(mode="wb", suffix=".js") as script:
+                      script.write(archive.read(members[0]))
+                      script.flush()
+                      subprocess.run(["node", "--check", script.name], check=True)
+          print("Both generated successor UI scripts parse in Node")
+          PY
 
       - name: Prove candidates remain intentionally unsigned/unreleaseable
         run: |
