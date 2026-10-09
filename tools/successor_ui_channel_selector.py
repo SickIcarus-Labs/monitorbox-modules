@@ -43,6 +43,14 @@ def apply(files: dict) -> None:
         '    const preferredChannel = typeof current.preferred_channel === "string" ? current.preferred_channel : "";\n',
         "", "obsolete capability-local channel state")
 
+    # The signed lifecycle channel exists even before a legacy repository is
+    # provisioned. Do not hide its selector behind the empty legacy repo list.
+    text = _once(text,
+        '    if (!items.length) {\\n      const empty = document.createElement("div");',
+        '    if (!items.length && !model?.capabilities?.scaffold_lifecycle) {\\n'
+        '      const empty = document.createElement("div");',
+        "empty legacy repository list")
+
     # Replaces only the summary content when successor lifecycle authority
     # actually supplies a preference; legacy 2.x repo rendering is untouched.
     selection = """    const channelAuthority = model && model.capabilities ? model.capabilities : {};
