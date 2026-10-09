@@ -202,3 +202,27 @@ class NativeBackupVault(BackupVault):
                 # verification/reconciliation pass.
                 self._rollback_failed_transaction_locked(transaction)
                 raise
+
+
+def open_native_backup_vault(platform: object) -> NativeBackupVault:
+    """Construct future module vault using the signed Core host capability.
+
+    A development-only product assembly hook. Do NOT fall back to the v2
+    ApplianceBackupManager when the native signing service is absent. The
+    object is supplied by the signed Backup/Restore module host, not parsed
+    from browser JSON, a persisted backup, a user-selected path or an
+    environment variable set by the module.
+    """
+    native_authority = getattr(platform, "native_full_archive", None)
+    signed_verify = getattr(native_authority, "verify_signed_closure", None)
+    if not callable(signed_verify):
+        raise BackupVaultError(
+            "native Backup/Restore requires independent Supervisor signature authority"
+        )
+    root = getattr(platform, "root", None)
+    if not isinstance(root, (str, os.PathLike)):
+        raise BackupVaultError("native backup vault root is unavailable")
+    return NativeBackupVault(
+        Path(root),
+        verify_signed_closure=signed_verify,
+    )
