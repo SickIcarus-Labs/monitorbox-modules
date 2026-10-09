@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "module_id": "com.sickicarus.monitorbox.backup-restore",
+  "version": "2.0.0",
+  "build": 7,
+  "change_class": "breaking-feature",
+  "source_prefix": "sources/backup-restore/2.0.0-build7/",
+  "issue": 689,
+  "summary": "Unsigned v3 candidate: native signed Full ZIP backups and durable manual/scheduled status, v2 restore intentionally disabled until #691 authority/admin/physical recovery gates pass. No publication or production installation.",
+  "builder": "tools/build_first_party_backup_restore_b7.py",
+  "stager": "tools/stage_691_backup_restore_b7.py"
+}
