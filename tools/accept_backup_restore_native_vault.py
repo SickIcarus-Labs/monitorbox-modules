@@ -15,6 +15,7 @@ import stat
 import sys
 import tempfile
 import types
+from types import SimpleNamespace
 import unittest
 import zipfile
 from pathlib import Path
@@ -52,7 +53,7 @@ from backup_restore_native_archive import (  # noqa: E402
     NativeArchiveError, inspect_native_archive,
 )
 from backup_restore_native_vault import (  # noqa: E402
-    NativeBackupVault, BackupVaultError,
+    NativeBackupVault, BackupVaultError, open_native_backup_vault,
 )
 from backup_restore_native_jobs import NativeBackupJobStore, NativeBackupJobError  # noqa: E402
 
@@ -277,6 +278,61 @@ class NativeVaultTests(unittest.TestCase):
         with self.assertRaisesRegex(BackupVaultError, "different bytes"):
             self.publish(second, planned_backup_id=reserved_id)
         self.assertEqual(len(self.vault.list()), 1)
+
+    def test_signed_module_host_facade_authenticates_real_native_vault_inspection(self) -> None:
+        source = self.source()
+        calls = []
+        def verify(path, inspection):
+            calls.append((path, inspection.sha256))
+            verify_test_signed_closure(path, inspection)
+            return None
+        platform = SimpleNamespace(
+            root=self.root,
+            native_full_archive=SimpleNamespace(verify_signed_closure=verify),
+        )
+        host_vault = open_native_backup_vault(platform)
+        saved = self.publish(source, vault=host_vault)
+        self.assertEqual(host_vault.get(saved.backup_id, verify=True), saved)
+        self.assertGreaterEqual(len(calls), 2)
+        self.assertTrue(all(path.is_relative_to(host_vault.path) for path, _ in calls))
+        self.assertEqual(self.vault.list(), host_vault.list())
+
+    def test_signed_module_host_facade_absent_refuses_before_reconciliation(self) -> None:
+        for platform in (
+            SimpleNamespace(root=self.root),
+            SimpleNamespace(root=self.root, native_full_archive=None),
+            SimpleNamespace(root=self.root, native_full_archive=SimpleNamespace()),
+        ):
+            with self.subTest(platform=platform):
+                with self.assertRaisesRegex(BackupVaultError, "independent Supervisor signature"):
+                    open_native_backup_vault(platform)
+        self.assertEqual(self.vault.list(), ())
+
+    def test_signed_module_host_facade_must_not_return_fabricated_metadata(self) -> None:
+        source = self.source()
+        false_capability = SimpleNamespace(
+            verify_signed_closure=lambda path, inspection: {
+                "verified": True, "sha256": inspection.sha256
+            }
+        )
+        host_vault = open_native_backup_vault(
+            SimpleNamespace(root=self.root, native_full_archive=false_capability)
+        )
+        with self.assertRaisesRegex(BackupVaultError, "must return no"):
+            self.publish(source, vault=host_vault)
+        self.assertEqual(host_vault.list(), ())
+
+    def test_signed_module_host_facade_rejection_cannot_save_native_zip(self) -> None:
+        source = self.source()
+        def reject(_path, _inspection):
+            raise RuntimeError("synthetic rejected cryptographic signature")
+        host_vault = open_native_backup_vault(SimpleNamespace(
+            root=self.root,
+            native_full_archive=SimpleNamespace(verify_signed_closure=reject),
+        ))
+        with self.assertRaisesRegex(BackupVaultError, "signed package authority"):
+            self.publish(source, vault=host_vault)
+        self.assertEqual(host_vault.list(), ())
 
     def test_no_independent_signer_no_vault_admission(self) -> None:
         with self.assertRaisesRegex(BackupVaultError, "independent signed closure"):
