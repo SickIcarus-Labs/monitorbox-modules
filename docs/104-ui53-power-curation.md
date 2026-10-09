@@ -1,5 +1,8 @@
 # UI53 / #104 — Power capability normalization and picker curation
 
+> **Historical signed UI49–UI54 design/physical-acceptance milestone.** Version-specific experiments, pending fixes, old release candidates and prior UI composition behavior below are dated evidence, **not** instructions for the currently installed signed UI or the v3 package/update plane. Current authority is the exact installed UI release and its signed module/configuration contract.
+
+
 Physical operator screenshots on actual Broad Leaf (iPad Safari, 2026-09-26) confirm UI52 v5 Power correctly selects both UPS objects and renders honest current charge/runtime/load/voltage, but expose 27 raw items for Network UPS, including `driver.parameter.pollfreq`, `driver.parameter.pollinterval`, product/vendor IDs, driver version, and NUT shutdown delays.
 
 **Scope:** Power presentation only, within #104; #103 header and all UI52 contracts remain unchanged. Signed UI52 `1.16.0 build52` is immutable. New candidate is UI53 `1.17.0 build53` on a branch stacked on #108. No Core runtime or NUT provider/check/credential mutations.

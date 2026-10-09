@@ -1,5 +1,8 @@
 # UI49 (#104 primary / #103 dividend): spatial dashboard candidate
 
+> **Historical signed UI49–UI54 design/physical-acceptance milestone.** Version-specific experiments, pending fixes, old release candidates and prior UI composition behavior below are dated evidence, **not** instructions for the currently installed signed UI or the v3 package/update plane. Current authority is the exact installed UI release and its signed module/configuration contract.
+
+
 Pre-implementation scope declaration (2026-09-26).
 
 - **Primary: #104** — responsive two-dimensional arrangement of variable-height homepage cards; one intentional move between columns with visible preview, undo, non-drag/keyboard fallback, snapshot persistence, deterministic legacy migration.

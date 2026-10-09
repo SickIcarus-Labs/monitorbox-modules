@@ -1,5 +1,8 @@
 # UI54 #104 - Power thresholds and Camera columns
 
+> **Historical signed UI49–UI54 design/physical-acceptance milestone.** Version-specific experiments, pending fixes, old release candidates and prior UI composition behavior below are dated evidence, **not** instructions for the currently installed signed UI or the v3 package/update plane. Current authority is the exact installed UI release and its signed module/configuration contract.
+
+
 UI53 signed dev immutable. Broad Leaf physical test found input.transfer.high under ordinary measurements and Cameras health left/name right. UI54 1.17.1 build54 classifies high/low transfer thresholds Advanced, preserves raw keys and saved legacy selections, gives known battery/output voltage and apparent/real power human-readable labels, and renders camera name left/health right. Core >=2.7.0 <3.0.0. No monitoring, source identity, preferences, snapshot or automatic dashboard Reset changes. CI: exact-package predecessor immutability, UPS semantic tests, real desktop/iPad/phone browser Camera DOM and Power picker, UI52 bootstrap/Reset parity, first-party, release-policy and Phase2/3/6. Await fresh operator backup and physical acceptance before beta/stable/main promotion.
 
 ## Release checkpoint

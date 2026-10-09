@@ -1,5 +1,8 @@
 # Successor runtime upstream provenance lock (#112 / #419)
 
+> **Historical pre-production runtime-package provenance proof.** Any 'candidate-only', 'unreleasable', staged-PR or not-yet-published statement below describes the original test at that date, not the current signed v3 Python/Node/runtime availability. Preserve exact ABI/supply-chain evidence; use accepted signed full-feed package receipts for current authority.
+
+
 **Candidate-only, non-production.** Stacked on unreleaseable Python/Node
 self-contained package proof #116. This records an exact immutable
 multi-architecture OCI image index digest for both upstream build stages.

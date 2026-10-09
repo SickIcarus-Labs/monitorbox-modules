@@ -1,5 +1,8 @@
 # UI51 #104 — real bootstrap metrics, single regeneration, one arrange handle
 
+> **Historical signed UI49–UI54 design/physical-acceptance milestone.** Version-specific experiments, pending fixes, old release candidates and prior UI composition behavior below are dated evidence, **not** instructions for the currently installed signed UI or the v3 package/update plane. Current authority is the exact installed UI release and its signed module/configuration contract.
+
+
 Date: 2026-09-26. Supersedes the UI50 physical follow-up without rewriting signed UI50.
 
 **Module-touch preflight (before implementation):** Primary **#104**, fix remaining usability/auto-population deficits surfaced in operator's physical iPad acceptance of UI50. Dividend **#103**, retain and rerun header convergence regression, observe physically during the same acceptance session. Reviewed same-module backlog #94, #91 and #85; #94 item-picker and manual composition are already present and not reopened; #85 cross-version fail-closed Core boundary is outside this UI-only radius. No Core runtime/provider changes.

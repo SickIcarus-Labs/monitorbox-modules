@@ -1,5 +1,8 @@
 # Successor first-party module requalification
 
+> **Historical Core 2.x → Core 3 first-party requalification work plan.** Early barriers, old ten-module snapshots, and pending publication described below were part of the successor migration. Current signed module admission depends on exact installed Core and module API requirements; verify current manifests and accepted signed feed rather than re-running old release steps.
+
+
 Tracks [modules #114](https://github.com/SickIcarus-Labs/monitorbox-modules/issues/114), package authority [#120](https://github.com/SickIcarus-Labs/monitorbox-modules/issues/120), and the scaffold-first architecture in [MonitorBox #413](https://github.com/SickIcarus-Labs/monitorbox/issues/413).
 
 ## Verified compatibility barrier

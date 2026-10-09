@@ -1,5 +1,8 @@
 # Exact Debian ABI/CA inputs for successor runtime (#112/#419)
 
+> **Historical pre-production runtime-package provenance proof.** Any 'candidate-only', 'unreleasable', staged-PR or not-yet-published statement below describes the original test at that date, not the current signed v3 Python/Node/runtime availability. Preserve exact ABI/supply-chain evidence; use accepted signed full-feed package receipts for current authority.
+
+
 **Development-only, unreleaseable.** Stacked on [immutable Docker OCI
 provenance #117](https://github.com/SickIcarus-Labs/monitorbox-modules/pull/117).
 The independently native [signed Debian package discovery
