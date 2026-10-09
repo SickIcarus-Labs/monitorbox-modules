@@ -46,12 +46,15 @@ class NativeScheduleTests(unittest.TestCase):
         return self.store.save(BackupPolicy(**config))
 
     def complete(self):
+        previous=tuple(self.workflow.vault.list())
         self.authority.phase="ready"
         admitted=self.scheduler.run_due(force=True)
         self.assertFalse(admitted["created"])
         self.assertTrue(admitted["accepted"])
         self.assertEqual(admitted["phase"],"accepted")
-        self.assertFalse(any(item.kind=="scheduled" for item in self.workflow.vault.list()))
+        # Prior signed scheduled backups may already exist; admission must
+        # not publish a *new* ZIP or prune until its own vault commit.
+        self.assertEqual(tuple(self.workflow.vault.list()),previous)
         done=self.workflow.advance()
         self.assertEqual(done.phase,"committed")
         return done
