@@ -93,7 +93,9 @@ def _container(
     unhealthy: bool = False,
     standalone: bool = False,
 ) -> dict[str, Any]:
-    service = f"svc{number:02d}"
+    # Preserve the actual historically missed 21st Goliath workload as an
+    # explicit named witness; generic positional counts alone masked ntopng.
+    service = "ntopng" if prefix == "goliath" and number == 21 else f"svc{number:02d}"
     labels = {} if standalone else {
         "com.docker.compose.project": prefix,
         "com.docker.compose.service": service,
@@ -208,6 +210,19 @@ async def _accept(runtime) -> None:
         standalone = [row for row in workloads if row["deployment_kind"] == "standalone"]
         assert len(compose) == 36
         assert len(standalone) == 1
+        # #147 historical regression: a 20-row inventory truncation once hid
+        # Goliath's ntopng.  Prove both its workload and container survive the
+        # provider inventory path, not merely that the aggregate count is 37.
+        ntopng = [
+            row
+            for row in workloads
+            if row["environment_provider_id"] == 1 and row["compose_service"] == "ntopng"
+        ]
+        assert len(ntopng) == 1
+        assert ntopng[0]["label"] == "ntopng"
+        assert len(ntopng[0]["containers"]) == 1
+        assert ntopng[0]["containers"][0]["name"] == "goliath-ntopng"
+
         assert all(row["compose_project"] and row["compose_service"] for row in compose)
         assert standalone[0]["compose_project"] is None
         assert standalone[0]["compose_service"] is None
@@ -224,7 +239,7 @@ async def _accept(runtime) -> None:
             for item in observation.metadata["runtime_anomalies"]
             if item["kind"] == "unhealthy"
         )
-        assert anomaly["container_name"] == "goliath-svc21"
+        assert anomaly["container_name"] == "goliath-ntopng"
         assert len(observation.metadata["discovery_evidence"]) == 37
 
         # Recreate under entirely new provider/container IDs must retain logical
@@ -297,7 +312,7 @@ def main() -> None:
     asyncio.run(_accept(runtime))
     print(
         "Portainer build-3 provider runtime acceptance: PASS "
-        "(37-container coverage + beyond-20 anomaly + Compose provenance + "
+        "(37-container coverage + ntopng 21st-row witness + beyond-20 anomaly + Compose provenance + "
         "stable identity + provider-loss truth)"
     )
 
