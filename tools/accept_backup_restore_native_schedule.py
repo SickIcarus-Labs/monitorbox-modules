@@ -77,6 +77,23 @@ class NativeScheduleTests(unittest.TestCase):
         self.assertEqual(self.workflow.inspect().phase,"accepted")
         self.assertEqual(self.authority.started,2)
 
+    def test_failed_automatic_job_backs_off_until_policy_interval(self):
+        self.policy(interval_hours=24)
+        self.authority.phase="failed"
+        accepted=self.scheduler.run_due()
+        self.assertTrue(accepted["accepted"])
+        failed=self.workflow.advance()
+        self.assertEqual(failed.phase,"failed")
+        self.assertEqual(self.authority.started,1)
+        for _ in range(3):
+            self.assertEqual(self.scheduler.run_due()["reason"],"failed_retry_backoff")
+        self.assertEqual(self.authority.started,1)
+        later=datetime.now(timezone.utc)+timedelta(hours=25)
+        self.authority.phase="preparing"
+        retried=self.scheduler.run_due(now=later)
+        self.assertTrue(retried["accepted"])
+        self.assertEqual(self.authority.started,2)
+
     def test_pending_job_blocks_duplicate_periodic_or_forced_snapshot(self):
         self.policy()
         first=self.scheduler.run_due()
