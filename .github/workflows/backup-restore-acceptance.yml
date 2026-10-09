@@ -16,6 +16,8 @@ on:
       - tools/backup_restore_native_archive.py
       - tools/backup_restore_native_vault.py
       - tools/accept_backup_restore_native_vault.py
+      - tools/backup_restore_native_workflow.py
+      - tools/accept_backup_restore_native_workflow.py
       - .github/workflows/backup-restore-acceptance.yml
   push:
     branches:
@@ -34,6 +36,8 @@ on:
       - tools/backup_restore_native_archive.py
       - tools/backup_restore_native_vault.py
       - tools/accept_backup_restore_native_vault.py
+      - tools/backup_restore_native_workflow.py
+      - tools/accept_backup_restore_native_workflow.py
       - .github/workflows/backup-restore-acceptance.yml
 
 permissions:
@@ -73,3 +77,5 @@ jobs:
         run: python tools/accept_backup_restore_native_jobs.py
       - name: Verify native signed ZIP structural and crash-safe vault admission
         run: python tools/accept_backup_restore_native_vault.py
+      - name: Verify native manual and scheduled backup restart-durable workflow
+        run: python tools/accept_backup_restore_native_workflow.py
