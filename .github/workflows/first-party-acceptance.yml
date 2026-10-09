@@ -154,6 +154,10 @@ jobs:
           python tools/accept_ui_build40_card_contract.py
           node --check sources/ui/1.4.1-build40/card-projection.js
           node tools/accept_ui_build40_card_projection.mjs
+      - name: Verify current UI54 selected-card LIVE viewer lease in disposable Chromium
+        env:
+          MONITORBOX_INTEREST_UI_BUILD: '54'
+        run: python tools/accept_ui_build48_interest_browser.py
       - name: Upload exact changed candidates for Broad Leaf acceptance
         uses: actions/upload-artifact@v4
         with:
