@@ -45,7 +45,7 @@ class NativeBackupJobError(ValueError):
 class NativeBackupJob:
     schema: int
     request_id: str
-    job_id: str
+    job_id: str | None
     generation: str
     kind: str
     include_previous: bool
@@ -64,9 +64,14 @@ class NativeBackupJob:
 def _validate(record: NativeBackupJob) -> NativeBackupJob:
     if record.schema != _SCHEMA:
         raise NativeBackupJobError("unsupported native backup job schema")
-    if not all(
-        _HEX32.fullmatch(value or "")
-        for value in (record.request_id, record.job_id, record.generation)
+    if not (_HEX32.fullmatch(record.request_id or "")
+        and _HEX32.fullmatch(record.generation or "")):
+        raise NativeBackupJobError("invalid native backup request or generation")
+    if record.phase == "requested":
+        if record.job_id is not None:
+            raise NativeBackupJobError("unstarted job cannot claim Supervisor identity")
+    elif not _HEX32.fullmatch(record.job_id or "") and not (
+        record.phase == "failed" and record.job_id is None
     ):
         raise NativeBackupJobError("invalid native backup job identity")
     if record.kind not in _KINDS or type(record.include_previous) is not bool:
@@ -77,9 +82,9 @@ def _validate(record: NativeBackupJob) -> NativeBackupJob:
         raise NativeBackupJobError("invalid native backup timestamp") from exc
     if date.tzinfo is None or date.utcoffset() is None:
         raise NativeBackupJobError("native backup timestamp must include UTC offset")
-    if record.phase not in {"accepted", "transfer_verified", "committed", "failed"}:
+    if record.phase not in {"requested", "accepted", "transfer_verified", "committed", "failed"}:
         raise NativeBackupJobError("invalid native backup phase")
-    if record.phase == "accepted":
+    if record.phase in {"requested", "accepted"}:
         if any(x is not None for x in (
             record.bytes, record.sha256, record.backup_id, record.failure_code,
         )):
@@ -215,23 +220,29 @@ class NativeBackupJobStore:
         with self._locked():
             return self._read_locked()
 
-    def accept(
-        self, *, request_id: str, job_id: str, generation: str,
+    def reserve(
+        self, *, request_id: str, generation: str,
         kind: str, include_previous: bool,
     ) -> NativeBackupJob:
+        """Commit operator intent BEFORE issuing Supervisor archive_begin.
+
+        If Core dies during the begin RPC, a restarted Core reads this record
+        and repeats begin for the same generation/Previous policy. Native
+        Supervisor returns the existing matching job ID instead of starting
+        another quiescing archive snapshot.
+        """
         record = _validate(NativeBackupJob(
-            schema=_SCHEMA, request_id=request_id, job_id=job_id,
+            schema=_SCHEMA, request_id=request_id, job_id=None,
             generation=generation, kind=kind,
             include_previous=include_previous,
             created_at=datetime.now(timezone.utc).isoformat(),
-            phase="accepted",
+            phase="requested",
         ))
         with self._locked():
             old = self._read_locked()
             if old and old.phase not in _TERMINAL:
                 if (
                     old.request_id == record.request_id
-                    and old.job_id == record.job_id
                     and old.generation == record.generation
                     and old.kind == record.kind
                     and old.include_previous == record.include_previous
@@ -242,6 +253,22 @@ class NativeBackupJobStore:
                 raise NativeBackupJobError("native backup request identity was already settled")
             self._write_locked(record)
             return record
+
+    def accept(self, *, request_id: str, job_id: str) -> NativeBackupJob:
+        """Bind the verified native job ID to a previously durable intent."""
+        if not _HEX32.fullmatch(job_id or ""):
+            raise NativeBackupJobError("invalid native backup job identity")
+        with self._locked():
+            old = self._current_locked(request_id)
+            if old.phase == "accepted" and old.job_id == job_id:
+                return old
+            if old.phase != "requested":
+                raise NativeBackupJobError("native job was not requested or is already settled")
+            result = _validate(NativeBackupJob(
+                **{**old.public(), "job_id": job_id, "phase": "accepted"}
+            ))
+            self._write_locked(result)
+            return result
 
     def _current_locked(self, request_id: str) -> NativeBackupJob:
         current = self._read_locked()
@@ -287,7 +314,7 @@ class NativeBackupJobStore:
             current = self._current_locked(request_id)
             if current.phase == "failed" and current.failure_code == failure_code:
                 return current
-            if current.phase not in {"accepted", "transfer_verified"}:
+            if current.phase not in {"requested", "accepted", "transfer_verified"}:
                 raise NativeBackupJobError("native backup result is already terminal")
             result = _validate(NativeBackupJob(
                 **{**current.public(), "phase": "failed", "failure_code": failure_code}
