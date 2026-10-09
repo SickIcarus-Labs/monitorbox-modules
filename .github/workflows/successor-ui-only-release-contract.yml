@@ -54,7 +54,14 @@ jobs:
           assert "github.event.issue.number == 184" in raw
           assert "actions/upload-artifact" in raw
           assert raw.index("ui58-protected-promotion-receipt") < raw.index("Guarded stable-pair")
-          print("Restricted owner-only signer/publisher YAML parsed")
+          resume=Path(".github/workflows/resume-successor-ui58.yml").read_text()
+          assert "github.actor == 'SickIcarus'" in resume
+          assert "github.event.issue.number == 185" in resume
+          assert "verify_successor_ui58_immutable.py" in resume
+          assert resume.index("ui58-immutable-resume-receipt") < resume.index("Guarded Stable pair")
+          assert "MONITORBOX_PLATFORM_SIGNING_KEY" not in resume
+          yaml.safe_load(resume)
+          print("Restricted owner-only signer and verified immutable resume YAML parsed")
           PY
 
       - name: Test signed OCI multiarch extraction safety
