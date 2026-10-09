@@ -38,14 +38,59 @@ def test_hardcoded_successor_publisher_and_promotion_paths_cannot_execute():
             assert command not in raw, (workflow.name, command)
 
 
+# Explicitly reviewed, narrowly scoped UI58 release authorities. Future
+# publishers require a new code-reviewed policy amendment, not merely a new
+# workflow with packages:write. An owner comment only works after PR merge.
+REVIEWED_UI58_WRITERS = {
+    "publish-successor-ui58.yml": (
+        "github.actor == 'SickIcarus'",
+        "github.event.issue.number == 184",
+        "github.event.comment.body == '/publish-successor-ui58-stable'",
+        "publish-ui58-signed-channels",
+        "gh api \"repos/$GITHUB_REPOSITORY/pulls/184\"",
+        "actions/upload-artifact@v4",
+        "bash tools/publish_successor_ui58.sh publish",
+        "bash tools/publish_successor_ui58.sh promote",
+    ),
+    "resume-successor-ui58.yml": (
+        "github.actor == 'SickIcarus'",
+        "github.event.issue.number == 185",
+        "github.event.comment.body == '/resume-successor-ui58-stable'",
+        "resume-verified-ui58",
+        "gh api \"repos/$GITHUB_REPOSITORY/pulls/185\"",
+        "actions/upload-artifact@v4",
+        "bash tools/publish_successor_ui58.sh preflight",
+        "bash tools/publish_successor_ui58.sh promote",
+        "tools/verify_successor_ui58_immutable.py",
+    ),
+}
+
+
 def test_no_unreviewed_successor_registry_write_path_is_active():
     for workflow in ACTIVE.glob("*.yml"):
         raw = workflow.read_text("utf-8")
-        if not any(image in raw for image in REGISTRY_IDENTITIES):
+        writes = (
+            "packages: write" in raw
+            or "docker buildx imagetools create" in raw
+            or "docker/build-push-action" in raw
+        )
+        relevant = any(image in raw for image in REGISTRY_IDENTITIES)
+        if workflow.name in REVIEWED_UI58_WRITERS:
+            assert writes, workflow.name
+            assert "github.ref == 'refs/heads/main'" in raw, workflow.name
+            assert "github.actor == 'SickIcarus'" in raw, workflow.name
+            assert ".state == \"closed\" and .merged_at != null" in raw, workflow.name
+            assert ".base.ref == \"main\"" in raw, workflow.name
+            assert "persist-credentials: false" in raw, workflow.name
+            assert "pull_request:" not in raw, workflow.name
+            assert raw.index("actions/upload-artifact@v4") < raw.index(
+                "bash tools/publish_successor_ui58.sh promote"
+            ), workflow.name
+            for sentinel in REVIEWED_UI58_WRITERS[workflow.name]:
+                assert sentinel in raw, (workflow.name, sentinel)
             continue
-        assert "packages: write" not in raw, workflow.name
-        assert "docker buildx imagetools create" not in raw, workflow.name
-        assert "docker/build-push-action" not in raw, workflow.name
+        if relevant:
+            assert not writes, workflow.name
 
 
 def test_protected_signer_and_regular_module_channel_workflow_still_exist():
