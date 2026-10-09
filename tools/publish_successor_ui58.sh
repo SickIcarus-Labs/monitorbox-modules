@@ -152,7 +152,7 @@ intent.update({
     "source_commit":os.environ["GITHUB_SHA"],
     "status":"immutable-verified-not-promoted"
 })
-Path(sys.argv[1]).write_text(json.dumps(intent,sort_keys=True,indent=2)+"\\n")
+Path(sys.argv[1]).write_text(json.dumps(intent,sort_keys=True,indent=2)+"\n")
 PY
     echo "Immutable UI58 pair verified. Stable pointers untouched; promotion receipt ready."
     ;;
