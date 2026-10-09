@@ -4,6 +4,8 @@ name: Protected UI58 successor release publisher
 # GHCR channel pointers. Full and Supervisor OCI catalogs advance together;
 # all unchanged runtime/application ZIPs are copied by digest without rebuild.
 on:
+  issue_comment:
+    types: [created]
   workflow_dispatch:
     inputs:
       confirmation:
@@ -32,15 +34,17 @@ jobs:
     if: >-
       github.ref == 'refs/heads/main' &&
       github.actor == 'SickIcarus' &&
-      inputs.confirmation == 'publish-ui58-signed-channels'
+      ((github.event_name == 'workflow_dispatch' && inputs.confirmation == 'publish-ui58-signed-channels') ||
+       (github.event_name == 'issue_comment' && github.event.issue.number == 184 &&
+        github.event.issue.pull_request && github.event.comment.body == '/publish-successor-ui58-stable'))
     runs-on: ubuntu-latest
     timeout-minutes: 70
     permissions:
       contents: read
       packages: write
     env:
-      EXPECTED_FULL: ${{ inputs.expected_full }}
-      EXPECTED_SUP: ${{ inputs.expected_supervisor }}
+      EXPECTED_FULL: ${{ github.event_name == 'issue_comment' && 'sha256:0cb9957271e371e3bcc3f6b82cdc5f697d282f03fd7b5504b8eeb030a3701e72' || inputs.expected_full }}
+      EXPECTED_SUP: ${{ github.event_name == 'issue_comment' && 'sha256:222b35c294302623f4dea9697124d6a43aef7f085682115f21399457257eb9ef' || inputs.expected_supervisor }}
       GHCR_USERNAME: ${{ github.actor }}
       GHCR_READ_TOKEN: ${{ github.token }}
     steps:
@@ -48,6 +52,17 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
+      - name: Require merged reviewed PR for owner comment
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/pulls/184" | jq -e '
+            .state == "closed" and .merged_at != null and
+            .base.ref == "main" and
+            .head.repo.full_name == "SickIcarus-Labs/monitorbox-modules"
+          '
       - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
