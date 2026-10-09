@@ -162,12 +162,13 @@ class NativeVaultTests(unittest.TestCase):
         file = self.root / ("archive-" + os.urandom(4).hex() + ".zip")
         return make_native_zip(file, **options)
 
-    def publish(self, path: Path, vault=None):
+    def publish(self, path: Path, vault=None, planned_backup_id=None):
         vault = vault or self.vault
         digest = hashlib.sha256(path.read_bytes()).hexdigest()
         return vault.create_from_verified_transfer(
             path, transport_bytes=path.stat().st_size,
             transport_sha256=digest, label="Test Backup", kind="manual",
+            planned_backup_id=planned_backup_id,
         )
 
     def test_native_signed_backup_and_previous_are_atomically_saved(self) -> None:
@@ -209,7 +210,9 @@ class NativeVaultTests(unittest.TestCase):
                 vault=self.vault,
             )
         self.assertEqual(job_store.inspect().phase, "transfer_verified")
-        record = self.publish(source)
+        planned = job_store.inspect().planned_backup_id
+        record = self.publish(source, planned_backup_id=planned)
+        self.assertEqual(record.backup_id, planned)
         saved = job_store.commit(
             request_id=request, backup_id=record.backup_id,
             vault=self.vault,
@@ -221,6 +224,59 @@ class NativeVaultTests(unittest.TestCase):
             job_store.commit(request_id=request, backup_id=record.backup_id, vault=self.vault),
             saved,
         )
+
+    def test_crash_after_reserved_vault_commit_recovers_same_job_identity(self) -> None:
+        source = self.source()
+        digest = hashlib.sha256(source.read_bytes()).hexdigest()
+        journal = NativeBackupJobStore(self.root)
+        request_id = "5" * 32
+        reserved = journal.reserve(
+            request_id=request_id, generation="6" * 32,
+            kind="manual", include_previous=False,
+        )
+        journal.accept(request_id=request_id, job_id="7" * 32)
+        journal.mark_transfer_verified(
+            request_id=request_id, bytes_count=source.stat().st_size,
+            sha256=digest,
+        )
+        original = self.vault._checkpoint
+
+        def fault(phase):
+            if phase == "metadata_published":
+                raise SystemExit("Core crashed after actual ZIP+metadata publication")
+            return original(phase)
+
+        self.vault._checkpoint = fault
+        with self.assertRaises(SystemExit):
+            self.publish(source, planned_backup_id=reserved.planned_backup_id)
+        # The prior Core could not commit the job journal after the crash.
+        self.assertEqual(journal.inspect().phase, "transfer_verified")
+        restarted_vault = NativeBackupVault(
+            self.root, verify_signed_closure=verify_test_signed_closure,
+        )
+        recovered = restarted_vault.get(reserved.planned_backup_id, verify=True)
+        self.assertEqual(recovered.sha256, digest)
+        same = self.publish(
+            source, vault=restarted_vault, planned_backup_id=reserved.planned_backup_id,
+        )
+        self.assertEqual(same, recovered)
+        terminal = NativeBackupJobStore(self.root).commit(
+            request_id=request_id, backup_id=reserved.planned_backup_id,
+            vault=restarted_vault,
+        )
+        self.assertEqual(terminal.phase, "committed")
+        self.assertEqual(terminal.backup_id, reserved.planned_backup_id)
+        self.assertEqual(len(restarted_vault.list()), 1)
+
+    def test_pre_reserved_vault_identity_refuses_different_archive_bytes(self) -> None:
+        first = self.source()
+        reserved_id = "20261009T150000Z-01234567"
+        record = self.publish(first, planned_backup_id=reserved_id)
+        self.assertEqual(record.backup_id, reserved_id)
+        second = self.source(prior=False)
+        with self.assertRaisesRegex(BackupVaultError, "different bytes"):
+            self.publish(second, planned_backup_id=reserved_id)
+        self.assertEqual(len(self.vault.list()), 1)
 
     def test_no_independent_signer_no_vault_admission(self) -> None:
         with self.assertRaisesRegex(BackupVaultError, "independent signed closure"):
