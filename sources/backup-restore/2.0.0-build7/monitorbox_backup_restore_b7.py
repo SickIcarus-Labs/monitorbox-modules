@@ -11,6 +11,7 @@ from monitorbox_backup_restore_b7_native_operator import NativeBackupOperator
 from monitorbox_backup_restore_b7_native_schedule import NativeScheduledBackup
 from monitorbox_backup_restore_b7_native_workflow import NativeBackupWorkflow
 from monitorbox_backup_restore_b7_policy import BackupPolicyStore
+from monitorbox_backup_restore_b7_restore_preflight import NativeRestorePreflight
 
 MODULE_ID = "com.sickicarus.monitorbox.backup-restore"
 MODULE_VERSION = "2.0.0"
@@ -27,6 +28,7 @@ def install(app, *, platform) -> None:
     operator = NativeBackupOperator(platform, workflow=workflow, scheduled=schedule)
     operator.install(app)
     NativeBackupApplication(platform, workflow, schedule).install(app)
+    NativeRestorePreflight(platform, workflow).install(app)
 
 
 __all__ = ["install", "MODULE_ID", "MODULE_VERSION", "MODULE_BUILD"]
