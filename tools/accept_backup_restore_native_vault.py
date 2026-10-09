@@ -337,6 +337,16 @@ class NativeVaultTests(unittest.TestCase):
         with self.assertRaisesRegex(BackupVaultError, "must be private"):
             NativeBackupVault(other, verify_signed_closure=verify_test_signed_closure)
         self.assertEqual(other.stat().st_mode & 0o777, 0o755)
+        # Pre-existing saved-backups symlink is especially dangerous because
+        # historical BackupVault.ensure chmods its storage directories.
+        victim = self.root / "victim"
+        victim.mkdir(mode=0o755)
+        evil_root = self.root / "separate"
+        evil_root.mkdir(mode=0o700)
+        (evil_root / "saved-backups").symlink_to(victim, target_is_directory=True)
+        with self.assertRaisesRegex(BackupVaultError, "directory is unsafe"):
+            NativeBackupVault(evil_root, verify_signed_closure=verify_test_signed_closure)
+        self.assertEqual(victim.stat().st_mode & 0o777, 0o755)
 
     def test_symlink_or_public_transfer_source_denied(self) -> None:
         src = self.source()
