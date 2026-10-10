@@ -9,8 +9,8 @@ import unittest
 from pathlib import Path
 import sys
 
-SOURCE = (Path(__file__).resolve().parent.parent / "sources" /
-          "backup-restore" / "next" / "native_archive_intent.py")
+SOURCE = (Path(__file__).resolve().parent /
+          "dev_backup_restore" / "native_archive_intent.py")
 spec = importlib.util.spec_from_file_location("native_archive_intent_dev", SOURCE)
 module = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = module
