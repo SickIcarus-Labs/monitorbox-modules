@@ -30,6 +30,7 @@ class FakeSignedIPC:
         self.requests = []
         self.begin_count = 0
         self.claim_count = 0
+        self.fail_claimed_status_once = False
 
     def begin_for_admin(self, auth, request, request_id):
         auth.require(request, csrf=True)
@@ -42,6 +43,9 @@ class FakeSignedIPC:
 
     def status_for_admin(self, auth, request, request_id):
         auth.require(request)
+        if self.phase == "claimed" and self.fail_claimed_status_once:
+            self.fail_claimed_status_once = False
+            raise OSError("simulated Core death after durable vault commit")
         return SimpleNamespace(
             request_id=request_id, phase=self.phase,
             terminal=self.phase in {"ready", "failed", "claimed"},
@@ -101,10 +105,15 @@ class HandoffTests(unittest.TestCase):
         self.published.append(dest)
         return request_id
 
+    def lookup(self, request_id):
+        # Test stand-in for module vault durable index by request ID.
+        dest = self.vault / (request_id + ".zip")
+        return request_id if dest.is_file() else None
+
     def handoff(self):
         return NativeArchiveHandoff(
             NativeArchiveIntentLedger(self.state),
-            self.ipc, self.staging, self.verify, self.publish,
+            self.ipc, self.staging, self.verify, self.publish, self.lookup,
         )
 
     def test_admin_rejected_before_nonce_or_native_submission(self):
@@ -174,6 +183,50 @@ class HandoffTests(unittest.TestCase):
         self.assertEqual(self.ledger.read().request_id, first)
         self.assertFalse(self.published)
         self.assertEqual(list(self.staging.iterdir()), [])
+
+
+    def test_crash_after_durable_vault_publication_recovers_without_reclaim(self):
+        request_id = self.handoff().begin_for_admin(self.admin, self.valid)
+        self.ipc.phase = "ready"
+        self.handoff().status_for_admin(self.admin, self.valid)
+        self.ipc.fail_claimed_status_once = True
+        with self.assertRaises(OSError):
+            self.handoff().receive_for_admin(self.admin, self.valid)
+        self.assertEqual(self.lookup(request_id), request_id)
+        self.assertEqual(self.ledger.read().phase, "ready")
+        self.assertEqual(self.ipc.claim_count, 1)
+        # A different newly authenticated Core instance recovers the
+        # durable vault receipt; do not claim or publish the ZIP twice.
+        recovered = self.handoff().receive_for_admin(self.admin, self.valid)
+        self.assertEqual(recovered, request_id)
+        self.assertIsNone(self.ledger.read())
+        self.assertEqual(self.ipc.claim_count, 1)
+        self.assertEqual(len(self.published), 1)
+
+    def test_supervisor_claimed_but_vault_missing_requires_resolution(self):
+        request_id = self.handoff().begin_for_admin(self.admin, self.valid)
+        self.ipc.phase = "ready"
+        self.handoff().status_for_admin(self.admin, self.valid)
+        self.ipc.truncated = True
+        with self.assertRaises(OSError):
+            self.handoff().receive_for_admin(self.admin, self.valid)
+        # A new process learns the lost claim from Supervisor without
+        # fabricating a successful download or clearing the durable nonce.
+        self.handoff().status_for_admin(self.admin, self.valid)
+        with self.assertRaises(ArchiveIntentUnavailable):
+            self.handoff().receive_for_admin(self.admin, self.valid)
+        self.assertEqual(self.ledger.read().request_id, request_id)
+        self.assertFalse(self.published)
+
+    def test_vault_record_cannot_override_unclaimed_supervisor_state(self):
+        request_id = self.handoff().begin_for_admin(self.admin, self.valid)
+        self.ipc.phase = "ready"
+        self.handoff().status_for_admin(self.admin, self.valid)
+        (self.vault / (request_id + ".zip")).write_bytes(b"untrusted placeholder")
+        with self.assertRaises(ArchiveIntentUnavailable):
+            self.handoff().receive_for_admin(self.admin, self.valid)
+        self.assertEqual(self.ipc.claim_count, 0)
+        self.assertEqual(self.ledger.read().request_id, request_id)
 
     def test_unsafe_staging_rejected(self):
         self.staging.chmod(0o755)

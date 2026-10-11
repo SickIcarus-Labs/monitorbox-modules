@@ -30,12 +30,17 @@ class NativeArchiveHandoff:
         private_staging: Path,
         verify_signed_zip: Callable[[Path], None],
         publish_verified_zip: Callable[[Path, str], str],
+        lookup_published_zip: Callable[[str], str | None],
     ) -> None:
         self.ledger = ledger
         self.ipc = ipc
         self.private_staging = Path(private_staging)
         self.verify_signed_zip = verify_signed_zip
         self.publish_verified_zip = publish_verified_zip
+        # Required lookup by durable request ID is the crash-recovery
+        # authority. Publisher and lookup MUST agree on the same fsynced
+        # transaction; a returned ID alone is not a durable vault receipt.
+        self.lookup_published_zip = lookup_published_zip
         self._validate_staging()
 
     def _validate_staging(self) -> None:
@@ -86,11 +91,27 @@ class NativeArchiveHandoff:
         """
         auth.require(request, csrf=True)
         intent = self.ledger.read()
-        if intent is None or intent.phase != "ready":
+        if intent is None or intent.phase not in {"ready", "claimed"}:
             raise ArchiveIntentUnavailable("native ZIP is not ready to claim")
         status = self.ipc.status_for_admin(auth, request, intent.request_id)
-        if status.request_id != intent.request_id or status.phase != "ready":
-            raise ArchiveIntentUnavailable("native ZIP is no longer ready")
+        if status.request_id != intent.request_id:
+            raise ArchiveIntentUnavailable("native ZIP identity changed")
+        already_published = self.lookup_published_zip(intent.request_id)
+        if already_published is not None:
+            if not isinstance(already_published, str) or not already_published:
+                raise ArchiveIntentUnavailable("native ZIP vault index inconsistent")
+            if status.phase != "claimed":
+                raise ArchiveIntentUnavailable("vault and Supervisor claim state disagree")
+            # Core may have crashed AFTER durable vault publication but BEFORE
+            # persisting CLAIMED/ack. Recover without reopening a claimed ZIP,
+            # and without a second export or vault insertion.
+            self.ledger.observe(intent.request_id, "claimed")
+            self.ledger.acknowledge_terminal(intent.request_id)
+            return already_published
+        if intent.phase != "ready" or status.phase != "ready":
+            # Supervisor consumed the one-time ZIP, but no independently
+            # durable vault record survived. DO NOT silently retire the nonce.
+            raise ArchiveIntentUnavailable("native ZIP claim requires explicit reconciliation")
         self._validate_staging()
         fd, name = tempfile.mkstemp(
             prefix=".native-zip-claim-", suffix=".partial",
@@ -115,6 +136,8 @@ class NativeArchiveHandoff:
             record_id = self.publish_verified_zip(path, intent.request_id)
             if not isinstance(record_id, str) or not record_id:
                 raise ArchiveIntentUnavailable("verified ZIP was not durably saved")
+            if self.lookup_published_zip(intent.request_id) != record_id:
+                raise ArchiveIntentUnavailable("native ZIP vault commit not durable")
             claimed = self.ipc.status_for_admin(auth, request, intent.request_id)
             if claimed.request_id != intent.request_id or claimed.phase != "claimed":
                 raise ArchiveIntentUnavailable("native ZIP claim status uncertain")
