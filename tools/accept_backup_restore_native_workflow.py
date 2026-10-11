@@ -26,6 +26,7 @@ class NativeAuthority:
         self.generation_id = "c" * 32
         self.job_id = None
         self.phase = "working"
+        self.prior_terminal = False
         self.started = 0
         self.downloads = 0
         self.interrupt_claim_once = False
@@ -47,9 +48,10 @@ class NativeAuthority:
             # Go preserves idempotency for uncertain retries, but a terminal
             # FAILED/CLAIMED job may be followed by a new planned backup.
             # Reject any other nonce while the old ZIP is still pending.
-            if self.phase not in {"failed", "claimed"}:
+            if not self.prior_terminal:
                 raise AssertionError("second native nonce admitted over pending job")
             self.job_id = request_id
+            self.prior_terminal = False
             self.phase = "working"
         if self.drop_first_ack:
             self.drop_first_ack = False
@@ -58,6 +60,8 @@ class NativeAuthority:
 
     def backup_status(self, job_id):
         assert job_id == self.job_id
+        if self.phase in {"claimed", "failed"}:
+            self.prior_terminal = True
         return {
             "job_id": job_id, "phase": self.phase,
             "terminal": self.phase in {"ready", "claimed", "failed"},
@@ -71,6 +75,7 @@ class NativeAuthority:
         raw = self.source.read_bytes()
         # Real Go stores CLAIMED before transferring private ZIP bytes.
         self.phase = "claimed"
+        self.prior_terminal = True
         if self.interrupt_claim_once:
             self.interrupt_claim_once = False
             sink.write(raw[:7])
