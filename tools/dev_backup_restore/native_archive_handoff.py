@@ -57,6 +57,10 @@ class NativeArchiveHandoff:
         auth.require(request, csrf=True)
         # fsync the nonce BEFORE the native Begin RPC can quiesce this Core.
         intent = self.ledger.prepare()
+        if intent.phase in {"ready", "failed", "claimed"}:
+            # A Save click is not a new backup when the old ID already
+            # finished. Require independent status and explicit disposition.
+            raise ArchiveIntentUnavailable("prior native ZIP result requires reconciliation")
         # A lost ACK or terminated Core leaves precisely the same pending ID
         # on disk. The caller must never generate another ID on uncertainty.
         self.ipc.begin_for_admin(auth, request, intent.request_id)
