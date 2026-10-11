@@ -11,6 +11,21 @@ on:
       - tools/accept_backup_restore_build3_behavior.py
       - tools/build_first_party_backup_restore_b5.py
       - tools/accept_backup_restore_build5_revision_restore.py
+      - tools/accept_backup_restore_native_jobs.py
+      - tools/backup_restore_native_jobs.py
+      - tools/backup_restore_native_archive.py
+      - tools/backup_restore_native_vault.py
+      - tools/accept_backup_restore_native_vault.py
+      - tools/backup_restore_native_workflow.py
+      - tools/accept_backup_restore_native_workflow.py
+      - tools/backup_restore_native_operator.py
+      - tools/accept_backup_restore_native_operator.py
+      - tools/backup_restore_native_schedule.py
+      - tools/accept_backup_restore_native_schedule.py
+      - tools/build_first_party_backup_restore_b7.py
+      - tools/stage_691_backup_restore_b7.py
+      - tools/accept_backup_restore_b7_candidate.py
+      - release-intents/**
       - .github/workflows/backup-restore-acceptance.yml
   push:
     branches:
@@ -24,6 +39,21 @@ on:
       - tools/accept_backup_restore_build3_behavior.py
       - tools/build_first_party_backup_restore_b5.py
       - tools/accept_backup_restore_build5_revision_restore.py
+      - tools/accept_backup_restore_native_jobs.py
+      - tools/backup_restore_native_jobs.py
+      - tools/backup_restore_native_archive.py
+      - tools/backup_restore_native_vault.py
+      - tools/accept_backup_restore_native_vault.py
+      - tools/backup_restore_native_workflow.py
+      - tools/accept_backup_restore_native_workflow.py
+      - tools/backup_restore_native_operator.py
+      - tools/accept_backup_restore_native_operator.py
+      - tools/backup_restore_native_schedule.py
+      - tools/accept_backup_restore_native_schedule.py
+      - tools/build_first_party_backup_restore_b7.py
+      - tools/stage_691_backup_restore_b7.py
+      - tools/accept_backup_restore_b7_candidate.py
+      - release-intents/**
       - .github/workflows/backup-restore-acceptance.yml
 
 permissions:
@@ -59,3 +89,15 @@ jobs:
           diff -u /tmp/backup-b5-first.sha /tmp/backup-b5-second.sha
       - name: Execute build 5 retained-revision restore acceptance
         run: python tools/accept_backup_restore_build5_revision_restore.py
+      - name: Verify development-only native backup job journal
+        run: python tools/accept_backup_restore_native_jobs.py
+      - name: Verify native signed ZIP structural and crash-safe vault admission
+        run: python tools/accept_backup_restore_native_vault.py
+      - name: Verify native manual and scheduled backup restart-durable workflow
+        run: python tools/accept_backup_restore_native_workflow.py
+      - name: Verify development-only native admin HTTP admission and restart poller
+        run: python tools/accept_backup_restore_native_operator.py
+      - name: Verify native scheduled backup policy, destination and retention
+        run: python tools/accept_backup_restore_native_schedule.py
+      - name: Verify fully bundled unsigned v3 Backup Restore B7 candidate and UI
+        run: python tools/accept_backup_restore_b7_candidate.py
