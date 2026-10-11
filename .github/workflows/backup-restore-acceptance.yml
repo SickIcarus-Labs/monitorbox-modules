@@ -12,6 +12,8 @@ on:
       - tools/build_first_party_backup_restore_b5.py
       - tools/accept_backup_restore_build5_revision_restore.py
       - tools/test_backup_restore_native_intent.py
+      - tools/test_backup_restore_native_handoff.py
+      - tools/dev_backup_restore/**
       - .github/workflows/backup-restore-acceptance.yml
   push:
     branches:
@@ -26,6 +28,8 @@ on:
       - tools/build_first_party_backup_restore_b5.py
       - tools/accept_backup_restore_build5_revision_restore.py
       - tools/test_backup_restore_native_intent.py
+      - tools/test_backup_restore_native_handoff.py
+      - tools/dev_backup_restore/**
       - .github/workflows/backup-restore-acceptance.yml
 
 permissions:
@@ -63,3 +67,5 @@ jobs:
         run: python tools/accept_backup_restore_build5_revision_restore.py
       - name: Guard unpublished native ZIP intent persistence and crash replay
         run: python -m unittest discover -s tools -p test_backup_restore_native_intent.py -v
+      - name: Guard authenticated native ZIP receipt, vault handoff, and interruption recovery
+        run: python -m unittest discover -s tools -p test_backup_restore_native_handoff.py -v
