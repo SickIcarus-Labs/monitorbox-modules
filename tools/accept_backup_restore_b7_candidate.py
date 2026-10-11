@@ -239,6 +239,102 @@ class PackageAcceptance(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(download.status,200)
         self.assertEqual(await download.read(),self.synthetic.read_bytes())
 
+    async def test_packaged_manual_backup_survives_core_restart_and_new_admin_session(self):
+        """Real B7 package/router/worker/journal/vault, synthetic signed Supervisor.
+
+        This proves application lifecycle continuity, not real Core3 process
+        launch, real credential rotation, or an actual Go-signed package.
+        """
+        endpoint="/api/v2/config/backup-restore"
+        before=await self.client.post(
+            endpoint+"/native/backups",data="{}",headers=self.headers(),
+        )
+        self.assertEqual(before.status,202)
+        intent=await before.json()
+        request_id=intent["request_id"]
+        self.assertEqual(intent["phase"],"accepted")
+        self.assertFalse(intent["committed"])
+        self.assertIsNone(intent["backup_id"])
+        self.assertEqual(self.native.started,1)
+        self.assertEqual(self.native.downloads,0)
+        saved=await self._saved_list()
+        self.assertEqual(saved,[])
+
+        # Quiesce the original aiohttp Core/module instance with ZIP still
+        # WORKING. All worker memory and initial session are discarded, but
+        # the original signed Active + native nonce remain durable on disk.
+        await self.client.close()
+        class NewCoreAuth:
+            def require(self,request,csrf=False):
+                if request.headers.get("X-Test-Session")!="fresh-admin":
+                    raise web.HTTPUnauthorized()
+                if csrf and request.headers.get("X-MonitorBox-CSRF")!="fresh-csrf":
+                    raise web.HTTPForbidden()
+                return SimpleNamespace(actor="reauthenticated-admin")
+
+        self.app=web.Application()
+        self.module.install(self.app,platform=SimpleNamespace(
+            root=self.root,auth=NewCoreAuth(),request_restart=None,
+            native_full_archive=self.native,
+        ))
+        self.client=TestClient(TestServer(self.app))
+        await self.client.start_server()
+        old_session=await self.client.get(
+            endpoint+"/native/status",headers=self.headers(),
+        )
+        self.assertEqual(old_session.status,401)
+        fresh_headers={"X-Test-Session":"fresh-admin","X-MonitorBox-CSRF":"fresh-csrf"}
+        missing_csrf=await self.client.post(
+            endpoint+"/native/backups",data="{}",
+            headers={"X-Test-Session":"fresh-admin"},
+        )
+        self.assertEqual(missing_csrf.status,403)
+        self.assertEqual(self.native.started,1)
+        pending=await self.client.get(
+            endpoint+"/native/status",headers=fresh_headers,
+        )
+        self.assertEqual(pending.status,200)
+        pending_job=(await pending.json())["job"]
+        self.assertEqual(pending_job["request_id"],request_id)
+        self.assertEqual(pending_job["phase"],"accepted")
+        self.assertIsNone(pending_job["backup_id"])
+
+        # A restarted Core's NEW module worker adopts the persisted nonce;
+        # Go marks the ZIP READY only after Core's earlier quiescence.
+        self.native.phase="ready"
+        committed=None
+        for _ in range(100):
+            await asyncio.sleep(0.025)
+            status=await self.client.get(
+                endpoint+"/native/status",headers=fresh_headers,
+            )
+            self.assertEqual(status.status,200)
+            job=(await status.json())["job"]
+            if job and job["phase"]=="committed":
+                committed=job
+                break
+        self.assertIsNotNone(committed,"new Core did not adopt durable native job")
+        self.assertEqual(committed["request_id"],request_id)
+        self.assertEqual(committed["backup_id"],committed["planned_backup_id"])
+        self.assertEqual(self.native.started,1)
+        self.assertEqual(self.native.downloads,1)
+        self.assertEqual(self.native.phase,"claimed")
+        listing=await self.client.get(
+            endpoint+"/native/backups",headers=fresh_headers,
+        )
+        self.assertEqual(listing.status,200)
+        records=(await listing.json())["backups"]
+        self.assertEqual(len(records),1)
+        self.assertEqual(records[0]["backup_id"],committed["backup_id"])
+        response=await self.client.get(
+            endpoint+"/native/backups/"+committed["backup_id"]+"/download",
+            headers=fresh_headers,
+        )
+        self.assertEqual(response.status,200)
+        self.assertEqual(await response.read(),self.synthetic.read_bytes())
+        self.assertEqual(self.native.downloads,1)
+        self.assertEqual(list((self.root/"saved-backups"/".native-transfers").glob("*.zip")),[])
+
     async def test_installed_scheduled_route_waits_for_signed_vault_publication(self):
         endpoint="/api/v2/config/backup-restore"
         response=await self.client.post(
