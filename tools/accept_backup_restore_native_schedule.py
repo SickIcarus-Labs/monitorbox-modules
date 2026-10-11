@@ -89,7 +89,7 @@ class NativeScheduleTests(unittest.TestCase):
             self.assertEqual(self.scheduler.run_due()["reason"],"failed_retry_backoff")
         self.assertEqual(self.authority.started,1)
         later=datetime.now(timezone.utc)+timedelta(hours=25)
-        self.authority.phase="preparing"
+        self.authority.phase="working"
         retried=self.scheduler.run_due(now=later)
         self.assertTrue(retried["accepted"])
         self.assertEqual(self.authority.started,2)

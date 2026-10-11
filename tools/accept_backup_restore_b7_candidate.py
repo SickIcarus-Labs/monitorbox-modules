@@ -136,7 +136,7 @@ class PackageAcceptance(unittest.IsolatedAsyncioTestCase):
         self.root=Path(self.temp.name).resolve()
         self.synthetic=make_native_zip(self.root/"trusted.zip")
         self.native=NativeAuthority(self.synthetic)
-        self.native.phase="preparing"
+        self.native.phase="working"
         self.app=web.Application()
         self.module.install(self.app,platform=SimpleNamespace(
             root=self.root,auth=Auth(),request_restart=None,
