@@ -191,7 +191,7 @@ class NativeWorkflowTests(unittest.TestCase):
         self.assertEqual(self.workflow.vault.list(), ())
         self.assertEqual(self.authority.downloads, 0)
 
-    def test_changed_generation_denies_resumption_without_publishing(self):
+    def test_changed_signed_active_denies_resumption_without_publishing(self):
         accepted = self.workflow.request(kind="manual")
         self.authority.generation_id = "e" * 32
         self.authority.phase = "ready"
@@ -249,6 +249,25 @@ class NativeWorkflowTests(unittest.TestCase):
         ):
             NativeBackupWorkflow(self.platform).advance()
         self.assertEqual(self.authority.downloads, 0)
+        self.assertEqual(self.workflow.vault.list(), ())
+
+    def test_lost_begin_ack_never_invents_saved_backup_after_claim_consumed(self):
+        self.authority.drop_first_ack = True
+        with self.assertRaisesRegex(NativeBackupWorkflowError, "begin is unresolved"):
+            self.workflow.request(kind="manual", include_previous=False)
+        pending = NativeBackupJobStore(self.root).inspect()
+        self.assertEqual(pending.phase, "requested")
+        self.assertFalse(pending.include_previous)
+        # The requesting Core exited after Supervisor had already admitted
+        # this exact nonce. Another verified Core observes CLAIMED but no
+        # saved module vault record, so it MUST NOT claim or save a ZIP.
+        self.authority.phase = "claimed"
+        recovered = NativeBackupWorkflow(self.platform).advance()
+        self.assertEqual(recovered.phase, "failed")
+        self.assertEqual(recovered.failure_code, "transfer_failed")
+        self.assertEqual(recovered.request_id, pending.request_id)
+        self.assertEqual(self.authority.downloads, 0)
+        self.assertEqual(self.authority.started, 2)
         self.assertEqual(self.workflow.vault.list(), ())
 
     def test_lost_one_time_claim_never_retries_and_marks_delivery_failed(self):
