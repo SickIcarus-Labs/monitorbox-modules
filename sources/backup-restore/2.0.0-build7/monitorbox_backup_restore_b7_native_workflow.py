@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import fcntl
 import functools
+import hashlib
 import os
 import secrets
 import stat
@@ -67,7 +68,7 @@ class NativeBackupWorkflow:
         self.native = getattr(platform, "native_full_archive")
         for method in (
             "generation_id", "begin_backup", "backup_status",
-            "fetch_backup", "release_backup",
+            "claim_into",
         ):
             if getattr(self.native, method, None) is None:
                 raise NativeBackupWorkflowError("native backup job capability unavailable")
@@ -85,6 +86,8 @@ class NativeBackupWorkflow:
     def request(self, *, kind: str = "manual", include_previous: bool = False) -> NativeBackupJob:
         """Durably reserve first, then begin/reclaim one exact Supervisor job."""
         try:
+            # This ID is the independently verified signed Active ref,
+            # NEVER the random generation assigned to a Core process.
             generation = self.native.generation_id
             reservation = self.jobs.reserve(
                 request_id=secrets.token_hex(16), generation=generation,
@@ -95,7 +98,8 @@ class NativeBackupWorkflow:
             # Snapshot quiescence can restart Core during this one RPC.
             try:
                 job_id = self.native.begin_backup(
-                    include_previous=reservation.include_previous
+                    request_id=reservation.request_id,
+                    include_previous=reservation.include_previous,
                 )
             except Exception as exc:
                 # A job may have started before Core died; keep the durable
@@ -132,10 +136,22 @@ class NativeBackupWorkflow:
         item = self.jobs.inspect()
         if item is None:
             raise NativeBackupWorkflowError("no native backup has been requested")
+        # Even a terminal journal may retain an orphaned private ZIP if Core
+        # died after the durable commit but before its Python finally block.
+        # Scrub it under the process-wide operation lock on every restart.
+        source = self.transfer_root / (item.request_id + ".zip")
+        if source.is_symlink():
+            raise NativeBackupWorkflowError("native transfer staging contains unsafe link")
+        if source.exists():
+            if not source.is_file():
+                raise NativeBackupWorkflowError("native transfer staging is unsafe")
+            source.unlink()
         if item.phase in {"committed", "failed"}:
             return item
         if self.native.generation_id != item.generation:
-            raise NativeBackupWorkflowError("native backup generation changed; recovery required")
+            raise NativeBackupWorkflowError(
+                "signed Active authority changed; native backup cannot resume"
+            )
 
         recovered = self._committed_if_present(item)
         if recovered is not None:
@@ -144,7 +160,8 @@ class NativeBackupWorkflow:
         if item.phase == "requested":
             try:
                 job_id = self.native.begin_backup(
-                    include_previous=item.include_previous
+                    request_id=item.request_id,
+                    include_previous=item.include_previous,
                 )
                 item = self.jobs.accept(request_id=item.request_id, job_id=job_id)
             except Exception as exc:
@@ -163,36 +180,50 @@ class NativeBackupWorkflow:
         if not isinstance(status, dict) or status.get("job_id") != item.job_id:
             raise NativeBackupWorkflowError("native archive job status does not match request")
         phase = status.get("phase")
-        if phase == "preparing":
+        if phase == "working":
             return item
         if phase == "failed":
             return self.jobs.fail(request_id=item.request_id, failure_code="archive_failed")
+        if phase == "claimed":
+            return self.jobs.fail(
+                request_id=item.request_id,
+                failure_code=("vault_failed" if item.phase == "transfer_verified"
+                              else "transfer_failed"),
+            )
+        if item.phase == "transfer_verified":
+            # The prior one-time claim was already consumed; if vault
+            # reconciliation could not establish a saved record, it is
+            # unsafe to stream this ID again even if status says READY.
+            raise NativeBackupWorkflowError(
+                "verified one-time claim awaits explicit vault reconciliation"
+            )
         if phase != "ready":
             raise NativeBackupWorkflowError("native archive job not in a publishable state")
 
-        source = self.transfer_root / (item.request_id + ".zip")
-        if source.is_symlink():
-            raise NativeBackupWorkflowError("native transfer staging contains unsafe link")
-        if source.exists():
-            if not source.is_file():
-                raise NativeBackupWorkflowError("native transfer staging is unsafe")
-            source.unlink()  # Partial output from crashed Core; retransfer from Supervisor
+        # ZIP must still be ready and unclaimed: one destructive transfer only.
+        # The signed module owns the O_EXCL, 0600 scratch file, not Core.
         try:
-            transferred = self.native.fetch_backup(item.job_id, source)
-            if not isinstance(transferred, dict):
-                raise NativeBackupWorkflowError("native transfer receipt is invalid")
-            size, digest = transferred.get("size"), transferred.get("sha256")
-            if (
-                type(size) is not int or not 0 < size <= (64 << 30) + (4 << 20)
-                or not isinstance(digest, str) or len(digest) != 64
-                or any(c not in "0123456789abcdef" for c in digest)
-            ):
-                raise NativeBackupWorkflowError("native transfer receipt is invalid")
-            if (
-                type(status.get("size")) is not int or status["size"] != size
-                or status.get("sha256") != digest
-            ):
-                raise NativeBackupWorkflowError("native job metadata does not match transfer")
+            flags = (os.O_RDWR | os.O_CREAT | os.O_EXCL
+                     | getattr(os, "O_NOFOLLOW", 0))
+            fd = os.open(source, flags, 0o600)
+            with os.fdopen(fd, "w+b") as sink:
+                size = self.native.claim_into(item.job_id, sink)
+                sink.flush()
+                os.fsync(sink.fileno())
+                if type(size) is not int or not 0 < size <= (64 << 30) + (4 << 20):
+                    raise NativeBackupWorkflowError("native ZIP claim size invalid")
+                if sink.tell() != size:
+                    raise NativeBackupWorkflowError("native ZIP claim was incomplete")
+                sink.seek(0)
+                h = hashlib.sha256()
+                for chunk in iter(lambda: sink.read(1 << 20), b""):
+                    h.update(chunk)
+            digest = h.hexdigest()
+            directory = os.open(self.transfer_root, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                os.fsync(directory)
+            finally:
+                os.close(directory)
             item = self.jobs.mark_transfer_verified(
                 request_id=item.request_id, bytes_count=size, sha256=digest,
             )
@@ -212,10 +243,7 @@ class NativeBackupWorkflow:
             raise NativeBackupWorkflowError("native backup not yet durably committed") from exc
         finally:
             source.unlink(missing_ok=True)
-        try:
-            self.native.release_backup(item.job_id)
-        except Exception:
-            # A signed saved vault record is already durable. Release is
-            # housekeeping; native Supervisor TTL independently reclaims.
-            pass
+        # Go OpenOnce already irreversibly persisted CLAIMED before delivery;
+        # there are no reusable chunks to release. Only the independently
+        # verified, atomic module vault now owns the saved backup.
         return item
