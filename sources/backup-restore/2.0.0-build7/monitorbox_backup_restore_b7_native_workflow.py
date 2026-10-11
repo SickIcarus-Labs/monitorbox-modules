@@ -14,6 +14,7 @@ from __future__ import annotations
 import fcntl
 import functools
 import hashlib
+import inspect
 import os
 import secrets
 import stat
@@ -66,11 +67,16 @@ class NativeBackupWorkflow:
         self.vault: NativeBackupVault = open_native_backup_vault(platform)
         self.jobs = NativeBackupJobStore(Path(getattr(platform, "root")))
         self.native = getattr(platform, "native_full_archive")
-        for method in (
-            "generation_id", "begin_backup", "backup_status",
-            "claim_into",
-        ):
-            if getattr(self.native, method, None) is None:
+        # The signed Active ID is a LIVE Supervisor property. Do not invoke
+        # it during B7 module activation: during First Launch the signed Core
+        # must boot and satisfy readiness BEFORE Active can be committed.
+        # The first actual request/reattachment will read + validate it.
+        if self.native is None or inspect.getattr_static(
+            self.native, "generation_id", None
+        ) is None:
+            raise NativeBackupWorkflowError("native backup job capability unavailable")
+        for method in ("begin_backup", "backup_status", "claim_into"):
+            if not callable(getattr(self.native, method, None)):
                 raise NativeBackupWorkflowError("native backup job capability unavailable")
         self.transfer_root = self.vault.path / ".native-transfers"
         if not self.transfer_root.exists():

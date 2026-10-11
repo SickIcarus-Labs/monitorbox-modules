@@ -196,6 +196,59 @@ class PackageAcceptance(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Restore is intentionally unavailable",html)
         self.assertNotIn("ApplianceRestoreHandoff",html)
 
+    async def test_packaged_b7_boots_before_native_signed_active_is_committed(self):
+        """Unsigned packaged B7 must not query live signed Active on startup."""
+        await self.client.close()
+        native=self.native
+        class Provisional:
+            def __init__(self):
+                self.active_committed=False
+                self.identity_lookups=0
+
+            @property
+            def generation_id(self):
+                self.identity_lookups+=1
+                if not self.active_committed:
+                    raise RuntimeError("signed Active pending real BootReady")
+                return native.generation_id
+
+            def begin_backup(self, **options):
+                return native.begin_backup(**options)
+
+            def backup_status(self, request_id):
+                return native.backup_status(request_id)
+
+            def claim_into(self, request_id, sink):
+                return native.claim_into(request_id, sink)
+
+            def verify_signed_closure(self, archive, inspection):
+                return native.verify_signed_closure(archive, inspection)
+
+        provisional=Provisional()
+        self.app=web.Application()
+        self.module.install(self.app,platform=SimpleNamespace(
+            root=self.root,auth=Auth(),request_restart=None,
+            native_full_archive=provisional,
+        ))
+        self.client=TestClient(TestServer(self.app))
+        await self.client.start_server()
+        self.assertEqual(provisional.identity_lookups,0)
+        status=await self.client.get(
+            "/api/v2/config/backup-restore/native/status",
+            headers=self.headers(csrf=False),
+        )
+        self.assertEqual(status.status,200)
+        self.assertIsNone((await status.json())["job"])
+        self.assertEqual(provisional.identity_lookups,0)
+        provisional.active_committed=True
+        accepted=await self.client.post(
+            "/api/v2/config/backup-restore/native/backups",
+            data="{}",headers=self.headers(),
+        )
+        self.assertEqual(accepted.status,202)
+        self.assertEqual(provisional.identity_lookups,1)
+        self.assertEqual(native.started,1)
+
     async def test_manual_ui_route_returns_pending_until_signed_vault_commit(self):
         endpoint="/api/v2/config/backup-restore"
         denied=await self.client.post(endpoint+"/native/backups",data="{}")
