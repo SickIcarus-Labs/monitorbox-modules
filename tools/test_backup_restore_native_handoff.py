@@ -126,6 +126,9 @@ class HandoffTests(unittest.TestCase):
         self.ipc.phase = "ready"
         self.assertEqual(self.handoff().status_for_admin(self.admin, self.valid).phase, "ready")
         self.assertEqual(self.ledger.read().phase, "ready")
+        with self.assertRaises(ArchiveIntentUnavailable):
+            self.handoff().begin_for_admin(self.admin, self.valid)
+        self.assertEqual(self.ipc.requests, [first, first])
 
     def test_claim_verified_private_temp_published_then_retired(self):
         first = self.handoff().begin_for_admin(self.admin, self.valid)
@@ -156,6 +159,8 @@ class HandoffTests(unittest.TestCase):
         # After a fresh Core login, Supervisor truth is CLAIMED: operator
         # can explicitly retire the failed delivery before requesting anew.
         self.assertEqual(self.handoff().status_for_admin(self.admin, self.valid).phase, "claimed")
+        with self.assertRaises(ArchiveIntentUnavailable):
+            self.handoff().begin_for_admin(self.admin, self.valid)
         self.ledger.acknowledge_terminal(first)
         self.assertNotEqual(self.handoff().begin_for_admin(self.admin, self.valid), first)
 
