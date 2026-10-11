@@ -43,7 +43,14 @@ class NativeAuthority:
         self.previous = include_previous
         if self.job_id is None:
             self.job_id = request_id
-        assert self.job_id == request_id
+        elif self.job_id != request_id:
+            # Go preserves idempotency for uncertain retries, but a terminal
+            # FAILED/CLAIMED job may be followed by a new planned backup.
+            # Reject any other nonce while the old ZIP is still pending.
+            if self.phase not in {"failed", "claimed"}:
+                raise AssertionError("second native nonce admitted over pending job")
+            self.job_id = request_id
+            self.phase = "working"
         if self.drop_first_ack:
             self.drop_first_ack = False
             raise ConnectionError("Core died after snapshot started")
