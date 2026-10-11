@@ -190,6 +190,13 @@ class NativeBackupWorkflow:
                 failure_code=("vault_failed" if item.phase == "transfer_verified"
                               else "transfer_failed"),
             )
+        if item.phase == "transfer_verified":
+            # The prior one-time claim was already consumed; if vault
+            # reconciliation could not establish a saved record, it is
+            # unsafe to stream this ID again even if status says READY.
+            raise NativeBackupWorkflowError(
+                "verified one-time claim awaits explicit vault reconciliation"
+            )
         if phase != "ready":
             raise NativeBackupWorkflowError("native archive job not in a publishable state")
 

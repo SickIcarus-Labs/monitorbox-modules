@@ -214,8 +214,12 @@ class NativeWorkflowTests(unittest.TestCase):
             self.workflow.advance()
         before = NativeBackupJobStore(self.root).inspect()
         self.assertEqual(before.phase, "transfer_verified")
+        orphan = self.workflow.transfer_root / (admitted.request_id + ".zip")
+        orphan.write_bytes(b"synthetic interrupted partial output")
+        orphan.chmod(0o600)
         resumed = NativeBackupWorkflow(self.platform)
         after = resumed.advance()
+        self.assertFalse(orphan.exists())
         self.assertEqual(after.phase, "committed")
         self.assertEqual(after.backup_id, before.planned_backup_id)
         self.assertEqual(len(resumed.vault.list()), 1)
@@ -231,6 +235,21 @@ class NativeWorkflowTests(unittest.TestCase):
         self.assertEqual(saved.phase, "committed")
         self.assertEqual(saved.request_id, pending.request_id)
         self.assertEqual(self.authority.started, 1)
+
+    def test_transfer_verified_cannot_reclaim_ready_job_without_vault_record(self):
+        admitted = self.workflow.request(kind="manual")
+        raw = self.source.read_bytes()
+        self.workflow.jobs.mark_transfer_verified(
+            request_id=admitted.request_id,
+            bytes_count=len(raw), sha256=hashlib.sha256(raw).hexdigest(),
+        )
+        self.authority.phase = "ready"
+        with self.assertRaisesRegex(
+            NativeBackupWorkflowError, "explicit vault reconciliation"
+        ):
+            NativeBackupWorkflow(self.platform).advance()
+        self.assertEqual(self.authority.downloads, 0)
+        self.assertEqual(self.workflow.vault.list(), ())
 
     def test_lost_one_time_claim_never_retries_and_marks_delivery_failed(self):
         self.workflow.request(kind="manual")
