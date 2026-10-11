@@ -143,6 +143,16 @@ class NativeBackupWorkflow:
                 "signed Active authority changed; native backup cannot resume"
             )
 
+        source = self.transfer_root / (item.request_id + ".zip")
+        # A crash may bypass Python finally. Clean only private, regular
+        # staging output before adopting an independently verified vault
+        # record, resuming a working job, or reconciling CLAIMED.
+        if source.is_symlink():
+            raise NativeBackupWorkflowError("native transfer staging contains unsafe link")
+        if source.exists():
+            if not source.is_file():
+                raise NativeBackupWorkflowError("native transfer staging is unsafe")
+            source.unlink()
         recovered = self._committed_if_present(item)
         if recovered is not None:
             return recovered
@@ -170,16 +180,6 @@ class NativeBackupWorkflow:
         if not isinstance(status, dict) or status.get("job_id") != item.job_id:
             raise NativeBackupWorkflowError("native archive job status does not match request")
         phase = status.get("phase")
-        source = self.transfer_root / (item.request_id + ".zip")
-        # A crash during an irreversible one-time claim may leave a private
-        # partial file. Never retry it or present it as a completed backup.
-        # Signed Go claims are terminal even if the Core dies during transfer.
-        if source.is_symlink():
-            raise NativeBackupWorkflowError("native transfer staging contains unsafe link")
-        if source.exists():
-            if not source.is_file():
-                raise NativeBackupWorkflowError("native transfer staging is unsafe")
-            source.unlink()
         if phase == "working":
             return item
         if phase == "failed":
