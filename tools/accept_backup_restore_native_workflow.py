@@ -24,11 +24,11 @@ class NativeAuthority:
     def __init__(self, source: Path) -> None:
         self.source = source
         self.generation_id = "c" * 32
-        self.job_id = "d" * 32
-        self.phase = "preparing"
+        self.job_id = None
+        self.phase = "working"
         self.started = 0
         self.downloads = 0
-        self.released = 0
+        self.interrupt_claim_once = False
         self.drop_first_ack = False
         self.force_failure = False
         self.invalid_signature = False
@@ -38,9 +38,12 @@ class NativeAuthority:
             raise ValueError("independent signer refused archive")
         verify_test_signed_closure(path, inspection)
 
-    def begin_backup(self, *, include_previous=False):
+    def begin_backup(self, *, request_id, include_previous):
         self.started += 1
         self.previous = include_previous
+        if self.job_id is None:
+            self.job_id = request_id
+        assert self.job_id == request_id
         if self.drop_first_ack:
             self.drop_first_ack = False
             raise ConnectionError("Core died after snapshot started")
@@ -48,31 +51,25 @@ class NativeAuthority:
 
     def backup_status(self, job_id):
         assert job_id == self.job_id
-        raw = self.source.read_bytes()
         return {
             "job_id": job_id, "phase": self.phase,
-            "size": len(raw), "sha256": hashlib.sha256(raw).hexdigest(),
+            "terminal": self.phase in {"ready", "claimed", "failed"},
         }
 
-    def fetch_backup(self, job_id, dest):
+    def claim_into(self, job_id, sink):
         assert job_id == self.job_id
-        assert dest.name.endswith(".zip")
-        assert dest.parent.name == ".native-transfers"
+        if self.phase != "ready":
+            raise ValueError("native ZIP is not claimable")
         self.downloads += 1
-        # Mirror the real Core downloader: mode 0600, O_EXCL, fsync.
-        fd = os.open(dest, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-        with self.source.open("rb") as reader, os.fdopen(fd, "wb") as stream:
-            shutil.copyfileobj(reader, stream)
-            stream.flush()
-            os.fsync(stream.fileno())
-        return {
-            "size": dest.stat().st_size,
-            "sha256": hashlib.sha256(dest.read_bytes()).hexdigest(),
-        }
-
-    def release_backup(self, job_id):
-        assert job_id == self.job_id
-        self.released += 1
+        raw = self.source.read_bytes()
+        # Real Go stores CLAIMED before transferring private ZIP bytes.
+        self.phase = "claimed"
+        if self.interrupt_claim_once:
+            self.interrupt_claim_once = False
+            sink.write(raw[:7])
+            raise ConnectionError("Core died during irreversible ZIP claim")
+        sink.write(raw)
+        return len(raw)
 
 
 class NativeWorkflowTests(unittest.TestCase):
@@ -126,7 +123,7 @@ class NativeWorkflowTests(unittest.TestCase):
         self.assertEqual(done.phase, "committed")
         self.assertEqual(done.backup_id, submitted.planned_backup_id)
         self.assertEqual(done.bytes, self.source.stat().st_size)
-        self.assertEqual(self.authority.released, 1)
+        self.assertEqual(self.authority.phase, "claimed")
         self.assertEqual(len(self.workflow.vault.list()), 1)
         self.assertEqual(self.workflow.advance(), done)
         self.assertEqual(self.authority.downloads, 1)
@@ -198,7 +195,7 @@ class NativeWorkflowTests(unittest.TestCase):
         accepted = self.workflow.request(kind="manual")
         self.authority.generation_id = "e" * 32
         self.authority.phase = "ready"
-        with self.assertRaisesRegex(NativeBackupWorkflowError, "generation changed"):
+        with self.assertRaisesRegex(NativeBackupWorkflowError, "signed Active authority changed"):
             NativeBackupWorkflow(self.platform).advance()
         self.assertEqual(NativeBackupJobStore(self.root).inspect(), accepted)
         self.assertEqual(self.workflow.vault.list(), ())
@@ -224,6 +221,31 @@ class NativeWorkflowTests(unittest.TestCase):
         self.assertEqual(len(resumed.vault.list()), 1)
         self.assertEqual(self.authority.downloads, 1)
         self.assertEqual(resumed.advance(), after)
+
+    def test_core_restart_does_not_change_stable_signed_active_identity(self):
+        pending = self.workflow.request(kind="manual", include_previous=False)
+        self.authority.phase = "ready"
+        fresh = NativeBackupWorkflow(self.platform)
+        self.assertEqual(fresh.native.generation_id, pending.generation)
+        saved = fresh.advance()
+        self.assertEqual(saved.phase, "committed")
+        self.assertEqual(saved.request_id, pending.request_id)
+        self.assertEqual(self.authority.started, 1)
+
+    def test_lost_one_time_claim_never_retries_and_marks_delivery_failed(self):
+        self.workflow.request(kind="manual")
+        self.authority.phase = "ready"
+        self.authority.interrupt_claim_once = True
+        with self.assertRaisesRegex(NativeBackupWorkflowError, "not yet durably committed"):
+            self.workflow.advance()
+        self.assertEqual(self.authority.phase, "claimed")
+        self.assertFalse(list(self.workflow.transfer_root.glob("*.zip")))
+        fresh = NativeBackupWorkflow(self.platform)
+        lost = fresh.advance()
+        self.assertEqual(lost.phase, "failed")
+        self.assertEqual(lost.failure_code, "transfer_failed")
+        self.assertEqual(self.authority.downloads, 1)
+        self.assertEqual(fresh.vault.list(), ())
 
 
 if __name__ == "__main__":
