@@ -94,6 +94,45 @@ class NativeWorkflowTests(unittest.TestCase):
         self.platform = SimpleNamespace(root=self.root, native_full_archive=self.authority)
         self.workflow = NativeBackupWorkflow(self.platform)
 
+    def test_b7_bootstrap_never_queries_signed_active_before_authority_commit(self):
+        class DeferredActive:
+            def __init__(self, backend):
+                self.backend = backend
+                self.authority_committed = False
+                self.lookups = 0
+
+            @property
+            def generation_id(self):
+                self.lookups += 1
+                if not self.authority_committed:
+                    raise RuntimeError("signed Active unavailable before Core BootReady")
+                return self.backend.generation_id
+
+            def begin_backup(self, **kwargs):
+                return self.backend.begin_backup(**kwargs)
+
+            def backup_status(self, request_id):
+                return self.backend.backup_status(request_id)
+
+            def claim_into(self, request_id, sink):
+                return self.backend.claim_into(request_id, sink)
+
+            def verify_signed_closure(self, path, inspection):
+                return self.backend.verify_signed_closure(path, inspection)
+
+        capability = DeferredActive(self.authority)
+        platform = SimpleNamespace(root=self.root, native_full_archive=capability)
+        # Real first launch: Controller/module startup precedes the separate
+        # Supervisor signed Active commit. Must not call the live descriptor.
+        running = NativeBackupWorkflow(platform)
+        self.assertEqual(capability.lookups, 0)
+        self.assertIsNone(running.inspect())
+        capability.authority_committed = True
+        accepted = running.request(kind="manual", include_previous=False)
+        self.assertEqual(accepted.phase, "accepted")
+        self.assertEqual(capability.lookups, 1)
+        self.assertFalse(self.authority.previous)
+
     def test_overlapping_core_worker_lock_refuses_second_start_and_transfer(self):
         lock=self.workflow.vault.path / ".native-fullzip-operation.lock"
         fd=os.open(lock,os.O_RDWR|os.O_CREAT,0o600)
