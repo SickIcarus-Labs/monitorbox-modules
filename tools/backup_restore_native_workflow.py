@@ -136,6 +136,16 @@ class NativeBackupWorkflow:
         item = self.jobs.inspect()
         if item is None:
             raise NativeBackupWorkflowError("no native backup has been requested")
+        # Even a terminal journal may retain an orphaned private ZIP if Core
+        # died after the durable commit but before its Python finally block.
+        # Scrub it under the process-wide operation lock on every restart.
+        source = self.transfer_root / (item.request_id + ".zip")
+        if source.is_symlink():
+            raise NativeBackupWorkflowError("native transfer staging contains unsafe link")
+        if source.exists():
+            if not source.is_file():
+                raise NativeBackupWorkflowError("native transfer staging is unsafe")
+            source.unlink()
         if item.phase in {"committed", "failed"}:
             return item
         if self.native.generation_id != item.generation:
@@ -143,16 +153,6 @@ class NativeBackupWorkflow:
                 "signed Active authority changed; native backup cannot resume"
             )
 
-        source = self.transfer_root / (item.request_id + ".zip")
-        # A crash may bypass Python finally. Clean only private, regular
-        # staging output before adopting an independently verified vault
-        # record, resuming a working job, or reconciling CLAIMED.
-        if source.is_symlink():
-            raise NativeBackupWorkflowError("native transfer staging contains unsafe link")
-        if source.exists():
-            if not source.is_file():
-                raise NativeBackupWorkflowError("native transfer staging is unsafe")
-            source.unlink()
         recovered = self._committed_if_present(item)
         if recovered is not None:
             return recovered
