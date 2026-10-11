@@ -226,6 +226,18 @@ class NativeWorkflowTests(unittest.TestCase):
         self.assertEqual(self.authority.downloads, 1)
         self.assertEqual(resumed.advance(), after)
 
+    def test_terminal_committed_job_cleans_orphaned_private_claim_file(self):
+        admitted = self.workflow.request(kind="manual")
+        self.authority.phase = "ready"
+        done = self.workflow.advance()
+        self.assertEqual(done.phase, "committed")
+        leftover = self.workflow.transfer_root / (admitted.request_id + ".zip")
+        leftover.write_bytes(b"interrupted old private stage")
+        leftover.chmod(0o600)
+        resumed = NativeBackupWorkflow(self.platform)
+        self.assertEqual(resumed.advance().backup_id, done.backup_id)
+        self.assertFalse(leftover.exists())
+
     def test_core_restart_does_not_change_stable_signed_active_identity(self):
         pending = self.workflow.request(kind="manual", include_previous=False)
         self.authority.phase = "ready"
