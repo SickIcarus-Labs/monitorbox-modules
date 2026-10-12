@@ -926,6 +926,42 @@ def _apply_backup_restore_native_json_overlay(
     files[BACKUP_RESTORE_ENTRYPOINT_MEMBER] = source.encode("utf-8")
 
 
+def _apply_ui_successor_asset_versions(
+    record: dict[str, Any],
+    files: dict[str, bytes | None],
+) -> None:
+    """Advance URL cache keys in the signed UI adapter and dashboard.
+
+    The reviewed predecessor adapter injects versioned /static scripts into
+    /modules using the literal 1.17.1-54 key. Preserve its source bytes
+    except for these two bounded, version-derived asset-key replacements.
+    """
+    predecessor_key = b"?v=1.17.1-54"
+    successor_key = f"?v={record['version']}-{record['build']}".encode("ascii")
+    expected = {
+        "monitorbox_ui_b54/__init__.py": 12,
+        "monitorbox_ui_b54/assets/dashboard.html": 8,
+    }
+    if successor_key == predecessor_key:
+        raise SuccessorModuleError("UI successor asset key must advance")
+    for name, count in expected.items():
+        payload = files.get(name)
+        if not isinstance(payload, bytes) or payload.count(predecessor_key) != count:
+            raise SuccessorModuleError(
+                f"UI predecessor asset-version boundary changed: {name}"
+            )
+        changed = payload.replace(predecessor_key, successor_key)
+        if name.endswith("/__init__.py"):
+            compile(changed, name, "exec")
+        files[name] = changed
+    if any(
+        predecessor_key in payload
+        for payload in files.values()
+        if isinstance(payload, bytes)
+    ):
+        raise SuccessorModuleError("stale UI predecessor asset-cache key remains")
+
+
 def _successor_runtime_overlays(
     record: dict[str, Any],
     files: dict[str, bytes | None],
@@ -941,6 +977,7 @@ def _successor_runtime_overlays(
         _apply_scrypted_successor_overlay(files)
     elif artifact_id == UI_ID:
         _apply_ui_successor_overlay(files)
+        _apply_ui_successor_asset_versions(record, files)
 
 
 
