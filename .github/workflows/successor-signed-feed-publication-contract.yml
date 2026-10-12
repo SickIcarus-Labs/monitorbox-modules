@@ -18,6 +18,8 @@ on:
       - "tools/test_successor_dev_stage.py"
       - "tools/sign_successor_dev_stage.py"
       - "tools/test_sign_successor_dev_stage.py"
+      - "tools/build_successor_dev_delta.py"
+      - "tools/test_build_successor_dev_delta.py"
       - "tools/successor_release_manifest.py"
       - "tools/successor_oci_evidence.py"
       - "tools/successor_registry_extract.py"
@@ -90,6 +92,7 @@ jobs:
           tools/test_successor_dev_release.py
           tools/test_successor_dev_stage.py
           tools/test_sign_successor_dev_stage.py
+          tools/test_build_successor_dev_delta.py
           tools/test_successor_promotion_recovery_model.py
           tools/test_successor_release_manifest.py
           tools/test_successor_oci_evidence.py
