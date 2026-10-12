@@ -88,7 +88,7 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
                 dashboard = archive.read("monitorbox_ui_b54/assets/dashboard.html").decode()
                 js = archive.read("monitorbox_ui_b54/assets/modules.js").decode()
         # These are the URL fragments used by the actual /modules HTTP adapter.
-        self.assertIn("/static/modules.js", adapter)
+        self.assertIn('"modules.js": "text/javascript"', adapter)
         self.assertIn("?v=1.18.2-60", adapter)
         self.assertNotIn("?v=1.17.1-54", adapter)
         self.assertIn("?v=1.18.2-60", dashboard)
