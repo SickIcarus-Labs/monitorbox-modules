@@ -350,8 +350,8 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
                         ):
                             before = old.read(name)
                             after = new.read(name)
-                            original = b"?v=1.17.1-54"
-                            selected = f"?v={record['version']}-{record['build']}".encode("ascii")
+                            original = b"1.17.1-54"
+                            selected = f"{record['version']}-{record['build']}".encode("ascii")
                             count = 12 if name.endswith("/__init__.py") else 8
                             self.assertEqual(count, before.count(original), name)
                             self.assertEqual(count, after.count(selected), name)
