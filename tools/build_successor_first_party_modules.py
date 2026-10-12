@@ -950,8 +950,15 @@ def _apply_ui_successor_asset_versions(
             raise SuccessorModuleError(
                 f"UI predecessor asset-version boundary changed: {name}"
             )
+    for name, payload in list(files.items()):
+        if not isinstance(payload, bytes) or predecessor_key not in payload:
+            continue
+        if not name.startswith("monitorbox_ui_b54/") or not name.endswith(
+            (".py", ".html", ".js", ".css")
+        ):
+            raise SuccessorModuleError(f"unreviewed UI cache-key owner: {name}")
         changed = payload.replace(predecessor_key, successor_key)
-        if name.endswith("/__init__.py"):
+        if name.endswith(".py"):
             compile(changed, name, "exec")
         files[name] = changed
     if any(
