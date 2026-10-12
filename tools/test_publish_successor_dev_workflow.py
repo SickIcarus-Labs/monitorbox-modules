@@ -103,6 +103,21 @@ def test_signing_confined_to_protected_job_and_dev_only_promotion():
     assert any(step.get("name", "").startswith("Verify immutable full Dev image") for step in steps)
 
 
+def test_multiarch_immutable_readback_uses_platform_manifest_digests():
+    """Avoid Docker's multi-platform index digest overwrite with classic image store."""
+    steps = _parsed()["jobs"]["publish"]["steps"]
+    step = next(x["run"] for x in steps if
+                x.get("name") == "Verify immutable full Dev image byte-for-byte on AMD64 and ARM64")
+    assert 'docker buildx imagetools inspect "$FULL@$full" --raw' in step
+    assert 'for arch in amd64 arm64; do' in step
+    assert '.platform.architecture == $arch' in step
+    assert 'if length == 1 then .[0] else error(' in step
+    assert 'docker pull --quiet --platform "linux/$arch" "$FULL@$platform_digest"' in step
+    assert 'docker create --platform "linux/$arch" "$FULL@$platform_digest"' in step
+    assert 'docker pull --quiet --platform "linux/$arch" "$FULL@$full"' not in step
+    assert 'diff -rq "$RUNNER_TEMP/signed/full/platform" "$RUNNER_TEMP/readback"' in step
+
+
 def test_current_full_dev_baseline_is_verified_before_signing():
     steps = _parsed()["jobs"]["publish"]["steps"]
     names = [step.get("name") for step in steps]
