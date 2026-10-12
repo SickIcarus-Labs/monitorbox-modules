@@ -75,7 +75,6 @@ def test_signer_staging_preserves_existing_channels_and_26_zip_union(tmp_path, m
         output=output, trust_root=trust, signer_seed=seed,
         core_source_sha="f" * 40,
     )
-    assert result["channels_to_publish"] == ["dev"] if "channels_to_publish" in result else True
     assert result["outer_channels_to_publish"] == ["dev"]
     assert result["candidate_sequence"] == 11
     assert result["changed_module_ids"] == [
@@ -91,14 +90,8 @@ def test_signer_staging_preserves_existing_channels_and_26_zip_union(tmp_path, m
         assert len(index["artifacts"]) == 22
         assert index["channel"] == channel
         assert index["sequence"] == (11 if channel == "dev" else 10)
-    for arch in ("amd64", "arm64"):
-        index = json.loads(
-            (output / ("supervisor-" + arch) / "platform" /
-             "channels" / "stable" / "index.json").read_text()
-        )["signed"]
-        assert len(index["artifacts"]) == 1
-        assert index["channel"] == "stable"
-        assert index["sequence"] == 11
+    assert not (output / "supervisor-amd64").exists()
+    assert not (output / "supervisor-arm64").exists()
     assert not (output / "full" / "platform" / "channels" / "stable" / "promote").exists()
 
 

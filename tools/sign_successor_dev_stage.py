@@ -1,9 +1,10 @@
-"""Stage a signed v3 Dev-only OCI feed pair (no registry writes).
+"""Stage a signed v3 full Dev OCI feed (no registry writes).
 
 Uses the official protected signer ONLY in a trusted publication job. The
-normal appliance updater still consumes FULL:dev; stable/beta moving OCI
-pointers remain untouched. The Dev image must retain a valid stable index,
-beta index and the historical package ZIPs needed by those catalogs.
+normal appliance updater consumes FULL:dev for Core/Manager Update All.
+The immutable first stage separately bootstraps from SUP:stable; Dev does not
+need a Supervisor OCI pointer. Stable/Beta moving OCI pointers remain untouched.
+The Dev image retains signed Stable/Beta catalogs and their old ZIPs.
 """
 from __future__ import annotations
 
@@ -20,7 +21,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 from build_platform_index import sign_candidate
-from successor_dev_release import MANAGER, DevReleaseRefused, qualify_dev_delta
+from successor_dev_release import DevReleaseRefused, qualify_dev_delta
 from verify_platform_index import _date, verify_index, verify_package
 
 CHANNELS = ("stable", "beta", "dev")
@@ -186,47 +187,7 @@ def stage_signed_dev(
                 verify_package(artifact, full, public)
             if channel != "dev" and signed[channel]["artifacts"] != previous[channel]["artifacts"]:
                 raise DevReleaseRefused("non-Dev signed artifact inventory changed")
-        supervisor = {}
-        for arch in ARCHES:
-            managers = [
-                x for x in signed["dev"]["artifacts"]
-                if x["artifact_id"] == MANAGER and x["platform"]["arch"] == arch
-            ]
-            if len(managers) != 1:
-                raise DevReleaseRefused("manager platform identity absent/ambiguous")
-            manager = managers[0]
-            standalone = base / ("supervisor-" + arch)
-            package_dir = standalone / "platform" / "packages"
-            package_dir.mkdir(parents=True)
-            name = manager["package"]["url"].removeprefix("platform/packages/")
-            shutil.copyfile(target_packages / name, package_dir / name)
-            signed_source = {
-                "schema": 1, "repository_id": "official-platform",
-                "artifacts": [
-                    {**{k: v for k, v in manager.items() if k not in ("package", "portable_config")},
-                     "package_file": name}
-                ],
-            }
-            raw = sign_candidate(
-                json.dumps(signed_source, sort_keys=True).encode(),
-                package_root=standalone, key=key, key_id=KEY_ID,
-                # Immutable first-stage expects stable inside Supervisor OCI,
-                # even when the outer selected OCI pointer is :dev.
-                channel="stable",
-                sequence=previous["dev"]["sequence"] + 1,
-                generated_at=now, valid_hours=168,
-            )
-            index = standalone / "platform" / "channels" / "stable" / "index.json"
-            index.parent.mkdir(parents=True)
-            index.write_bytes(raw)
-            got = verify_index(raw, keys=public, channel="stable", now=now)
-            if got["artifacts"] != [manager]:
-                raise DevReleaseRefused("paired Dev Manager package differs from full catalog")
-            verify_package(got["artifacts"][0], standalone, public)
-            supervisor[arch] = got
-        evidence = qualify_dev_delta(
-            previous["dev"], signed["dev"], supervisor
-        )
+        evidence = qualify_dev_delta(previous["dev"], signed["dev"])
         receipt = {
             **evidence,
             "core_source_sha": core_source_sha,

@@ -64,11 +64,11 @@ def fixture():
 
 def test_changed_core_and_manager_keep_22_artifact_dev_closure():
     before, after, managers = fixture()
-    result = qualify_dev_delta(before, after, managers)
+    result = qualify_dev_delta(before, after)
     assert result == {
         "previous_sequence": 10, "candidate_sequence": 11, "channel": "dev",
         "changed_module_ids": sorted([CORE, MANAGER]),
-        "artifact_count": 22, "paired_manager_architectures": ["amd64", "arm64"],
+        "artifact_count": 22, "manager_architectures": ["amd64", "arm64"],
     }
 
 
@@ -85,10 +85,10 @@ def test_bad_or_mixed_dev_delta_fails_closed(mutator):
     before, after, sup = fixture()
     mutator(before, after, sup)
     with pytest.raises(DevReleaseRefused):
-        qualify_dev_delta(before, after, sup)
+        qualify_dev_delta(before, after)
 
 
 def test_declared_core_update_cannot_silently_replace_manager():
     before, after, sup = fixture()
     with pytest.raises(DevReleaseRefused):
-        qualify_dev_delta(before, after, sup, changed_ids=frozenset({CORE}))
+        qualify_dev_delta(before, after, changed_ids=frozenset({CORE}))

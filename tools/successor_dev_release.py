@@ -3,7 +3,9 @@
 This is NOT a signer, publisher, or registry writer. Inputs must first pass the
 trusted Ed25519 catalog verifier and signed ZIP/package admission. Keep the
 full 22-artifact closure intact while admitting a deliberately small changed
-Core/Agent/Supervisor subset for the existing Dev -> Update All workflow.
+Core/Agent/Manager subset for the existing Dev -> Update All workflow.
+The immutable first stage obtains bootstrap Supervisor from Stable; the normal
+Update All uses the signed Manager artifact in the full Dev catalog.
 """
 
 from __future__ import annotations
@@ -65,7 +67,6 @@ def _release_key(artifact: dict) -> tuple[int, int, int, int]:
 def qualify_dev_delta(
     previous: Mapping,
     proposed: Mapping,
-    supervisor_by_arch: Mapping[str, Mapping],
     *,
     changed_ids: frozenset[str] = frozenset({CORE, MANAGER}),
 ) -> dict:
@@ -122,23 +123,11 @@ def qualify_dev_delta(
         if module_id in NATIVE and architectures != ARCHES:
             raise DevReleaseRefused("signed platform module lacks an architecture")
 
-    if set(supervisor_by_arch) != ARCHES:
-        raise DevReleaseRefused("missing paired signed Supervisor architectures")
-    for arch in sorted(ARCHES):
-        sup = supervisor_by_arch[arch]
-        managers = _records(sup, channel="stable", full=False)
-        only = next(iter(managers.values()))
-        if only["artifact_id"] != MANAGER or only["platform"]["arch"] != arch:
-            raise DevReleaseRefused("Supervisor catalog has wrong manager architecture")
-        target = [v for k, v in after.items() if k[0] == MANAGER and k[2] == arch]
-        if len(target) != 1 or target[0] != only or sup.get("sequence") != new_sequence:
-            raise DevReleaseRefused("signed Dev Supervisor/full manager pair differs")
-
     return {
         "previous_sequence": old_sequence,
         "candidate_sequence": new_sequence,
         "channel": "dev",
         "changed_module_ids": sorted(actually_changed),
         "artifact_count": len(after),
-        "paired_manager_architectures": sorted(ARCHES),
+        "manager_architectures": sorted(ARCHES),
     }
