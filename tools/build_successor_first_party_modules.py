@@ -600,6 +600,9 @@ def _apply_ui_successor_overlay(
     capabilities.dataset.state = distributionReady && !repositoryError ? "ready" : "limited";
 '''
     capability_append_replacement = '''    capabilities.append(heading, copy);
+    if (scaffoldLifecycle && !repositoryError) {
+      copy.textContent = "Signed module distribution is available through Supervisor. Direct legacy package installation and repository mutation are intentionally disabled on native JSON appliances.";
+    }
     if (scaffoldLifecycle && releaseChannels.length) {
       const releaseControl = document.createElement("label");
       releaseControl.className = "modules-release-channel";
