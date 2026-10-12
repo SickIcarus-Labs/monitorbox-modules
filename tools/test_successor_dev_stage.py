@@ -9,14 +9,14 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 from tools import successor_dev_stage as stage
-from successor_dev_release import CORE, MANAGER, DevReleaseRefused
+from successor_dev_release import AGENT, CORE, MANAGER, DevReleaseRefused
 from tools.test_successor_dev_release import fixture
 
 SOURCE = "f" * 40
 ARCHES = ("amd64", "arm64")
 
 
-def package(path: Path, item: dict, *, source_sha="e" * 40, stage_name=None):
+def package(path: Path, item: dict, *, source_sha="e" * 40, stage_name=None, parser=b"generation-fence-v2"):
     manifest = {
         "artifact_id": item["artifact_id"],
         "version": item["version"],
@@ -34,6 +34,8 @@ def package(path: Path, item: dict, *, source_sha="e" * 40, stage_name=None):
     }
     with zipfile.ZipFile(path, "w") as archive:
         archive.writestr("package.json", json.dumps(manifest))
+        if item["artifact_id"] in (CORE, AGENT):
+            archive.writestr("app/monitorbox/v2/config.py", parser)
 
 
 def staged_inputs(tmp_path: Path, monkeypatch):
@@ -152,3 +154,54 @@ def test_subsequent_dev_release_allows_verified_historical_zip_names(tmp_path: P
     )
     assert result["complete_artifact_count"] == 22
     assert len(list((tmp_path / "second-dev/platform/packages").glob("*.zip"))) == 22
+
+
+def test_agent_only_stages_signed_core_unchanged_and_matched_agent(tmp_path, monkeypatch):
+    src, index, _, trust = staged_inputs(tmp_path, monkeypatch)
+    baseline = json.loads(index.read_text())["signed"]
+    replacements = {}
+    for arch in ARCHES:
+        item = next(x for x in baseline["artifacts"]
+                    if x["artifact_id"] == AGENT and x["platform"]["arch"] == arch)
+        updated = dict(item, build=item["build"] + 1)
+        path = tmp_path / f"agent-{arch}.zip"
+        package(path, updated, source_sha=SOURCE)
+        replacements[AGENT, arch] = path
+    out = tmp_path / "agent-only"
+    receipt = stage.stage_unsigned_dev_delta(
+        previous_packages=src, previous_dev_index=index, replacements=replacements,
+        output=out, core_source_sha=SOURCE, trust_root=trust,
+        changed_ids=frozenset({AGENT}),
+    )
+    assert receipt["changed_roles"] == [AGENT]
+    assert receipt["complete_artifact_count"] == 22
+    rows = json.loads((out / "catalog.source.json").read_text())["artifacts"]
+    assert len(rows) == 22
+    assert len(list((out / "platform/packages").glob("*.zip"))) == 22
+    assert {r["build"] for r in rows if r["artifact_id"] == CORE} == {
+        r["build"] for r in baseline["artifacts"] if r["artifact_id"] == CORE
+    }
+
+
+@pytest.mark.parametrize("mutation", ["mismatch", "missing-arch", "core-replacement"])
+def test_agent_only_rejects_unpaired_core_or_incomplete_delta(tmp_path, monkeypatch, mutation):
+    src, index, _, trust = staged_inputs(tmp_path, monkeypatch)
+    baseline = json.loads(index.read_text())["signed"]
+    replacements = {}
+    for arch in ARCHES:
+        item = next(x for x in baseline["artifacts"]
+                    if x["artifact_id"] == AGENT and x["platform"]["arch"] == arch)
+        path = tmp_path / f"new-agent-{arch}.zip"
+        package(path, dict(item, build=item["build"] + 1), source_sha=SOURCE,
+                parser=b"legacy-two-part-generation" if mutation == "mismatch" else b"generation-fence-v2")
+        replacements[AGENT, arch] = path
+    if mutation == "missing-arch":
+        replacements.pop((AGENT, "arm64"))
+    elif mutation == "core-replacement":
+        replacements[CORE, "amd64"] = replacements[AGENT, "amd64"]
+    with pytest.raises(DevReleaseRefused):
+        stage.stage_unsigned_dev_delta(
+            previous_packages=src, previous_dev_index=index, replacements=replacements,
+            output=tmp_path / "invalid-agent", core_source_sha=SOURCE,
+            trust_root=trust, changed_ids=frozenset({AGENT}),
+        )
