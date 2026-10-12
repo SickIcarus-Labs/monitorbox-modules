@@ -1,7 +1,7 @@
 name: Protected signed successor Dev Core/Manager publication
 
-# Manual owner-only release AFTER review/merge of the publication policy.
-# Draft PR tests cannot invoke this; never signs code in an untrusted PR job.
+# Owner-only main branch: manual dispatch or authenticated issue #195 comment.
+# Signing key is never available to Core source checkout or PR jobs.
 on:
   workflow_dispatch:
     inputs:
@@ -17,6 +17,8 @@ on:
         description: Current immutable full-feed :dev sha256 digest
         required: true
         type: string
+  issue_comment:
+    types: [created]
 
 permissions:
   contents: read
@@ -26,20 +28,60 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  unsigned:
-    name: Build exact Core/Manager Dev delta without signing key
+  resolve:
+    name: Authenticate owner Dev release command
     if: >-
       github.ref == 'refs/heads/main' &&
       github.actor == 'SickIcarus' &&
-      inputs.confirmation == 'publish-v3-dev-core-manager'
+      (
+        (github.event_name == 'workflow_dispatch' &&
+         inputs.confirmation == 'publish-v3-dev-core-manager') ||
+        (github.event_name == 'issue_comment' &&
+         github.event.comment.user.login == 'SickIcarus' &&
+         github.event.issue.number == 195 &&
+         !github.event.issue.pull_request &&
+         startsWith(github.event.comment.body, '/publish-v3-dev-core-manager '))
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      core_source_sha: ${{ steps.intent.outputs.core_source_sha }}
+      expected_dev_full: ${{ steps.intent.outputs.expected_dev_full }}
+    steps:
+      - name: Validate exact owner release intent
+        id: intent
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          MANUAL_SHA: ${{ inputs.core_source_sha }}
+          MANUAL_DIGEST: ${{ inputs.expected_dev_full }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == "issue_comment" ]]; then
+            command="$(jq -r '.comment.body // empty' "$GITHUB_EVENT_PATH")"
+            read -r action source_sha digest extra <<< "$command"
+            test "$action" = "/publish-v3-dev-core-manager"
+            test -z "${extra:-}"
+          else
+            source_sha="$MANUAL_SHA"
+            digest="$MANUAL_DIGEST"
+          fi
+          [[ "$source_sha" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "core_source_sha=$source_sha" >> "$GITHUB_OUTPUT"
+          echo "expected_dev_full=$digest" >> "$GITHUB_OUTPUT"
+  unsigned:
+    name: Build exact Core/Manager Dev delta without signing key
+    needs: resolve
     runs-on: ubuntu-latest
     timeout-minutes: 65
     permissions:
       contents: read
       packages: read
     env:
-      CORE_SOURCE_SHA: ${{ inputs.core_source_sha }}
-      EXPECTED_DEV_FULL: ${{ inputs.expected_dev_full }}
+      CORE_SOURCE_SHA: ${{ needs.resolve.outputs.core_source_sha }}
+      EXPECTED_DEV_FULL: ${{ needs.resolve.outputs.expected_dev_full }}
       FULL: ghcr.io/sickicarus-labs/monitorbox-successor-signed-feed
     steps:
       - name: Refuse malformed selection or unavailable private read credential
@@ -65,7 +107,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: SickIcarus-Labs/monitorbox
-          ref: ${{ inputs.core_source_sha }}
+          ref: ${{ needs.resolve.outputs.core_source_sha }}
           token: ${{ secrets.MONITORBOX_CORE_SOURCE_READ_TOKEN }}
           persist-credentials: false
           path: core
@@ -143,15 +185,15 @@ jobs:
 
   publish:
     name: Protected official signer; immutable readback; Dev-only pointer transaction
-    needs: unsigned
+    needs: [resolve, unsigned]
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
       contents: read
       packages: write
     env:
-      CORE_SOURCE_SHA: ${{ inputs.core_source_sha }}
-      EXPECTED_DEV_FULL: ${{ inputs.expected_dev_full }}
+      CORE_SOURCE_SHA: ${{ needs.resolve.outputs.core_source_sha }}
+      EXPECTED_DEV_FULL: ${{ needs.resolve.outputs.expected_dev_full }}
       FULL: ghcr.io/sickicarus-labs/monitorbox-successor-signed-feed
     steps:
       - uses: actions/checkout@v7
