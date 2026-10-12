@@ -134,8 +134,8 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
             with zipfile.ZipFile(pkg) as archive:
                 source = archive.read("monitorbox_ui_b54/__init__.py").decode()
                 html = archive.read("monitorbox_ui_b54/assets/backup-restore.html").decode()
-        start = source.index("@web.middleware\\nasync def native_json_backup_restore_ui")
-        end = source.index("\\ndef install(app: web.Application) -> None:", start)
+        start = source.index("@web.middleware" + chr(10) + "async def native_json_backup_restore_ui")
+        end = source.index(chr(10) + "def install(app: web.Application) -> None:", start)
         code = source[start:end]
 
         class Response:
