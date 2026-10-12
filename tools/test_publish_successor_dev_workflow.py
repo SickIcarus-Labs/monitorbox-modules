@@ -205,7 +205,7 @@ def test_owner_only_agent_lane_keeps_signer_protected_and_core_lane_unchanged():
     assert 'case "$action" in' in intent
     assert '/publish-v3-dev-agent) kind=agent' in intent
     unsigned = jobs["unsigned"]
-    assert "monitorbox-dev-unsigned-agent" in unsigned["env"]["STAGING"]
+    assert unsigned["env"]["STAGING"] == "ghcr.io/sickicarus-labs/monitorbox-dev-unsigned-core-manager"
     assert unsigned["permissions"]["packages"] == "read"
     assert "MONITORBOX_MODULE_SIGNING_KEY" not in str(unsigned)
     publish = jobs["publish"]
