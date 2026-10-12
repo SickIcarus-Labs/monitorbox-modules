@@ -22,6 +22,7 @@ on:
       - "tools/test_build_successor_dev_delta.py"
       - ".github/workflows/publish-successor-dev-core-manager.yml"
       - "tools/test_publish_successor_dev_workflow.py"
+      - "tools/test_successor_active_release_surface.py"
       - "tools/successor_release_manifest.py"
       - "tools/successor_oci_evidence.py"
       - "tools/successor_registry_extract.py"

@@ -65,6 +65,26 @@ REVIEWED_UI58_WRITERS = {
     ),
 }
 
+# A new, explicitly reviewed Dev-only authority. Publication can run only
+# after this policy is merged to main, through an owner-issued workflow_dispatch
+# with exact Core source and immutable prior OCI digest inputs. No issue-comment
+# or pull_request path can expose the protected signer.
+REVIEWED_DEV_WRITERS = {
+    "publish-successor-dev-core-manager.yml": (
+        "github.ref == 'refs/heads/main'",
+        "github.actor == 'SickIcarus'",
+        "publish-v3-dev-core-manager",
+        "MONITORBOX_CORE_SOURCE_READ_TOKEN",
+        "MONITORBOX_MODULE_SIGNING_KEY",
+        "expected_dev_full",
+        "expected_dev_supervisor",
+        "tools/build_successor_dev_delta.py",
+        "tools/sign_successor_dev_stage.py",
+        "actions/upload-artifact@v4",
+        "Guarded Dev-only two-pointer promotion with rollback",
+    ),
+}
+
 
 def test_no_unreviewed_successor_registry_write_path_is_active():
     for workflow in ACTIVE.glob("*.yml"):
@@ -88,6 +108,36 @@ def test_no_unreviewed_successor_registry_write_path_is_active():
             ), workflow.name
             for sentinel in REVIEWED_UI58_WRITERS[workflow.name]:
                 assert sentinel in raw, (workflow.name, sentinel)
+            continue
+        if workflow.name in REVIEWED_DEV_WRITERS:
+            assert relevant and writes, workflow.name
+            assert "pull_request:" not in raw and "issue_comment:" not in raw
+            assert "on:\n  workflow_dispatch:" in raw
+            assert "persist-credentials: false" in raw
+            assert raw.index("actions/upload-artifact@v4") < raw.index(
+                "Guarded Dev-only two-pointer promotion with rollback"
+            )
+            for sentinel in REVIEWED_DEV_WRITERS[workflow.name]:
+                assert sentinel in raw, (workflow.name, sentinel)
+            # Stable and Beta pointers are read-only guardrails, not targets.
+            for channel in ("stable", "beta"):
+                for feed in ("FULL", "SUP"):
+                    assert 'imagetools create --tag "
+
+
+def test_protected_signer_and_regular_module_channel_workflow_still_exist():
+    # The successor signing implementation is archived for audit; the official
+    # current module-channel signing authority remains in the modules repo.
+    assert (ACTIVE / "module-channel-publish.yml").is_file()
+    assert (ROOT / "trust/official-ed25519-1.pub").is_file()
+    for name in (
+        "successor-signed-feed-publish-seq8.yml",
+        "successor-signed-feed-publish-seq9.yml",
+        "successor-signed-feed-stable-pointer-seq8.yml",
+        "successor-signed-feed-stable-pointer-seq9.yml",
+    ):
+        assert (ROOT / "docs/release-intent-history" / name).is_file(), name
++feed+':'+channel+'"' not in raw
             continue
         if relevant:
             assert not writes, workflow.name
