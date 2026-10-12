@@ -48,8 +48,7 @@
         <button id="restoreButton" class="mb-br-button mb-br-danger" type="button" disabled>Restore configuration (clear history)</button>
         <p class="mb-br-hint">Restore discards historical telemetry and rebuilds the selected signed modules. It does not merge settings.</p>
       </section>
-    </div>
-    <details class="mb-br-card mb-br-advanced" id="mb-br-json-editor">
+      <details class="mb-br-card mb-br-advanced" id="mb-br-json-editor">
       <summary>Advanced: edit or save configuration JSON</summary>
       <p>For controlled configuration edits. Save preserves history; Restore replaces configuration and discards history.</p>
       <button id="loadCurrent" class="mb-br-button" type="button">Edit current JSON</button>
@@ -59,7 +58,8 @@
         <button id="reviewButton" class="mb-br-button" type="button">Review edited JSON</button>
         <button id="saveButton" class="mb-br-button mb-br-primary" type="button" disabled>Save JSON (retain history)</button>
       </div>
-    </details>
+      </details>
+    </div>
     <div id="status" class="mb-br-status" role="status" aria-live="polite">Checking administrator session…</div>
   </main>
   <!-- Reuse Core's existing protected JSON operations. The UI owns only presentation. -->
