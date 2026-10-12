@@ -128,6 +128,7 @@ def stage_signed_dev(
         raise DevReleaseRefused("unsigned Dev catalog is incomplete")
 
     now = datetime.now(timezone.utc)
+    output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=".signed-dev-stage-", dir=output.parent) as tmp:
         base = Path(tmp)
         full = base / "full"
@@ -231,7 +232,7 @@ def stage_signed_dev(
             "core_source_sha": core_source_sha,
             "outer_channels_to_publish": ["dev"],
             "stable_beta_oci_tags_changed": False,
-            "additional_legacy_ZIPs": len(new_files),
+            "new_dev_zip_count": len(new_files),
         }
         (base / "release-intent.json").write_text(
             json.dumps(receipt, indent=2, sort_keys=True) + "\n"
