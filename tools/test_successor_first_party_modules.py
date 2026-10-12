@@ -60,10 +60,10 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
 
     def test_successor_ui_advances_for_scaffold_lifecycle_operator_contract(self) -> None:
         ui = self.records[subject.UI_ID]
-        self.assertEqual("1.18.1", ui["version"])
-        self.assertEqual(59, ui["build"])
-        self.assertEqual("1.18.1", ui["module_runtime"]["version"])
-        self.assertEqual(59, ui["module_runtime"]["build"])
+        self.assertEqual("1.18.2", ui["version"])
+        self.assertEqual(60, ui["build"])
+        self.assertEqual("1.18.2", ui["module_runtime"]["version"])
+        self.assertEqual(60, ui["module_runtime"]["build"])
 
     def test_scaffold_distribution_copy_does_not_inherit_false_legacy_failure(self) -> None:
         ui = self.records[subject.UI_ID]
@@ -78,6 +78,23 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
         self.assertIn('copy.textContent = "Signed module distribution is available through Supervisor.', source)
         self.assertIn('capabilities.dataset.state = distributionReady && !repositoryError ? "ready" : "limited";', source)
         self.assertIn('const packageInstall = Boolean(current.package_install);', source)
+
+    def test_ui60_serves_versioned_modules_script_from_runtime_adapter(self) -> None:
+        ui = self.records[subject.UI_ID]
+        with tempfile.TemporaryDirectory(prefix="ui60-cache-contract-") as root:
+            pkg = subject.build_package(ui, Path(root), release_eligible=True)
+            with zipfile.ZipFile(pkg) as archive:
+                adapter = archive.read("monitorbox_ui_b54/__init__.py").decode()
+                dashboard = archive.read("monitorbox_ui_b54/assets/dashboard.html").decode()
+                js = archive.read("monitorbox_ui_b54/assets/modules.js").decode()
+        # These are the URL fragments used by the actual /modules HTTP adapter.
+        self.assertIn('"modules.js": "text/javascript"', adapter)
+        self.assertIn("?v=1.18.2-60", adapter)
+        self.assertNotIn("?v=1.17.1-54", adapter)
+        self.assertIn("?v=1.18.2-60", dashboard)
+        self.assertNotIn("?v=1.17.1-54", dashboard)
+        self.assertIn("const distributionReady = scaffoldLifecycle", js)
+        self.assertIn("platform_update_count", js)
 
     def test_successor_portainer_advances_for_bounded_parallel_inventory(self) -> None:
         portainer = self.records[subject.PORTAINER_ID]
@@ -324,6 +341,30 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
                             decoded = successor_css.decode("utf-8")
                             self.assertIn(".modules-release-channel {", decoded)
                             self.assertIn(".modules-release-channel select {", decoded)
+                        elif (
+                            artifact_id == subject.UI_ID
+                            and name in (
+                                "monitorbox_ui_b54/__init__.py",
+                                "monitorbox_ui_b54/assets/dashboard.html",
+                            )
+                        ):
+                            before = old.read(name)
+                            after = new.read(name)
+                            original = b"1.17.1-54"
+                            selected = f"{record['version']}-{record['build']}".encode("ascii")
+                            count = 12 if name.endswith("/__init__.py") else 8
+                            self.assertEqual(count, before.count(original), name)
+                            self.assertEqual(count, after.count(selected), name)
+                            self.assertNotIn(original, after)
+                            self.assertEqual(before.replace(original, selected), after)
+                        elif (
+                            artifact_id == subject.UI_ID
+                            and b"1.17.1-54" in old.read(name)
+                        ):
+                            expected = old.read(name).replace(
+                                b"1.17.1-54", f"{record['version']}-{record['build']}".encode()
+                            )
+                            self.assertEqual(expected, new.read(name), name)
                         else:
                             self.assertEqual(old.read(name), new.read(name), name)
 
