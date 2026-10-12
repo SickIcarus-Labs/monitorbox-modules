@@ -41,6 +41,8 @@ MAX_MEMBER_BYTES = 32 << 20
 MAX_TOTAL_BYTES = 128 << 20
 
 CORE_ID = "com.sickicarus.monitorbox.core"
+BACKUP_RESTORE_ID = "com.sickicarus.monitorbox.backup-restore"
+BACKUP_RESTORE_ENTRYPOINT_MEMBER = "monitorbox_backup_restore_b6.py"
 PORTAINER_ID = "com.sickicarus.monitorbox.portainer"
 SCRYPTED_ID = "com.sickicarus.monitorbox.scrypted"
 UI_ID = "com.sickicarus.monitorbox.ui"
@@ -879,6 +881,48 @@ def _apply_ui_successor_overlay(
     apply_successor_channel_selector(files)
 
 
+def _apply_backup_restore_native_json_overlay(
+    files: dict[str, bytes | None],
+) -> None:
+    """Use Core's existing JSON recovery UX; never mount v2 ZIP handlers in v3.
+
+    The separately packaged optional Backup/Restore module remains activated
+    and independently versioned. Only native portable-authoritative appliances
+    are redirected. Non-native 2.x users retain the original signed module.
+    """
+    payload = files.get(BACKUP_RESTORE_ENTRYPOINT_MEMBER)
+    if not isinstance(payload, bytes):
+        raise SuccessorModuleError("B/R accepted predecessor entrypoint missing")
+    try:
+        source = payload.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise SuccessorModuleError("B/R accepted predecessor entrypoint is not UTF-8") from exc
+    anchor = "    management = BackupRestoreManagement(platform)\n"
+    if source.count(anchor) != 1:
+        raise SuccessorModuleError("B/R signed install seam changed unexpectedly")
+    safe_native = '''    # Portable-v1 JSON is the native appliance's only restore authority.
+    # Core already owns its authenticated JSON editor/export and activation.
+    # Do not start the legacy ZIP scheduler or publish ZIP/mutation APIs.
+    if (platform.root / "portable").is_dir():
+        @web.middleware
+        async def native_json_recovery(request: web.Request, handler):
+            if request.method == "GET" and request.path == "/settings/recovery":
+                raise web.HTTPFound(location="/settings/restore-json")
+            return await handler(request)
+
+        async def native_json_page(request: web.Request) -> web.Response:
+            raise web.HTTPFound(location="/settings/restore-json")
+
+        app.middlewares.append(native_json_recovery)
+        app.router.add_get("/backup-restore", native_json_page)
+        return
+
+'''
+    source = source.replace(anchor, safe_native + anchor, 1)
+    compile(source, BACKUP_RESTORE_ENTRYPOINT_MEMBER, "exec")
+    files[BACKUP_RESTORE_ENTRYPOINT_MEMBER] = source.encode("utf-8")
+
+
 def _successor_runtime_overlays(
     record: dict[str, Any],
     files: dict[str, bytes | None],
@@ -886,6 +930,8 @@ def _successor_runtime_overlays(
     """Apply narrowly bounded successor-only runtime/operator overlays."""
 
     artifact_id = record["artifact_id"]
+    if artifact_id == BACKUP_RESTORE_ID:
+        _apply_backup_restore_native_json_overlay(files)
     if artifact_id == PORTAINER_ID:
         _apply_portainer_successor_overlay(files)
     elif artifact_id == SCRYPTED_ID:
