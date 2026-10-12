@@ -9,7 +9,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 from tools import successor_dev_stage as stage
-from successor_dev_release import AGENT, CORE, MANAGER, DevReleaseRefused
+from successor_dev_release import AGENT, CORE, MANAGER, BACKUP_RESTORE, DevReleaseRefused
 from tools.test_successor_dev_release import fixture
 
 SOURCE = "f" * 40
@@ -32,6 +32,13 @@ def package(path: Path, item: dict, *, source_sha="e" * 40, stage_name=None, par
         "runtime": {"artifact_id": "python", "version": "1", "build": 1, "sha256": "c" * 64},
         "wheelhouse": {"artifact_id": "wheels", "version": "1", "build": 1, "sha256": "d" * 64},
     }
+    if item["artifact_id"] == BACKUP_RESTORE:
+        manifest["packaging_stage"] = "successor-module-requalification"
+        manifest["module_runtime"] = {
+            "module_id": BACKUP_RESTORE,
+            "version": item["version"],
+            "build": item["build"],
+        }
     with zipfile.ZipFile(path, "w") as archive:
         archive.writestr("package.json", json.dumps(manifest))
         if item["artifact_id"] in (CORE, AGENT):
@@ -204,4 +211,57 @@ def test_agent_only_rejects_unpaired_core_or_incomplete_delta(tmp_path, monkeypa
             previous_packages=src, previous_dev_index=index, replacements=replacements,
             output=tmp_path / "invalid-agent", core_source_sha=SOURCE,
             trust_root=trust, changed_ids=frozenset({AGENT}),
+        )
+
+
+def br_replacement(tmp_path: Path, monkeypatch):
+    src, index, _, trust = staged_inputs(tmp_path, monkeypatch)
+    old = next(x for x in json.loads(index.read_text())["signed"]["artifacts"]
+               if x["artifact_id"] == BACKUP_RESTORE)
+    replacement = tmp_path / "new-backup-restore.zip"
+    package(replacement, dict(old, version="1.0.6", build=8))
+    return src, index, {(BACKUP_RESTORE, "any"): replacement}, trust
+
+
+def test_br_only_unsigned_delta_preserves_all_other_signed_roles(tmp_path, monkeypatch):
+    src, index, changes, trust = br_replacement(tmp_path, monkeypatch)
+    output = tmp_path / "br-dev"
+    receipt = stage.stage_unsigned_dev_delta(
+        previous_packages=src, previous_dev_index=index,
+        replacements=changes, output=output, core_source_sha=SOURCE,
+        trust_root=trust, changed_ids=frozenset({BACKUP_RESTORE}),
+    )
+    assert receipt["changed_roles"] == [BACKUP_RESTORE]
+    files = list((output / "platform/packages").glob("*.zip"))
+    assert len(files) == 22
+    rows = json.loads((output / "catalog.source.json").read_text())["artifacts"]
+    br = next(row for row in rows if row["artifact_id"] == BACKUP_RESTORE)
+    assert br["version"] == "1.0.6"
+    assert br["build"] == 8
+    assert br["platform"]["arch"] == "any"
+    assert br["package_file"] == f"{BACKUP_RESTORE}-1.0.6-build8.zip"
+
+
+@pytest.mark.parametrize("mutation", ["wrong-arch", "bad-runtime", "bad-stage", "second-module"])
+def test_br_unsigned_delta_rejects_unexpected_artifact(tmp_path, monkeypatch, mutation):
+    src, index, changes, trust = br_replacement(tmp_path, monkeypatch)
+    if mutation == "wrong-arch":
+        changes[BACKUP_RESTORE, "amd64"] = changes.pop((BACKUP_RESTORE, "any"))
+    elif mutation == "second-module":
+        changes[CORE, "amd64"] = changes[BACKUP_RESTORE, "any"]
+    else:
+        source = changes[BACKUP_RESTORE, "any"]
+        with zipfile.ZipFile(source, "r") as archive:
+            meta = json.loads(archive.read("package.json"))
+        if mutation == "bad-runtime":
+            meta["module_runtime"]["build"] = 999
+        else:
+            meta["packaging_stage"] = "unreviewed"
+        with zipfile.ZipFile(source, "w") as archive:
+            archive.writestr("package.json", json.dumps(meta))
+    with pytest.raises(DevReleaseRefused):
+        stage.stage_unsigned_dev_delta(
+            previous_packages=src, previous_dev_index=index, replacements=changes,
+            output=tmp_path / "rejected", core_source_sha=SOURCE,
+            trust_root=trust, changed_ids=frozenset({BACKUP_RESTORE}),
         )

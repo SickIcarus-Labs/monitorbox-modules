@@ -16,6 +16,7 @@ from collections.abc import Mapping
 CORE = "com.sickicarus.monitorbox.core"
 AGENT = "com.sickicarus.monitorbox.agent"
 MANAGER = "com.sickicarus.monitorbox.scaffold-manager"
+BACKUP_RESTORE = "com.sickicarus.monitorbox.backup-restore"
 NATIVE = frozenset({CORE, AGENT, MANAGER})
 ARCHES = frozenset({"amd64", "arm64"})
 SEMVER = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
@@ -76,7 +77,7 @@ def qualify_dev_delta(
     The caller must independently verify signatures, ZIP bytes, source commits,
     exact current Dev digest, release-channel anti-rollback and OCI readback.
     """
-    if not changed_ids or not changed_ids <= NATIVE:
+    if changed_ids not in (frozenset({CORE, MANAGER}), frozenset({AGENT}), frozenset({BACKUP_RESTORE})):
         raise DevReleaseRefused("unsupported Dev platform delta")
     before = _records(previous, channel="dev", full=True)
     after = _records(proposed, channel="dev", full=True)
@@ -120,7 +121,7 @@ def qualify_dev_delta(
         raise DevReleaseRefused("declared Dev modules did not all receive new artifacts")
     for module_id in changed_ids:
         architectures = {key[2] for key in after if key[0] == module_id}
-        if module_id in NATIVE and architectures != ARCHES:
+        if (module_id in NATIVE and architectures != ARCHES) or (module_id == BACKUP_RESTORE and architectures != {"any"}):
             raise DevReleaseRefused("signed platform module lacks an architecture")
 
     return {

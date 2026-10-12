@@ -107,5 +107,21 @@ jobs:
           tools/test_successor_stable_witness.py
           tools/test_successor_existing_stable_readonly.py
           tools/test_successor_active_release_surface.py
+      - name: Attest deterministic B/R build8 release ZIP digest (unsigned)
+        run: |
+          PYTHONPATH=tools python - <<'PY'
+          import hashlib
+          from pathlib import Path
+          from tempfile import TemporaryDirectory
+          from build_successor_first_party_modules import (
+              BACKUP_RESTORE_ID, _parse_authority, build_package,
+          )
+          record = _parse_authority()[BACKUP_RESTORE_ID]
+          assert (record["version"], record["build"]) == ("1.0.6", 8)
+          with TemporaryDirectory() as tmp:
+              package = build_package(record, Path(tmp), release_eligible=True)
+              print("REVIEWED_BACKUP_RESTORE_SHA256=sha256:" +
+                    hashlib.sha256(package.read_bytes()).hexdigest(), flush=True)
+          PY
       - name: Build loopback feed server
         run: CGO_ENABLED=0 go build -trimpath -o "$RUNNER_TEMP/feed-server" tools/successor_feed_server.go
