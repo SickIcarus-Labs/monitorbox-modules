@@ -239,7 +239,7 @@ def test_owner_gated_exact_backup_restore_app_release_uses_existing_signed_dev_f
     pub = jobs["publish"]
     admission = next(x for x in pub["steps"]
                      if x.get("name") == "Admit exact native ZIPs and stage unsigned complete Dev closure")
-    assert '("any",) if kind=="backup-restore"' in admission["run"]
+    assert '("any",) if kind in ("backup-restore","ui")' in admission["run"]
     assert 'rebuilt.read_bytes()==submitted.read_bytes()' in admission["run"]
     assert "changed_ids=frozenset(expected)" in admission["run"]
     assert 'root/"prior/platform/channels/dev/index.json"' in admission["run"]
