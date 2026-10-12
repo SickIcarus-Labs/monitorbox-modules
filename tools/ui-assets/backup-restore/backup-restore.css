@@ -1,16 +1,43 @@
+/* Normal UI pages must explicitly establish the same document canvas as
+   MonitorBox Configuration. Shared app/settings shell CSS styles its own
+   chrome; it deliberately does not reset or paint the surrounding body.
+   Keeping this on the B/R body class cannot alter other application routes. */
+:root {
+  color-scheme:dark;
+  --mb-br-bg:var(--mb-shell-bg,#07111f);
+  --mb-br-panel:var(--mb-shell-panel,#0c1d33);
+  --mb-br-line:var(--mb-shell-line,#293b55);
+  --mb-br-text:var(--mb-shell-text,#edf4ff);
+  --mb-br-muted:var(--mb-shell-muted,#9fb4cf);
+}
+html:has(body.mb-br-surface) {
+  background:var(--mb-br-bg);
+  min-height:100%;
+}
+body.mb-br-surface {
+  margin:0;
+  min-height:100vh;
+  width:100%;
+  background:var(--mb-br-bg);
+  color:var(--mb-br-text);
+  font:14px/1.45 system-ui,-apple-system,sans-serif;
+}
+body.mb-br-surface .mb-br-page {
+  background:transparent;
+}
 
 /* Native B/R presentation belongs to the independently signed UI module.
    All selectors are page-scoped; the global app/settings shell remains the authority. */
-.mb-br-page{box-sizing:border-box;width:min(100%,1180px);margin:0 auto;padding:24px clamp(14px,3vw,32px) 48px;color:#e7eef9;font:15px/1.5 system-ui,-apple-system,sans-serif}
+.mb-br-page{box-sizing:border-box;width:min(100%,1120px);margin:0 auto;padding:24px clamp(14px,3vw,32px) 48px;color:var(--mb-br-text);font:14px/1.45 system-ui,-apple-system,sans-serif}
 .mb-br-page *{box-sizing:border-box}
 .mb-br-heading{display:flex;align-items:start;justify-content:space-between;gap:18px;margin-bottom:24px;flex-wrap:wrap}
 .mb-br-heading h1{font-size:clamp(25px,2.5vw,32px);line-height:1.2;margin:3px 0 10px;letter-spacing:-.025em}
-.mb-br-heading p{max-width:70ch;color:#aebfd5;margin:0}
-.mb-br-eyebrow{text-transform:uppercase;letter-spacing:.12em;font-size:11px;font-weight:750;color:#9eb1cd}
+.mb-br-heading p{max-width:70ch;color:var(--mb-br-muted);margin:0}
+.mb-br-eyebrow{text-transform:uppercase;letter-spacing:.12em;font-size:11px;font-weight:750;color:var(--mb-br-muted)}
 .mb-br-back{display:inline-flex;align-items:center;border:1px solid #2a435f;background:#0c1a2d;border-radius:9px;padding:9px 13px;color:#c6dbff;text-decoration:none;font-weight:650}
 .mb-br-back:hover{border-color:#6994ce}
 .mb-br-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:start}
-.mb-br-card{padding:clamp(18px,2vw,25px);border:1px solid #294462;border-radius:14px;background:#112138;min-width:0}
+.mb-br-card{padding:clamp(18px,2vw,25px);border:1px solid var(--mb-br-line);border-radius:15px;background:var(--mb-br-panel);min-width:0}
 .mb-br-card h2{font-size:clamp(19px,2vw,23px);line-height:1.25;margin:7px 0 12px;letter-spacing:-.015em}
 .mb-br-card p{color:#bdcbde;margin:0 0 16px}
 .mb-br-card label{display:block;color:#d7e5f8;font-weight:600;margin:18px 0 8px}
