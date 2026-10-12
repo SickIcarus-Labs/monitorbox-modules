@@ -333,10 +333,11 @@ jobs:
           assert intent["artifact_count"]==22
           if os.environ["RELEASE_KIND"]=="backup-restore":
             assert intent["changed_module_ids"]==["com.sickicarus.monitorbox.backup-restore"]
-          assert intent["changed_module_ids"]==(\
-              ["com.sickicarus.monitorbox.agent"] if os.environ["RELEASE_KIND"]=="agent" else [
-              "com.sickicarus.monitorbox.core", "com.sickicarus.monitorbox.scaffold-manager",
-          ])
+          if os.environ["RELEASE_KIND"]!="backup-restore":
+            assert intent["changed_module_ids"]==(\
+                ["com.sickicarus.monitorbox.agent"] if os.environ["RELEASE_KIND"]=="agent" else [
+                "com.sickicarus.monitorbox.core", "com.sickicarus.monitorbox.scaffold-manager",
+            ])
           PY
       - name: Publish immutable full Dev image; leave Stable and Beta untouched
         run: |
