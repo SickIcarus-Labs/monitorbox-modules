@@ -111,3 +111,11 @@ def test_core_ci_admission_shell_has_no_dangling_continuation():
     assert "all($r[];" in last_command
     assert not last_command.rstrip().endswith("\\")
     assert 'gh api "repos/SickIcarus-Labs/monitorbox/actions/runs?' in admission
+
+
+def test_module_dev_publisher_never_touches_bootstrap_supervisor_registry():
+    """First-stage bootstrap remains on Stable; only FULL:dev is changed."""
+    raw = PATH.read_text("utf-8")
+    assert "monitorbox-successor-supervisor-feed" not in raw
+    assert "expected_dev_supervisor" not in raw
+    assert "--tag \"$FULL:dev\"" in raw

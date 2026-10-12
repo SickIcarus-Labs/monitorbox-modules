@@ -107,23 +107,5 @@ jobs:
           tools/test_successor_stable_witness.py
           tools/test_successor_existing_stable_readonly.py
           tools/test_successor_active_release_surface.py
-      - name: Inspect public Dev feed pointers (GET-only, diagnostic)
-        id: observe-dev
-        continue-on-error: true
-        shell: bash
-        run: |
-          for image in             ghcr.io/sickicarus-labs/monitorbox-successor-signed-feed:dev             ghcr.io/sickicarus-labs/monitorbox-successor-supervisor-feed:dev \
-            ghcr.io/sickicarus-labs/monitorbox-successor-supervisor-feed:stable \
-            ghcr.io/sickicarus-labs/monitorbox-successor-supervisor-feed:beta; do
-            echo "Checking $image (no authentication or registry writes)"
-            if raw="$(docker buildx imagetools inspect "$image" 2>&1)"; then
-              digest="$(printf '%s\n' "$raw" | awk '/^Digest:/ {print $2;exit}')"
-              echo "$image $digest"
-              echo "$image $digest" >> "$GITHUB_STEP_SUMMARY"
-            else
-              echo "::warning::Public Dev tag was not inspectable: $image"
-              echo "$image unavailable (access/tag/auth unconfirmed)" >> "$GITHUB_STEP_SUMMARY"
-            fi
-          done
       - name: Build loopback feed server
         run: CGO_ENABLED=0 go build -trimpath -o "$RUNNER_TEMP/feed-server" tools/successor_feed_server.go
