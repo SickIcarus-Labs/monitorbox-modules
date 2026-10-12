@@ -65,6 +65,25 @@ REVIEWED_UI58_WRITERS = {
     ),
 }
 
+# A new, explicitly reviewed Dev-only authority. Publication can run only
+# after this policy is merged to main, through an owner-issued workflow_dispatch
+# with exact Core source and immutable prior OCI digest inputs. No issue-comment
+# or pull_request path can expose the protected signer.
+REVIEWED_DEV_WRITERS = {
+    "publish-successor-dev-core-manager.yml": (
+        "github.ref == 'refs/heads/main'",
+        "github.actor == 'SickIcarus'",
+        "publish-v3-dev-core-manager",
+        "MONITORBOX_CORE_SOURCE_READ_TOKEN",
+        "MONITORBOX_MODULE_SIGNING_KEY",
+        "expected_dev_full",
+        "tools/build_successor_dev_delta.py",
+        "tools/sign_successor_dev_stage.py",
+        "actions/upload-artifact@v4",
+        "Guarded full Dev promotion with verified readback and rollback",
+    ),
+}
+
 
 def test_no_unreviewed_successor_registry_write_path_is_active():
     for workflow in ACTIVE.glob("*.yml"):
@@ -88,6 +107,28 @@ def test_no_unreviewed_successor_registry_write_path_is_active():
             ), workflow.name
             for sentinel in REVIEWED_UI58_WRITERS[workflow.name]:
                 assert sentinel in raw, (workflow.name, sentinel)
+            continue
+        if workflow.name in REVIEWED_DEV_WRITERS:
+            assert relevant and writes, workflow.name
+            assert "pull_request:" not in raw
+            assert "github.event.issue.number == 195" in raw
+            assert "github.event.comment.user.login == 'SickIcarus'" in raw
+            assert "!github.event.issue.pull_request" in raw
+            assert "on:\n  workflow_dispatch:" in raw
+            assert "persist-credentials: false" in raw
+            assert raw.index("actions/upload-artifact@v4") < raw.index(
+                "Guarded full Dev promotion with verified readback and rollback"
+            )
+            for sentinel in REVIEWED_DEV_WRITERS[workflow.name]:
+                assert sentinel in raw, (workflow.name, sentinel)
+            # Stable and Beta pointers are read-only guardrails, not targets.
+            for forbidden in (
+                'imagetools create --tag "$FULL:stable"',
+                'imagetools create --tag "$FULL:beta"',
+                'imagetools create --tag "$SUP:stable"',
+                'imagetools create --tag "$SUP:beta"',
+            ):
+                assert forbidden not in raw
             continue
         if relevant:
             assert not writes, workflow.name
