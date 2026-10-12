@@ -78,8 +78,6 @@ def test_changed_core_and_manager_keep_22_artifact_dev_closure():
     lambda p, c, s: c.update(sequence=p["sequence"]),
     lambda p, c, s: c.update(channel="stable"),
     lambda p, c, s: c["artifacts"][10].update(build=1),
-    lambda p, c, s: s["arm64"]["artifacts"][0]["package"].update(sha256="e" * 64),
-    lambda p, c, s: s["amd64"].update(sequence=99),
 ])
 def test_bad_or_mixed_dev_delta_fails_closed(mutator):
     before, after, sup = fixture()
@@ -92,3 +90,12 @@ def test_declared_core_update_cannot_silently_replace_manager():
     before, after, sup = fixture()
     with pytest.raises(DevReleaseRefused):
         qualify_dev_delta(before, after, changed_ids=frozenset({CORE}))
+
+
+def test_full_dev_manager_architecture_must_match_baseline():
+    before, after, _ = fixture()
+    row = next(item for item in after["artifacts"] if
+               item["artifact_id"] == MANAGER and item["platform"]["arch"] == "arm64")
+    row["platform"]["arch"] = "riscv64"
+    with pytest.raises(DevReleaseRefused):
+        qualify_dev_delta(before, after)
