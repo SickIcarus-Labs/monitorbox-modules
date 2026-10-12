@@ -165,7 +165,12 @@ def test_only_eligible_release_jobs_compete_for_shared_feed_lock():
         )
         assert "concurrency" not in workflow, filename
         job = workflow["jobs"][writer]
-        assert "if" in job, filename
+        if filename == "publish-successor-dev-core-manager.yml":
+            # The downstream signer runs only if owner-gated resolve succeeds.
+            assert "resolve" in job["needs"]
+            assert "if" in workflow["jobs"]["resolve"]
+        else:
+            assert "if" in job, filename
         assert job["concurrency"] == {
             "group": "successor-signed-feed-publication",
             "cancel-in-progress": "false",
