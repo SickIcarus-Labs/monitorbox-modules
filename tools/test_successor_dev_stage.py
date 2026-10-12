@@ -32,10 +32,10 @@ def package(path: Path, item: dict, *, source_sha="e" * 40, stage_name=None, par
         "runtime": {"artifact_id": "python", "version": "1", "build": 1, "sha256": "c" * 64},
         "wheelhouse": {"artifact_id": "wheels", "version": "1", "build": 1, "sha256": "d" * 64},
     }
-    if item["artifact_id"] == BACKUP_RESTORE:
+    if item["artifact_id"] in (BACKUP_RESTORE, "com.sickicarus.monitorbox.ui"):
         manifest["packaging_stage"] = "successor-module-requalification"
         manifest["module_runtime"] = {
-            "module_id": BACKUP_RESTORE,
+            "module_id": item["artifact_id"],
             "version": item["version"],
             "build": item["build"],
         }
