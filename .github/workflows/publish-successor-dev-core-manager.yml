@@ -41,7 +41,7 @@ jobs:
           inputs.confirmation == 'publish-v3-dev-backup-restore')) ||
         (github.event_name == 'issue_comment' &&
          github.event.comment.user.login == 'SickIcarus' &&
-         (github.event.issue.number == 195 || github.event.issue.number == 792) &&
+         github.event.issue.number == 195 &&
          !github.event.issue.pull_request &&
          (startsWith(github.event.comment.body, '/publish-v3-dev-core-manager ') ||
           startsWith(github.event.comment.body, '/publish-v3-dev-agent ') ||
@@ -84,16 +84,12 @@ jobs:
             /publish-v3-dev-backup-restore) kind=backup-restore ;;
             *) exit 1 ;;
           esac
-          if [[ "$action" == /publish-v3-dev-backup-restore && "$EVENT_NAME" == issue_comment ]]; then
-            test "$(jq -r '.issue.number' "$GITHUB_EVENT_PATH")" = 792
-          fi
           [[ "$source_sha" =~ ^[0-9a-f]{40}$ ]]
           [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
           [[ "$unsigned_digest" =~ ^sha256:[0-9a-f]{64}$ ]]
           if [[ "$EVENT_NAME" == issue_comment ]]; then
             issue="$(jq -r '.issue.number' "$GITHUB_EVENT_PATH")"
-            if [[ "$kind" == backup-restore ]]; then test "$issue" = 792
-            else test "$issue" = 195; fi
+            test "$issue" = 195
           fi
           echo "release_kind=$kind" >> "$GITHUB_OUTPUT"
           echo "unsigned_digest=$unsigned_digest" >> "$GITHUB_OUTPUT"
