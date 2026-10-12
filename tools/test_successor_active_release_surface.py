@@ -78,7 +78,7 @@ REVIEWED_DEV_WRITERS = {
         "monitorbox-dev-unsigned-core-manager",
         "MONITORBOX_MODULE_SIGNING_KEY",
         "expected_dev_full",
-        "tools/build_successor_dev_delta.py",
+        "monitorbox-dev-unsigned-core-manager",
         "tools/sign_successor_dev_stage.py",
         "actions/upload-artifact@v4",
         "Guarded full Dev promotion with verified readback and rollback",
