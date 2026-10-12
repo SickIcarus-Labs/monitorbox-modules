@@ -110,3 +110,38 @@ def test_signer_staging_rejects_unmatched_source_or_key(tmp_path, monkeypatch):
             signer_seed=base64.b64encode(bytes(32)).decode(),
             core_source_sha="f" * 40,
         )
+
+
+def test_next_dev_release_discards_unreferenced_old_zip_files(tmp_path, monkeypatch):
+    prior, unsigned_dir, trust, seed = prepare(tmp_path, monkeypatch)
+    for i in range(4):
+        (prior / "packages" / f"orphan-{i}.zip").write_bytes(
+            (prior / "packages" / f"old-{i:02d}.zip").read_bytes()
+        )
+    target = tmp_path / "next-dev"
+    signed.stage_signed_dev(
+        prior_platform=prior, unsigned_candidate=unsigned_dir,
+        output=target, trust_root=trust, signer_seed=seed,
+        core_source_sha="f" * 40,
+    )
+    names = {path.name for path in (target / "full/platform/packages").glob("*.zip")}
+    assert len(names) == 26
+    assert not any(name.startswith("orphan-") for name in names)
+
+
+def test_signed_stable_reference_retains_historical_package(tmp_path, monkeypatch):
+    prior, unsigned_dir, trust, seed = prepare(tmp_path, monkeypatch)
+    archive = prior / "packages"
+    (archive / "archived.zip").write_bytes((archive / "old-00.zip").read_bytes())
+    stable = prior / "channels/stable/index.json"
+    data = json.loads(stable.read_text())
+    data["signed"]["artifacts"][0]["package"]["url"] = "platform/packages/archived.zip"
+    stable.write_text(json.dumps(data))
+    target = tmp_path / "keep-stable"
+    signed.stage_signed_dev(
+        prior_platform=prior, unsigned_candidate=unsigned_dir,
+        output=target, trust_root=trust, signer_seed=seed,
+        core_source_sha="f" * 40,
+    )
+    assert (target / "full/platform/packages/archived.zip").is_file()
+    assert len(list((target / "full/platform/packages").glob("*.zip"))) == 27

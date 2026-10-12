@@ -102,14 +102,28 @@ def stage_signed_dev(
         if len(signed["artifacts"]) != 22:
             raise DevReleaseRefused("prior signed channel has incomplete platform closure")
         previous[channel] = signed
-    original_files = {
-        item.name: item for item in source_packages.iterdir()
-        if item.is_file() and item.suffix == ".zip"
-    }
-    if any(p.is_symlink() for p in source_packages.iterdir()):
-        raise DevReleaseRefused("prior feed has symlinked packages")
-    if len(original_files) != len(list(source_packages.iterdir())):
-        raise DevReleaseRefused("prior signed feed package directory contains other files")
+    entries = list(source_packages.iterdir())
+    if (len(entries) > 128 or any(
+        p.is_symlink() or not p.is_file() or p.suffix != ".zip"
+        for p in entries
+    )):
+        raise DevReleaseRefused("prior signed feed package directory is unsafe")
+    original_files = {item.name: item for item in entries}
+    # Carry forward ONLY ZIPs referenced by the three verified signed
+    # catalogs. A previous Dev promotion may have left unreferenced obsolete
+    # Core/Manager ZIPs; they must not grow the image forever.
+    retained_names = set()
+    for channel in CHANNELS:
+        for artifact in previous[channel]["artifacts"]:
+            url = artifact["package"]["url"]
+            if not isinstance(url, str) or not url.startswith("platform/packages/"):
+                raise DevReleaseRefused("signed prior ZIP has an unsafe path")
+            name = url.removeprefix("platform/packages/")
+            if not name or Path(name).name != name:
+                raise DevReleaseRefused("signed prior ZIP name is unsafe")
+            retained_names.add(name)
+    if not retained_names.issubset(original_files):
+        raise DevReleaseRefused("a signed historical catalog package is missing")
 
     unsigned_receipt = json.loads(
         (unsigned_candidate / "release-intent.json").read_text("utf-8")
@@ -135,8 +149,8 @@ def stage_signed_dev(
         full = base / "full"
         target_packages = full / "platform" / "packages"
         target_packages.mkdir(parents=True)
-        for filename, path in original_files.items():
-            shutil.copyfile(path, target_packages / filename)
+        for filename in sorted(retained_names):
+            shutil.copyfile(original_files[filename], target_packages / filename)
         unsigned_packages = unsigned_candidate / "platform" / "packages"
         if unsigned_packages.is_symlink() or not unsigned_packages.is_dir():
             raise DevReleaseRefused("unsigned Dev packages are unavailable")

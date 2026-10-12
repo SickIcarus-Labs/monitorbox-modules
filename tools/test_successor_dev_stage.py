@@ -136,3 +136,19 @@ def test_bad_unsigned_dev_release_fails_closed(tmp_path: Path, monkeypatch, muta
             previous_packages=src, previous_dev_index=index, replacements=changes,
             output=output, core_source_sha=SOURCE, trust_root=trust,
         )
+
+
+def test_subsequent_dev_release_allows_verified_historical_zip_names(tmp_path: Path, monkeypatch):
+    src, index, changes, trust = staged_inputs(tmp_path, monkeypatch)
+    # The first published Dev catalog carries additional old Core/Manager
+    # package files referenced by Stable/Beta; subsequent Dev releases must
+    # still select the active 22-package closure, not reject the whole feed.
+    for i in range(4):
+        (src / f"historical-{i}.zip").write_bytes((src / f"old-{i:02d}.zip").read_bytes())
+    result = stage.stage_unsigned_dev_delta(
+        previous_packages=src, previous_dev_index=index,
+        replacements=changes, output=tmp_path / "second-dev",
+        core_source_sha=SOURCE, trust_root=trust,
+    )
+    assert result["complete_artifact_count"] == 22
+    assert len(list((tmp_path / "second-dev/platform/packages").glob("*.zip"))) == 22

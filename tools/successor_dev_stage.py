@@ -102,9 +102,18 @@ def stage_unsigned_dev_delta(
             raise DevReleaseRefused("ambiguous baseline package filename")
         old_names[name] = key
         verify_package(artifact, previous_packages.parent.parent, {KEY_ID: trusted})
-    actual_names = {p.name for p in previous_packages.iterdir() if p.is_file()}
-    if len(old_names) != 22 or set(old_names) != actual_names:
-        raise DevReleaseRefused("previous signed ZIP inventory is not exact")
+    # A later Dev image may retain old ZIPs that are still referenced by
+    # signed Stable/Beta catalogs. Verify the active Dev closure, rather than
+    # demanding that the entire OCI package directory contain only 22 files.
+    entries = list(previous_packages.iterdir())
+    if (len(entries) > 128 or any(
+        p.is_symlink() or not p.is_file() or p.suffix != ".zip"
+        for p in entries
+    )):
+        raise DevReleaseRefused("prior signed feed package directory is unsafe")
+    actual_names = {p.name for p in entries}
+    if len(old_names) != 22 or not set(old_names).issubset(actual_names):
+        raise DevReleaseRefused("previous signed Dev ZIP inventory is incomplete")
 
     # Staged unsigned ZIPs must come from one reviewed Core source, while the
     # unchanged Agent and ten app packages retain their earlier provenance.
@@ -148,7 +157,7 @@ def stage_unsigned_dev_delta(
             if info.get("platform") != previous_record.get("platform"):
                 raise DevReleaseRefused("Supervisor manager platform changed")
         name = f"{module_id}-{info['version']}-build{info['build']}-{arch}.zip"
-        if name in old_names or name in staged:
+        if name in actual_names or name in staged:
             raise DevReleaseRefused("new version reuses existing package filename")
         staged[name] = (new_file, (module_id, arch), new_identity)
 
