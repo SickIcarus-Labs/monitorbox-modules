@@ -61,7 +61,7 @@ jobs:
           # Exact Core commit must have completed its normal CI successfully.
           gh api "repos/SickIcarus-Labs/monitorbox/actions/runs?head_sha=$CORE_SOURCE_SHA&per_page=100" \
             | jq -e --arg sha "$CORE_SOURCE_SHA" '[.workflow_runs[] | select(.head_sha == $sha)] as $r
-              | ($r | length) >= 17 and all($r[]; .status == "completed" and .conclusion == "success")' \
+              | ($r | length) >= 17 and all($r[]; .status == "completed" and .conclusion == "success")'
       - uses: actions/checkout@v7
         with:
           persist-credentials: false

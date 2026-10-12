@@ -102,3 +102,14 @@ def test_existing_dev_supervisor_pair_is_verified_before_signing():
     assert 'channel="stable"' in proof
     assert 'signed["artifacts"][0]==rows[0]' in proof
     assert 'verify_package(rows[0]' in proof
+
+
+def test_core_ci_admission_shell_has_no_dangling_continuation():
+    """Catch syntax errors in the manual publisher that PR YAML parsing misses."""
+    steps = _parsed()["jobs"]["unsigned"]["steps"]
+    admission = next(step["run"] for step in steps if
+                     step.get("name") == "Refuse malformed selection or unavailable private read credential")
+    last_command = admission.rstrip().splitlines()[-1]
+    assert "all($r[];" in last_command
+    assert not last_command.rstrip().endswith("\\")
+    assert 'gh api "repos/SickIcarus-Labs/monitorbox/actions/runs?' in admission
