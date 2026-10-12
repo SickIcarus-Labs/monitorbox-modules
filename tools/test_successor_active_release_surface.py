@@ -74,10 +74,11 @@ REVIEWED_DEV_WRITERS = {
         "github.ref == 'refs/heads/main'",
         "github.actor == 'SickIcarus'",
         "publish-v3-dev-core-manager",
-        "MONITORBOX_CORE_SOURCE_READ_TOKEN",
+        "UNSIGNED_DIGEST",
+        "monitorbox-dev-unsigned-core-manager",
         "MONITORBOX_MODULE_SIGNING_KEY",
         "expected_dev_full",
-        "tools/build_successor_dev_delta.py",
+        "monitorbox-dev-unsigned-core-manager",
         "tools/sign_successor_dev_stage.py",
         "actions/upload-artifact@v4",
         "Guarded full Dev promotion with verified readback and rollback",
@@ -110,6 +111,8 @@ def test_no_unreviewed_successor_registry_write_path_is_active():
             continue
         if workflow.name in REVIEWED_DEV_WRITERS:
             assert relevant and writes, workflow.name
+            assert "MONITORBOX_CORE_SOURCE_READ_TOKEN" not in raw
+            assert "repository: SickIcarus-Labs/monitorbox" not in raw
             assert "pull_request:" not in raw
             assert "github.event.issue.number == 195" in raw
             assert "github.event.comment.user.login == 'SickIcarus'" in raw

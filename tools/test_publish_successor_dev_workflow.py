@@ -19,7 +19,7 @@ def test_protected_publisher_is_manual_trusted_main_and_owner_only():
     assert parsed["on"]["issue_comment"]["types"] == ["created"]
     inputs = parsed["on"]["workflow_dispatch"]["inputs"]
     assert set(inputs) == {
-        "confirmation", "core_source_sha", "expected_dev_full",
+        "confirmation", "core_source_sha", "expected_dev_full", "unsigned_candidate_digest",
     }
     for value in inputs.values():
         assert value["required"] == "true"
@@ -41,25 +41,31 @@ def test_protected_publisher_is_manual_trusted_main_and_owner_only():
     assert 'test "$action" = "/publish-v3-dev-core-manager"' in resolver
     assert '[[ "$source_sha" =~ ^[0-9a-f]{40}$ ]]' in resolver
     assert '[[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]' in resolver
+    assert '[[ "$unsigned_digest" =~ ^sha256:[0-9a-f]{64}$ ]]' in resolver
 
 
-def test_candidate_build_receives_no_registry_auth_or_signer_secret():
+def test_unsigned_builder_consumes_only_digest_pinned_oci_without_private_pat():
     unsigned = _parsed()["jobs"]["unsigned"]
     steps = unsigned["steps"]
+    raw = PATH.read_text("utf-8")
+    assert "MONITORBOX_CORE_SOURCE_READ_TOKEN" not in raw
+    assert "repository: SickIcarus-Labs/monitorbox" not in raw
+    assert "gh api repos/SickIcarus-Labs/monitorbox" not in raw
+    assert "build_successor_dev_delta.py" not in raw
     assert "MONITORBOX_PLATFORM_SIGNING_KEY" not in str(unsigned)
-    assert all("docker/login-action" not in step.get("uses", "") for step in steps)
-    build_step = next(step for step in steps if step.get("name") == "Build just the four Core and Supervisor ZIPs")
-    assert "build_successor_dev_delta.py" in build_step["run"]
-    assert "--core-source-sha" in build_step["run"]
-    assert "GH_TOKEN" not in unsigned.get("env", {})
-    checkout = next(step for step in steps if step.get("name") == "Check out reviewed private Core source (no signing key)")
-    assert checkout["with"]["persist-credentials"] == "false"
-    assert checkout["with"]["ref"] == "${{ needs.resolve.outputs.core_source_sha }}"
-    token_steps = [
-        step for step in steps
-        if "MONITORBOX_CORE_SOURCE_READ_TOKEN" in str(step)
-    ]
-    assert len(token_steps) == 2
+    assert unsigned["permissions"]["packages"] == "read"
+    assert unsigned["env"]["UNSIGNED_DIGEST"] == "${{ needs.resolve.outputs.unsigned_digest }}"
+    assert any("docker/login-action@v4" == step.get("uses") and
+               step["with"]["password"] == "${{ github.token }}" for step in steps)
+    read = next(x["run"] for x in steps
+                if x.get("name") == "Verify exact public Dev baseline and immutable unsigned OCI digest")
+    assert '"$STAGING@$UNSIGNED_DIGEST"' in read
+    assert 'docker cp "$cid:/unsigned/." "$RUNNER_TEMP/new-packages/"' in read
+    admit = next(x["run"] for x in steps
+                 if x.get("name") == "Admit exact four changed ZIPs and Core source provenance")
+    assert 'len(packages)==4' in admit
+    assert 'meta["git_sha"]==os.environ["CORE_SOURCE_SHA"]' in admit
+    assert 'hashlib.sha256(file.read_bytes()).hexdigest()==item["sha256"]' in admit
 
 
 def test_signing_confined_to_protected_job_and_dev_only_promotion():
@@ -110,15 +116,13 @@ def test_current_full_dev_baseline_is_verified_before_signing():
     assert "supervisor-feed:dev" not in PATH.read_text()
 
 
-def test_core_ci_admission_shell_has_no_dangling_continuation():
-    """Catch syntax errors in the manual publisher that PR YAML parsing misses."""
-    steps = _parsed()["jobs"]["unsigned"]["steps"]
-    admission = next(step["run"] for step in steps if
-                     step.get("name") == "Refuse malformed selection or unavailable private read credential")
-    last_command = admission.rstrip().splitlines()[-1]
-    assert "all($r[];" in last_command
-    assert not last_command.rstrip().endswith("\\")
-    assert 'gh api "repos/SickIcarus-Labs/monitorbox/actions/runs?' in admission
+def test_source_ci_and_auth_are_delegated_to_private_core():
+    """Private source never crosses the public repository checkout boundary."""
+    raw = PATH.read_text("utf-8")
+    assert "MONITORBOX_CORE_SOURCE_READ_TOKEN" not in raw
+    assert "gh api" not in raw
+    assert "SickIcarus-Labs/monitorbox/pulls/782" not in raw
+    assert "unsigned_candidate_digest" in raw
 
 
 def test_module_dev_publisher_never_touches_bootstrap_supervisor_registry():
@@ -129,26 +133,21 @@ def test_module_dev_publisher_never_touches_bootstrap_supervisor_registry():
     assert "--tag \"$FULL:dev\"" in raw
 
 
-def test_real_feed_copy_layout_matches_package_verifier_root():
-    """The actual GHCR image must be copied under prior/platform, not prior/."""
+def test_real_feed_copy_layout_matches_signer_package_verifier_root():
+    """Only protected signer reads baseline signed catalogs; staging supplies four ZIPs."""
     steps = _parsed()["jobs"]
-    for job_id, fetch_name in (
-        ("unsigned", "Verify current signed Dev digest and obtain baseline packages"),
-        ("publish", "Verify exact signed full Dev baseline and reuse its packages"),
-    ):
-        run = next(x["run"] for x in steps[job_id]["steps"] if x.get("name") == fetch_name)
-        assert 'mkdir -p "$RUNNER_TEMP/prior/platform"' in run
-        assert 'docker cp "$cid:/feed/platform/." "$RUNNER_TEMP/prior/platform/"' in run
-        assert '"$RUNNER_TEMP/prior/"' not in run
-    build = next(x["run"] for x in steps["unsigned"]["steps"]
-                 if x.get("name") == "Build just the four Core and Supervisor ZIPs")
-    assert '--previous-packages "$RUNNER_TEMP/prior/platform/packages"' in build
-    assert '--previous-dev-index "$RUNNER_TEMP/prior/platform/channels/dev/index.json"' in build
-    signed = next(x["run"] for x in steps["publish"]["steps"]
-                  if x.get("name") == "Sign only the admitted complete Dev candidate")
+    unsigned_raw = str(steps["unsigned"])
+    assert 'prior/platform' not in unsigned_raw
+    signer = steps["publish"]["steps"]
+    baseline = next(x["run"] for x in signer if x.get("name") ==
+                    "Verify exact signed full Dev baseline and reuse its packages")
+    assert 'mkdir -p "$RUNNER_TEMP/prior/platform"' in baseline
+    assert 'docker cp "$cid:/feed/platform/." "$RUNNER_TEMP/prior/platform/"' in baseline
+    signed = next(x["run"] for x in signer if x.get("name") ==
+                  "Sign only the admitted complete Dev candidate")
     assert '--prior-platform "$RUNNER_TEMP/prior/platform"' in signed
-    admitted = next(x["run"] for x in steps["publish"]["steps"]
-                    if x.get("name") == "Admit exact four ZIPs and stage unsigned complete Dev closure")
+    admitted = next(x["run"] for x in signer if x.get("name") ==
+                    "Admit exact four ZIPs and stage unsigned complete Dev closure")
     assert 'root/"prior/platform/packages"' in admitted
     assert 'root/"prior/platform/channels/dev/index.json"' in admitted
 

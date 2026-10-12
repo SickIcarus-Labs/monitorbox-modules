@@ -1,7 +1,8 @@
 name: Protected signed successor Dev Core/Manager publication
 
 # Owner-only main branch: manual dispatch or authenticated issue #195 comment.
-# Signing key is never available to Core source checkout or PR jobs.
+# Private Core CI publishes a digest-pinned unsigned build; only this trusted
+# modules workflow signs the packages. No cross-repository PAT or Core checkout.
 on:
   workflow_dispatch:
     inputs:
@@ -15,6 +16,10 @@ on:
         type: string
       expected_dev_full:
         description: Current immutable full-feed :dev sha256 digest
+        required: true
+        type: string
+      unsigned_candidate_digest:
+        description: Exact unsigned Core/Manager OCI artifact sha256 digest
         required: true
         type: string
   issue_comment:
@@ -44,6 +49,7 @@ jobs:
     outputs:
       core_source_sha: ${{ steps.intent.outputs.core_source_sha }}
       expected_dev_full: ${{ steps.intent.outputs.expected_dev_full }}
+      unsigned_digest: ${{ steps.intent.outputs.unsigned_digest }}
     steps:
       - name: Validate exact owner release intent
         id: intent
@@ -52,125 +58,85 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           MANUAL_SHA: ${{ inputs.core_source_sha }}
           MANUAL_DIGEST: ${{ inputs.expected_dev_full }}
+          MANUAL_UNSIGNED: ${{ inputs.unsigned_candidate_digest }}
         run: |
           set -euo pipefail
           if [[ "$EVENT_NAME" == "issue_comment" ]]; then
             command="$(jq -r '.comment.body // empty' "$GITHUB_EVENT_PATH")"
-            read -r action source_sha digest extra <<< "$command"
+            read -r action source_sha digest unsigned_digest extra <<< "$command"
             test "$action" = "/publish-v3-dev-core-manager"
             test -z "${extra:-}"
           else
             source_sha="$MANUAL_SHA"
             digest="$MANUAL_DIGEST"
+            unsigned_digest="$MANUAL_UNSIGNED"
           fi
           [[ "$source_sha" =~ ^[0-9a-f]{40}$ ]]
           [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          [[ "$unsigned_digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "unsigned_digest=$unsigned_digest" >> "$GITHUB_OUTPUT"
           echo "core_source_sha=$source_sha" >> "$GITHUB_OUTPUT"
           echo "expected_dev_full=$digest" >> "$GITHUB_OUTPUT"
   unsigned:
-    name: Build exact Core/Manager Dev delta without signing key
+    name: Verify digest-pinned unsigned Core/Manager ZIPs
     needs: resolve
     runs-on: ubuntu-latest
-    timeout-minutes: 65
+    timeout-minutes: 12
     permissions:
       contents: read
       packages: read
     env:
       CORE_SOURCE_SHA: ${{ needs.resolve.outputs.core_source_sha }}
       EXPECTED_DEV_FULL: ${{ needs.resolve.outputs.expected_dev_full }}
+      UNSIGNED_DIGEST: ${{ needs.resolve.outputs.unsigned_digest }}
+      STAGING: ghcr.io/sickicarus-labs/monitorbox-dev-unsigned-core-manager
       FULL: ghcr.io/sickicarus-labs/monitorbox-successor-signed-feed
     steps:
-      - name: Refuse malformed selection or unavailable private read credential
-        env:
-          GH_TOKEN: ${{ secrets.MONITORBOX_CORE_SOURCE_READ_TOKEN }}
-        run: |
-          set -euo pipefail
-          [[ "$CORE_SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$EXPECTED_DEV_FULL" =~ ^sha256:[0-9a-f]{64}$ ]]
-          test -n "$GH_TOKEN"
-          # Never accept a moving PR head behind the operator's reviewed SHA.
-          current="$(gh api repos/SickIcarus-Labs/monitorbox/pulls/782 --jq '.head.sha')"
-          test "$current" = "$CORE_SOURCE_SHA"
-          # Exact Core commit must have completed its normal CI successfully.
-          gh api "repos/SickIcarus-Labs/monitorbox/actions/runs?head_sha=$CORE_SOURCE_SHA&per_page=100" \
-            | jq -e --arg sha "$CORE_SOURCE_SHA" '[.workflow_runs[] | select(.head_sha == $sha)] as $r
-              | ($r | length) >= 17 and all($r[]; .status == "completed" and .conclusion == "success")'
-      - uses: actions/checkout@v7
+      - uses: docker/login-action@v4
         with:
-          persist-credentials: false
-          path: modules
-      - name: Check out reviewed private Core source (no signing key)
-        uses: actions/checkout@v7
-        with:
-          repository: SickIcarus-Labs/monitorbox
-          ref: ${{ needs.resolve.outputs.core_source_sha }}
-          token: ${{ secrets.MONITORBOX_CORE_SOURCE_READ_TOKEN }}
-          persist-credentials: false
-          path: core
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.13'
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: core/scaffold/go.mod
-      - name: Install verifier dependencies
-        run: python -m pip install --disable-pip-version-check 'cryptography>=45,<49' 'jsonschema>=4,<5'
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
       - uses: docker/setup-buildx-action@v4
-      - name: Verify current signed Dev digest and obtain baseline packages
+      - name: Verify exact public Dev baseline and immutable unsigned OCI digest
         run: |
-          set -euo pipefail
+          [[ "$CORE_SOURCE_SHA" =~ ^[a-f0-9]{40}$ ]]
+          [[ "$UNSIGNED_DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]]
+          [[ "$EXPECTED_DEV_FULL" =~ ^sha256:[a-f0-9]{64}$ ]]
           observed="$(docker buildx imagetools inspect "$FULL:dev" | awk '/^Digest:/ {print $2;exit}')"
           test "$observed" = "$EXPECTED_DEV_FULL"
-          docker pull --quiet --platform linux/amd64 "$FULL@$EXPECTED_DEV_FULL" >/dev/null
-          cid="$(docker create --platform linux/amd64 "$FULL@$EXPECTED_DEV_FULL")"
-          mkdir -p "$RUNNER_TEMP/prior/platform"
-          docker cp "$cid:/feed/platform/." "$RUNNER_TEMP/prior/platform/"
-          docker rm -f "$cid" >/dev/null
-          test -s "$RUNNER_TEMP/prior/platform/channels/dev/index.json"
-      - name: Build just the four Core and Supervisor ZIPs
-        run: |
-          set -euo pipefail
-          test "$(git -C core rev-parse HEAD)" = "$CORE_SOURCE_SHA"
-          python modules/tools/build_successor_dev_delta.py \
-            --modules-root "$GITHUB_WORKSPACE/modules" \
-            --core-root "$GITHUB_WORKSPACE/core" \
-            --previous-packages "$RUNNER_TEMP/prior/platform/packages" \
-            --previous-dev-index "$RUNNER_TEMP/prior/platform/channels/dev/index.json" \
-            --trust-root "$GITHUB_WORKSPACE/modules/trust/official-ed25519-1.pub" \
-            --core-source-sha "$CORE_SOURCE_SHA" \
-            --output "$RUNNER_TEMP/unsigned"
-      - name: Export only four new packages (no large unchanged runtime ZIPs)
-        run: |
-          set -euo pipefail
+          docker pull --quiet --platform linux/amd64 "$STAGING@$UNSIGNED_DIGEST" >/dev/null
+          cid="$(docker create --platform linux/amd64 "$STAGING@$UNSIGNED_DIGEST" /bin/true)"
           mkdir -p "$RUNNER_TEMP/new-packages"
+          docker cp "$cid:/unsigned/." "$RUNNER_TEMP/new-packages/"
+          docker rm -f "$cid" >/dev/null
+      - name: Admit exact four changed ZIPs and Core source provenance
+        run: |
           python - <<'PY'
-          import hashlib,json,os,shutil
+          import hashlib,json,os,re,zipfile
           from pathlib import Path
-          root=Path(os.environ["RUNNER_TEMP"])
-          before={p.name for p in (root/"prior/platform/packages").glob("*.zip")}
-          entries=json.loads((root/"unsigned/catalog.source.json").read_text())["artifacts"]
-          changed=[
-              item for item in entries
-              if item["artifact_id"] in {
-                  "com.sickicarus.monitorbox.core",
-                  "com.sickicarus.monitorbox.scaffold-manager",
-              }
-          ]
-          assert len(changed)==4
-          receipt={"core_source_sha":os.environ["CORE_SOURCE_SHA"],"packages":[]}
-          for item in changed:
-              filename=item["package_file"]
-              assert filename not in before and Path(filename).name==filename
-              src=root/"unsigned/platform/packages"/filename
-              shutil.copyfile(src,root/"new-packages"/filename)
-              receipt["packages"].append({
-                  "artifact_id":item["artifact_id"],
-                  "arch":item["platform"]["arch"],
-                  "name":filename,
-                  "sha256":hashlib.sha256(src.read_bytes()).hexdigest(),
-              })
-          assert len({(x["artifact_id"],x["arch"]) for x in receipt["packages"]})==4
-          (root/"new-packages/manifest.json").write_text(json.dumps(receipt,sort_keys=True)+"\n")
+          root=Path(os.environ["RUNNER_TEMP"])/"new-packages"
+          receipt=json.loads((root/"manifest.json").read_text())
+          assert receipt["core_source_sha"]==os.environ["CORE_SOURCE_SHA"]
+          packages=receipt["packages"]
+          expected={(mid,arch) for mid in (
+              "com.sickicarus.monitorbox.core",
+              "com.sickicarus.monitorbox.scaffold-manager",
+          ) for arch in ("amd64","arm64")}
+          assert len(packages)==4
+          assert {(p["artifact_id"],p["arch"]) for p in packages}==expected
+          assert {p.name for p in root.iterdir()}=={"manifest.json"}|{p["name"] for p in packages}
+          for item in packages:
+              name=item["name"]
+              assert Path(name).name==name and re.fullmatch(r"[a-f0-9]{64}",item["sha256"])
+              file=root/name
+              assert hashlib.sha256(file.read_bytes()).hexdigest()==item["sha256"]
+              with zipfile.ZipFile(file) as z:
+                  assert z.testzip() is None
+                  assert z.namelist().count("package.json")==1
+                  meta=json.loads(z.read("package.json"))
+                  assert meta["artifact_id"]==item["artifact_id"]
+                  assert meta["git_sha"]==os.environ["CORE_SOURCE_SHA"]
           PY
       - uses: actions/upload-artifact@v4
         with:
