@@ -99,3 +99,28 @@ def test_full_dev_manager_architecture_must_match_baseline():
     row["platform"]["arch"] = "riscv64"
     with pytest.raises(DevReleaseRefused):
         qualify_dev_delta(before, after)
+
+
+def test_br_only_signed_dev_delta_advances_one_arch_any_app():
+    from tools.successor_dev_release import BACKUP_RESTORE
+    before, _, _ = fixture()
+    after = copy.deepcopy(before)
+    after["sequence"] += 1
+    br = next(x for x in after["artifacts"] if x["artifact_id"] == BACKUP_RESTORE)
+    br.update(version="1.0.6", build=8)
+    br["package"]["sha256"] = "b" * 64
+    admitted = qualify_dev_delta(before, after, changed_ids=frozenset({BACKUP_RESTORE}))
+    assert admitted["changed_module_ids"] == [BACKUP_RESTORE]
+    assert admitted["artifact_count"] == 22
+    assert len([x for x in after["artifacts"] if x["artifact_id"] == BACKUP_RESTORE]) == 1
+    for invalid in ("wrong-arch", "same-build", "unrelated-change"):
+        changed = copy.deepcopy(after)
+        row = next(x for x in changed["artifacts"] if x["artifact_id"] == BACKUP_RESTORE)
+        if invalid == "wrong-arch":
+            row["platform"]["arch"] = "amd64"
+        elif invalid == "same-build":
+            row.update(version="1.0.0", build=1)
+        else:
+            next(x for x in changed["artifacts"] if x["artifact_id"] == CORE)["package"]["sha256"] = "c" * 64
+        with pytest.raises(DevReleaseRefused):
+            qualify_dev_delta(before, changed, changed_ids=frozenset({BACKUP_RESTORE}))
