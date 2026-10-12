@@ -123,5 +123,18 @@ jobs:
               print("REVIEWED_BACKUP_RESTORE_SHA256=sha256:" +
                     hashlib.sha256(package.read_bytes()).hexdigest(), flush=True)
           PY
+      - name: Emit qualified release-eligible UI59 ZIP digest for exact source
+        run: |
+          PYTHONPATH=tools python - <<'PY'
+          from pathlib import Path
+          from tempfile import TemporaryDirectory
+          import hashlib
+          from build_successor_first_party_modules import UI_ID, _parse_authority, build_package
+          authority = _parse_authority()[UI_ID]
+          assert (authority["version"], authority["build"]) == ("1.18.1", 59)
+          with TemporaryDirectory() as tmp:
+              z = build_package(authority, Path(tmp), release_eligible=True)
+              print("REVIEWED_UI59_SHA256=sha256:" + hashlib.sha256(z.read_bytes()).hexdigest(), flush=True)
+          PY
       - name: Build loopback feed server
         run: CGO_ENABLED=0 go build -trimpath -o "$RUNNER_TEMP/feed-server" tools/successor_feed_server.go
