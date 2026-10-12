@@ -21,7 +21,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 from build_platform_index import sign_candidate
-from successor_dev_release import AGENT, CORE, MANAGER, BACKUP_RESTORE, DevReleaseRefused, qualify_dev_delta
+from successor_dev_release import AGENT, CORE, MANAGER, BACKUP_RESTORE, UI, DevReleaseRefused, qualify_dev_delta
 from verify_platform_index import _date, verify_index, verify_package
 
 CHANNELS = ("stable", "beta", "dev")
@@ -138,10 +138,10 @@ def stage_signed_dev(
     ):
         raise DevReleaseRefused("unsigned Core candidate has wrong release authority")
     changed = unsigned_receipt.get("changed_roles")
-    permitted = ({CORE, MANAGER}, {AGENT}, {BACKUP_RESTORE})
+    permitted = ({CORE, MANAGER}, {AGENT}, {BACKUP_RESTORE}, {UI})
     if not isinstance(changed, list) or set(changed) not in permitted or len(changed) != len(set(changed)):
         raise DevReleaseRefused("unsigned Dev changed-role intent is not admitted")
-    expected_new_zip_count = 1 if set(changed) == {BACKUP_RESTORE} else 2 * len(changed)
+    expected_new_zip_count = 1 if set(changed) in ({BACKUP_RESTORE}, {UI}) else 2 * len(changed)
     unsigned_source = (unsigned_candidate / "catalog.source.json").read_bytes()
     unsigned_inventory = json.loads(unsigned_source)
     if unsigned_inventory.get("repository_id") != "official-platform" or len(unsigned_inventory.get("artifacts", [])) != 22:

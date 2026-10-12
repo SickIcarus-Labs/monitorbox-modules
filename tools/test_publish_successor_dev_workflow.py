@@ -226,17 +226,20 @@ def test_owner_gated_exact_backup_restore_app_release_uses_existing_signed_dev_f
     assert "pull_request" not in str(_parsed()["on"].keys())
     unsigned = jobs["unsigned"]
     app = next(s for s in unsigned["steps"]
-               if s.get("name") == "Build exact B/R from reviewed public modules main (no signing key)")
-    assert app["if"] == "needs.resolve.outputs.release_kind == 'backup-restore'"
+               if s.get("name") == "Build exact app from reviewed public modules main (no signing key)")
+    assert "needs.resolve.outputs.release_kind == 'backup-restore'" in app["if"]
+    assert "needs.resolve.outputs.release_kind == 'ui'" in app["if"]
     assert 'test "$(git rev-parse HEAD)" = "$CORE_SOURCE_SHA"' in app["run"]
     assert '("1.0.6", 8)' in app["run"]
+    assert '("1.18.1", 59)' in app["run"]
+    assert 'UI_ID if kind == "ui" else BACKUP_RESTORE_ID' in app["run"]
     assert 'build_package(record, root, release_eligible=True)' in app["run"]
     assert '"sha256:" + digest == os.environ["UNSIGNED_DIGEST"]' in app["run"]
     assert "MONITORBOX_PLATFORM_SIGNING_KEY" not in str(unsigned)
     pub = jobs["publish"]
     admission = next(x for x in pub["steps"]
                      if x.get("name") == "Admit exact native ZIPs and stage unsigned complete Dev closure")
-    assert '("any",) if kind=="backup-restore"' in admission["run"]
+    assert '("any",) if kind in ("backup-restore","ui")' in admission["run"]
     assert 'rebuilt.read_bytes()==submitted.read_bytes()' in admission["run"]
     assert "changed_ids=frozenset(expected)" in admission["run"]
     assert 'root/"prior/platform/channels/dev/index.json"' in admission["run"]
@@ -245,3 +248,26 @@ def test_owner_gated_exact_backup_restore_app_release_uses_existing_signed_dev_f
     assert 'docker buildx imagetools create --tag "$FULL:dev"' in raw
     assert 'docker buildx imagetools create --tag "$FULL:stable"' not in raw
     assert 'docker buildx imagetools create --tag "$FULL:beta"' not in raw
+
+def test_protected_dev_ui59_only_publication_is_isolated():
+    jobs = _parsed()["jobs"]
+    source = PATH.read_text()
+    guard = jobs["resolve"]["if"]
+    assert "publish-v3-dev-ui" in guard
+    assert "github.actor == 'SickIcarus'" in guard
+    assert "github.event.issue.number == 195" in guard
+    assert "pull_request" not in str(_parsed()["on"].keys())
+    publish = jobs["publish"]
+    admitted = next(x["run"] for x in publish["steps"]
+                    if x.get("name") == "Admit exact native ZIPs and stage unsigned complete Dev closure")
+    assert 'expected=({UI} if kind=="ui"' in admitted
+    assert 'arches=("any",) if kind in ("backup-restore","ui")' in admitted
+    assert 'artifact_id=UI if kind=="ui" else BACKUP_RESTORE' in admitted
+    assert 'rebuilt.read_bytes()==submitted.read_bytes()' in admitted
+    assert "changed_ids=frozenset(expected)" in admitted
+    verify = next(x["run"] for x in publish["steps"]
+                  if x.get("name") == "Sign only the admitted complete Dev candidate")
+    assert '"com.sickicarus.monitorbox.ui"' in verify
+    assert "MONITORBOX_MODULE_SIGNING_KEY" not in str(jobs["unsigned"])
+    assert 'docker buildx imagetools create --tag "$FULL:stable"' not in source
+    assert 'docker buildx imagetools create --tag "$FULL:beta"' not in source

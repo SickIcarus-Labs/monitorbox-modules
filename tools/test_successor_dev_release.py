@@ -124,3 +124,24 @@ def test_br_only_signed_dev_delta_advances_one_arch_any_app():
             next(x for x in changed["artifacts"] if x["artifact_id"] == CORE)["package"]["sha256"] = "c" * 64
         with pytest.raises(DevReleaseRefused):
             qualify_dev_delta(before, changed, changed_ids=frozenset({BACKUP_RESTORE}))
+
+def test_ui_only_signed_dev_delta_preserves_21_unchanged_roles():
+    from tools.successor_dev_release import UI
+    before, _, _ = fixture()
+    after = copy.deepcopy(before)
+    after["sequence"] += 1
+    ui = next(item for item in after["artifacts"] if item["artifact_id"] == UI)
+    ui.update(version="1.18.1", build=59)
+    ui["package"]["sha256"] = "b" * 64
+    assert qualify_dev_delta(before, after, changed_ids=frozenset({UI}))["changed_module_ids"] == [UI]
+    for fault in ("wrong-arch", "unrelated-change", "same-build"):
+        changed = copy.deepcopy(after)
+        row = next(item for item in changed["artifacts"] if item["artifact_id"] == UI)
+        if fault == "wrong-arch":
+            row["platform"]["arch"] = "amd64"
+        elif fault == "same-build":
+            row.update(version="1.0.0", build=1)
+        else:
+            next(item for item in changed["artifacts"] if item["artifact_id"] == CORE)["package"]["sha256"] = "f" * 64
+        with pytest.raises(DevReleaseRefused):
+            qualify_dev_delta(before, changed, changed_ids=frozenset({UI}))

@@ -32,10 +32,10 @@ def package(path: Path, item: dict, *, source_sha="e" * 40, stage_name=None, par
         "runtime": {"artifact_id": "python", "version": "1", "build": 1, "sha256": "c" * 64},
         "wheelhouse": {"artifact_id": "wheels", "version": "1", "build": 1, "sha256": "d" * 64},
     }
-    if item["artifact_id"] == BACKUP_RESTORE:
+    if item["artifact_id"] in (BACKUP_RESTORE, "com.sickicarus.monitorbox.ui"):
         manifest["packaging_stage"] = "successor-module-requalification"
         manifest["module_runtime"] = {
-            "module_id": BACKUP_RESTORE,
+            "module_id": item["artifact_id"],
             "version": item["version"],
             "build": item["build"],
         }
@@ -264,4 +264,54 @@ def test_br_unsigned_delta_rejects_unexpected_artifact(tmp_path, monkeypatch, mu
             previous_packages=src, previous_dev_index=index, replacements=changes,
             output=tmp_path / "rejected", core_source_sha=SOURCE,
             trust_root=trust, changed_ids=frozenset({BACKUP_RESTORE}),
+        )
+
+def ui_replacement(tmp_path: Path, monkeypatch):
+    from successor_dev_release import UI
+    src, index, _, trust = staged_inputs(tmp_path, monkeypatch)
+    old = next(x for x in json.loads(index.read_text())["signed"]["artifacts"]
+               if x["artifact_id"] == UI)
+    replacement = tmp_path / "new-ui59.zip"
+    package(replacement, dict(old, version="1.18.1", build=59))
+    return src, index, {(UI, "any"): replacement}, trust
+
+
+def test_ui_only_unsigned_dev_retains_every_other_package(tmp_path, monkeypatch):
+    from successor_dev_release import UI
+    src, index, changes, trust = ui_replacement(tmp_path, monkeypatch)
+    out = tmp_path / "ui59-dev"
+    receipt = stage.stage_unsigned_dev_delta(
+        previous_packages=src, previous_dev_index=index,
+        replacements=changes, output=out, core_source_sha=SOURCE,
+        trust_root=trust, changed_ids=frozenset({UI}),
+    )
+    assert receipt["changed_roles"] == [UI]
+    rows = json.loads((out / "catalog.source.json").read_text())["artifacts"]
+    assert len(rows) == 22
+    assert len(list((out / "platform/packages").glob("*.zip"))) == 22
+    ui = next(x for x in rows if x["artifact_id"] == UI)
+    assert (ui["version"], ui["build"], ui["platform"]["arch"]) == ("1.18.1", 59, "any")
+    assert ui["package_file"] == f"{UI}-1.18.1-build59.zip"
+
+
+@pytest.mark.parametrize("mutation", ["wrong-arch", "second-module", "wrong-runtime"])
+def test_ui_only_stager_refuses_mixed_or_untrusted_input(tmp_path, monkeypatch, mutation):
+    from successor_dev_release import UI
+    src, index, changes, trust = ui_replacement(tmp_path, monkeypatch)
+    if mutation == "wrong-arch":
+        changes[UI, "amd64"] = changes.pop((UI, "any"))
+    elif mutation == "second-module":
+        changes[CORE, "amd64"] = changes[UI, "any"]
+    elif mutation == "wrong-runtime":
+        path = changes[UI, "any"]
+        with zipfile.ZipFile(path) as z:
+            data = json.loads(z.read("package.json"))
+        data["module_runtime"]["version"] = "99.0.0"
+        with zipfile.ZipFile(path, "w") as z:
+            z.writestr("package.json", json.dumps(data))
+    with pytest.raises(DevReleaseRefused):
+        stage.stage_unsigned_dev_delta(
+            previous_packages=src, previous_dev_index=index, replacements=changes,
+            output=tmp_path / "no-ui", core_source_sha=SOURCE,
+            trust_root=trust, changed_ids=frozenset({UI}),
         )

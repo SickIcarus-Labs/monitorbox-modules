@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       confirmation:
-        description: Type publish-v3-dev-core-manager, publish-v3-dev-agent or publish-v3-dev-backup-restore
+        description: Type publish-v3-dev-core-manager, publish-v3-dev-agent, publish-v3-dev-backup-restore or publish-v3-dev-ui
         required: true
         type: string
       core_source_sha:
@@ -38,14 +38,16 @@ jobs:
         (github.event_name == 'workflow_dispatch' &&
          (inputs.confirmation == 'publish-v3-dev-core-manager' ||
           inputs.confirmation == 'publish-v3-dev-agent' ||
-          inputs.confirmation == 'publish-v3-dev-backup-restore')) ||
+          (inputs.confirmation == 'publish-v3-dev-backup-restore' ||
+          inputs.confirmation == 'publish-v3-dev-ui'))) ||
         (github.event_name == 'issue_comment' &&
          github.event.comment.user.login == 'SickIcarus' &&
          github.event.issue.number == 195 &&
          !github.event.issue.pull_request &&
          (startsWith(github.event.comment.body, '/publish-v3-dev-core-manager ') ||
           startsWith(github.event.comment.body, '/publish-v3-dev-agent ') ||
-          startsWith(github.event.comment.body, '/publish-v3-dev-backup-restore ')))
+          startsWith(github.event.comment.body, '/publish-v3-dev-backup-restore ') ||
+          startsWith(github.event.comment.body, '/publish-v3-dev-ui ')))
       )
     runs-on: ubuntu-latest
     permissions:
@@ -70,7 +72,7 @@ jobs:
           if [[ "$EVENT_NAME" == "issue_comment" ]]; then
             command="$(jq -r '.comment.body // empty' "$GITHUB_EVENT_PATH")"
             read -r action source_sha digest unsigned_digest extra <<< "$command"
-            test "$action" = "/publish-v3-dev-core-manager" || test "$action" = "/publish-v3-dev-agent" || test "$action" = "/publish-v3-dev-backup-restore"
+            test "$action" = "/publish-v3-dev-core-manager" || test "$action" = "/publish-v3-dev-agent" || test "$action" = "/publish-v3-dev-backup-restore" || test "$action" = "/publish-v3-dev-ui"
             test -z "${extra:-}"
           else
             source_sha="$MANUAL_SHA"
@@ -82,6 +84,7 @@ jobs:
             /publish-v3-dev-core-manager) kind=core-manager ;;
             /publish-v3-dev-agent) kind=agent ;;
             /publish-v3-dev-backup-restore) kind=backup-restore ;;
+            /publish-v3-dev-ui) kind=ui ;;
             *) exit 1 ;;
           esac
           [[ "$source_sha" =~ ^[0-9a-f]{40}$ ]]
@@ -113,15 +116,15 @@ jobs:
       FULL: ghcr.io/sickicarus-labs/monitorbox-successor-signed-feed
     steps:
       - uses: actions/checkout@v7
-        if: needs.resolve.outputs.release_kind == 'backup-restore'
+        if: (needs.resolve.outputs.release_kind == 'backup-restore' || needs.resolve.outputs.release_kind == 'ui')
         with:
           persist-credentials: false
       - uses: actions/setup-python@v6
-        if: needs.resolve.outputs.release_kind == 'backup-restore'
+        if: (needs.resolve.outputs.release_kind == 'backup-restore' || needs.resolve.outputs.release_kind == 'ui')
         with:
           python-version: '3.13'
       - name: Install app package dependencies
-        if: needs.resolve.outputs.release_kind == 'backup-restore'
+        if: (needs.resolve.outputs.release_kind == 'backup-restore' || needs.resolve.outputs.release_kind == 'ui')
         run: python -m pip install --disable-pip-version-check 'cryptography>=45,<49' 'jsonschema>=4,<5'
       - uses: docker/login-action@v4
         with:
@@ -130,7 +133,7 @@ jobs:
           password: ${{ github.token }}
       - uses: docker/setup-buildx-action@v4
       - name: Verify exact public Dev baseline and immutable unsigned OCI digest
-        if: needs.resolve.outputs.release_kind != 'backup-restore'
+        if: (needs.resolve.outputs.release_kind != 'backup-restore' && needs.resolve.outputs.release_kind != 'ui')
         run: |
           [[ "$CORE_SOURCE_SHA" =~ ^[a-f0-9]{40}$ ]]
           [[ "$UNSIGNED_DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]]
@@ -143,7 +146,7 @@ jobs:
           docker cp "$cid:/unsigned/." "$RUNNER_TEMP/new-packages/"
           docker rm -f "$cid" >/dev/null
       - name: Admit exact native ZIP set and Core source provenance
-        if: needs.resolve.outputs.release_kind != 'backup-restore'
+        if: (needs.resolve.outputs.release_kind != 'backup-restore' && needs.resolve.outputs.release_kind != 'ui')
         run: |
           python - <<'PY'
           import hashlib,json,os,re,zipfile
@@ -171,8 +174,8 @@ jobs:
                   assert meta["artifact_id"]==item["artifact_id"]
                   assert meta["git_sha"]==os.environ["CORE_SOURCE_SHA"]
           PY
-      - name: Build exact B/R from reviewed public modules main (no signing key)
-        if: needs.resolve.outputs.release_kind == 'backup-restore'
+      - name: Build exact app from reviewed public modules main (no signing key)
+        if: (needs.resolve.outputs.release_kind == 'backup-restore' || needs.resolve.outputs.release_kind == 'ui')
         env:
           PYTHONPATH: tools
         run: |
@@ -182,17 +185,20 @@ jobs:
           import hashlib, json, os
           from pathlib import Path
           from build_successor_first_party_modules import (
-              BACKUP_RESTORE_ID, _parse_authority, build_package,
+              BACKUP_RESTORE_ID, UI_ID, _parse_authority, build_package,
           )
-          record = _parse_authority()[BACKUP_RESTORE_ID]
-          assert (record["version"], record["build"]) == ("1.0.6", 8)
+          kind = os.environ["RELEASE_KIND"]
+          artifact_id = UI_ID if kind == "ui" else BACKUP_RESTORE_ID
+          expected = ("1.18.1", 59) if kind == "ui" else ("1.0.6", 8)
+          record = _parse_authority()[artifact_id]
+          assert (record["version"], record["build"]) == expected
           root = Path(os.environ["RUNNER_TEMP"]) / "new-packages"
           root.mkdir()
           path = build_package(record, root, release_eligible=True)
           digest = hashlib.sha256(path.read_bytes()).hexdigest()
           assert "sha256:" + digest == os.environ["UNSIGNED_DIGEST"], "reviewed package digest drift"
           receipt = {"core_source_sha": os.environ["CORE_SOURCE_SHA"], "packages": [{
-              "artifact_id": BACKUP_RESTORE_ID, "arch": "any",
+              "artifact_id": artifact_id, "arch": "any",
               "name": path.name, "sha256": digest,
           }]}
           (root / "manifest.json").write_text(json.dumps(receipt, sort_keys=True) + "\n")
@@ -264,23 +270,24 @@ jobs:
           python - <<'PY'
           import hashlib,json,os,re
           from pathlib import Path
-          from successor_dev_release import AGENT,CORE,MANAGER,BACKUP_RESTORE
+          from successor_dev_release import AGENT,CORE,MANAGER,BACKUP_RESTORE,UI
           from successor_dev_stage import stage_unsigned_dev_delta
           from build_successor_first_party_modules import _parse_authority, build_package
           root=Path(os.environ["RUNNER_TEMP"])
           manifest=json.loads((root/"new-packages/manifest.json").read_text())
           assert manifest["core_source_sha"]==os.environ["CORE_SOURCE_SHA"]
           kind=os.environ["RELEASE_KIND"]
-          expected=({BACKUP_RESTORE} if kind=="backup-restore" else
+          expected=({UI} if kind=="ui" else {BACKUP_RESTORE} if kind=="backup-restore" else
                     {AGENT} if kind=="agent" else {CORE,MANAGER})
-          arches=("any",) if kind=="backup-restore" else ("amd64","arm64")
+          arches=("any",) if kind in ("backup-restore","ui") else ("amd64","arm64")
           assert len(manifest["packages"])==len(expected)*len(arches)
-          if kind=="backup-restore":
+          if kind in ("backup-restore","ui"):
             # Independently reproduce the exact package from protected main.
             assert __import__("subprocess").check_output(
               ["git","rev-parse","HEAD"],text=True).strip()==os.environ["CORE_SOURCE_SHA"]
-            record=_parse_authority()[BACKUP_RESTORE]
-            assert (record["version"],record["build"])==("1.0.6",8)
+            artifact_id=UI if kind=="ui" else BACKUP_RESTORE
+            record=_parse_authority()[artifact_id]
+            assert (record["version"],record["build"])==( ("1.18.1",59) if kind=="ui" else ("1.0.6",8) )
             rebuilt=build_package(record,root/"rebuilt",release_eligible=True)
             submitted=root/"new-packages"/rebuilt.name
             assert rebuilt.read_bytes()==submitted.read_bytes()
@@ -327,9 +334,9 @@ jobs:
           intent=json.loads((root/"release-intent.json").read_text())
           assert intent["outer_channels_to_publish"]==["dev"]
           assert intent["artifact_count"]==22
-          if os.environ["RELEASE_KIND"]=="backup-restore":
-            assert intent["changed_module_ids"]==["com.sickicarus.monitorbox.backup-restore"]
-          if os.environ["RELEASE_KIND"]!="backup-restore":
+          if os.environ["RELEASE_KIND"] in ("backup-restore","ui"):
+            assert intent["changed_module_ids"]==[("com.sickicarus.monitorbox.ui" if os.environ["RELEASE_KIND"]=="ui" else "com.sickicarus.monitorbox.backup-restore")]
+          if os.environ["RELEASE_KIND"] not in ("backup-restore","ui"):
             assert intent["changed_module_ids"]==(\
                 ["com.sickicarus.monitorbox.agent"] if os.environ["RELEASE_KIND"]=="agent" else [
                 "com.sickicarus.monitorbox.core", "com.sickicarus.monitorbox.scaffold-manager",

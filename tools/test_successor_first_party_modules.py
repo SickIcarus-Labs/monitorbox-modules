@@ -60,10 +60,24 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
 
     def test_successor_ui_advances_for_scaffold_lifecycle_operator_contract(self) -> None:
         ui = self.records[subject.UI_ID]
-        self.assertEqual("1.18.0", ui["version"])
-        self.assertEqual(58, ui["build"])
-        self.assertEqual("1.18.0", ui["module_runtime"]["version"])
-        self.assertEqual(58, ui["module_runtime"]["build"])
+        self.assertEqual("1.18.1", ui["version"])
+        self.assertEqual(59, ui["build"])
+        self.assertEqual("1.18.1", ui["module_runtime"]["version"])
+        self.assertEqual(59, ui["module_runtime"]["build"])
+
+    def test_scaffold_distribution_copy_does_not_inherit_false_legacy_failure(self) -> None:
+        ui = self.records[subject.UI_ID]
+        with tempfile.TemporaryDirectory(prefix="ui59-distribution-") as folder:
+            built = subject.build_package(ui, Path(folder), release_eligible=False)
+            with zipfile.ZipFile(built) as archive:
+                name = next(x for x in archive.namelist()
+                            if x.endswith(subject.UI_MODULES_MEMBER_SUFFIX))
+                source = archive.read(name).decode("utf-8")
+        self.assertIn('const distributionReady = scaffoldLifecycle || (catalogRefresh && packageInstall);', source)
+        self.assertIn('if (scaffoldLifecycle && !repositoryError) {', source)
+        self.assertIn('copy.textContent = "Signed module distribution is available through Supervisor.', source)
+        self.assertIn('capabilities.dataset.state = distributionReady && !repositoryError ? "ready" : "limited";', source)
+        self.assertIn('const packageInstall = Boolean(current.package_install);', source)
 
     def test_successor_portainer_advances_for_bounded_parallel_inventory(self) -> None:
         portainer = self.records[subject.PORTAINER_ID]

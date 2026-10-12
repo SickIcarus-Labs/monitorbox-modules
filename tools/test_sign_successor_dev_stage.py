@@ -226,3 +226,42 @@ def test_signer_admits_exact_one_br_only_zip_and_retains_stable_beta(tmp_path, m
     for channel in ("stable", "beta"):
         newer = json.loads((out / f"full/platform/channels/{channel}/index.json").read_text())["signed"]
         assert newer["artifacts"] == baseline["signed"]["artifacts"]
+
+def test_protected_signer_admits_only_ui59_and_preserves_stable_beta(tmp_path, monkeypatch):
+    from successor_dev_release import UI
+    from tools.test_successor_dev_stage import ui_replacement
+    old_packages, old_dev, changes, trust = ui_replacement(tmp_path, monkeypatch)
+    before = json.loads(old_dev.read_text())
+    for channel in ("stable", "beta"):
+        old = json.loads(json.dumps(before))
+        old["signed"]["channel"] = channel
+        target = old_dev.parent.parent / channel / "index.json"
+        target.parent.mkdir()
+        target.write_text(json.dumps(old))
+    prepared = tmp_path / "ui-unsigned"
+    unsigned.stage_unsigned_dev_delta(
+        previous_packages=old_packages, previous_dev_index=old_dev,
+        replacements=changes, output=prepared, core_source_sha="f" * 40,
+        trust_root=trust, changed_ids=frozenset({UI}),
+    )
+    key = Ed25519PrivateKey.generate()
+    seed = base64.b64encode(key.private_bytes(
+        Encoding.Raw, PrivateFormat.Raw, NoEncryption())).decode()
+    trust.write_text(base64.b64encode(key.public_key().public_bytes(
+        Encoding.Raw, PublicFormat.Raw)).decode())
+    monkeypatch.setattr(signed, "verify_index", lambda data, **kw: json.loads(data)["signed"])
+    monkeypatch.setattr(signed, "verify_package", lambda item, root, keys: None)
+    monkeypatch.setattr(signed, "sign_candidate", fake_signed)
+    out = tmp_path / "signed-ui"
+    result = signed.stage_signed_dev(
+        prior_platform=old_packages.parent, unsigned_candidate=prepared,
+        output=out, trust_root=trust, signer_seed=seed, core_source_sha="f" * 40,
+    )
+    assert result["changed_module_ids"] == [UI]
+    assert result["new_dev_zip_count"] == 1
+    assert result["artifact_count"] == 22
+    assert result["outer_channels_to_publish"] == ["dev"]
+    assert len(list((out / "full/platform/packages").glob("*.zip"))) == 23
+    for channel in ("stable", "beta"):
+        index = json.loads((out / f"full/platform/channels/{channel}/index.json").read_text())["signed"]
+        assert index["artifacts"] == before["signed"]["artifacts"]
