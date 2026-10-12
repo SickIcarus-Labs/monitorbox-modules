@@ -10,7 +10,7 @@ from cryptography.hazmat.primitives.serialization import Encoding, PrivateFormat
 
 from tools import successor_dev_stage as unsigned
 from tools import sign_successor_dev_stage as signed
-from tools.test_successor_dev_stage import staged_inputs, package
+from tools.test_successor_dev_stage import staged_inputs, package, br_replacement
 from successor_dev_release import AGENT, DevReleaseRefused
 
 
@@ -184,3 +184,45 @@ def test_signer_allows_agent_only_dev_without_core_or_manager_replacement(tmp_pa
     assert result["new_dev_zip_count"] == 2
     assert result["outer_channels_to_publish"] == ["dev"]
     assert len(list((tmp_path / "signed-agent/full/platform/packages").glob("*.zip"))) == 24
+
+
+def test_signer_admits_exact_one_br_only_zip_and_retains_stable_beta(tmp_path, monkeypatch):
+    from successor_dev_release import BACKUP_RESTORE
+    old_packages, old_dev, replacement, trust = br_replacement(tmp_path, monkeypatch)
+    baseline = json.loads(old_dev.read_text())
+    for channel in ("stable", "beta"):
+        old = json.loads(json.dumps(baseline))
+        old["signed"]["channel"] = channel
+        path = old_dev.parent.parent / channel / "index.json"
+        path.parent.mkdir()
+        path.write_text(json.dumps(old))
+    proposed = tmp_path / "unsigned-br"
+    unsigned.stage_unsigned_dev_delta(
+        previous_packages=old_packages, previous_dev_index=old_dev,
+        replacements=replacement, output=proposed, core_source_sha="f" * 40,
+        trust_root=trust, changed_ids=frozenset({BACKUP_RESTORE}),
+    )
+    private = Ed25519PrivateKey.generate()
+    seed = base64.b64encode(private.private_bytes(
+        Encoding.Raw, PrivateFormat.Raw, NoEncryption()
+    )).decode()
+    trust.write_text(base64.b64encode(private.public_key().public_bytes(
+        Encoding.Raw, PublicFormat.Raw
+    )).decode())
+    monkeypatch.setattr(signed, "verify_index", lambda data, **kw: json.loads(data)["signed"])
+    monkeypatch.setattr(signed, "verify_package", lambda item, root, keys: None)
+    monkeypatch.setattr(signed, "sign_candidate", fake_signed)
+    out = tmp_path / "signed-br"
+    result = signed.stage_signed_dev(
+        prior_platform=old_packages.parent, unsigned_candidate=proposed,
+        output=out, trust_root=trust, signer_seed=seed,
+        core_source_sha="f" * 40,
+    )
+    assert result["changed_module_ids"] == [BACKUP_RESTORE]
+    assert result["new_dev_zip_count"] == 1
+    assert result["outer_channels_to_publish"] == ["dev"]
+    assert result["artifact_count"] == 22
+    assert len(list((out / "full/platform/packages").glob("*.zip"))) == 23
+    for channel in ("stable", "beta"):
+        newer = json.loads((out / f"full/platform/channels/{channel}/index.json").read_text())["signed"]
+        assert newer["artifacts"] == baseline["signed"]["artifacts"]
