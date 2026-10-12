@@ -119,3 +119,27 @@ def test_module_dev_publisher_never_touches_bootstrap_supervisor_registry():
     assert "monitorbox-successor-supervisor-feed" not in raw
     assert "expected_dev_supervisor" not in raw
     assert "--tag \"$FULL:dev\"" in raw
+
+
+def test_real_feed_copy_layout_matches_package_verifier_root():
+    """The actual GHCR image must be copied under prior/platform, not prior/."""
+    steps = _parsed()["jobs"]
+    for job_id, fetch_name in (
+        ("unsigned", "Verify current signed Dev digest and obtain baseline packages"),
+        ("publish", "Verify exact signed full Dev baseline and reuse its packages"),
+    ):
+        run = next(x["run"] for x in steps[job_id]["steps"] if x.get("name") == fetch_name)
+        assert 'mkdir -p "$RUNNER_TEMP/prior/platform"' in run
+        assert 'docker cp "$cid:/feed/platform/." "$RUNNER_TEMP/prior/platform/"' in run
+        assert '"$RUNNER_TEMP/prior/"' not in run
+    build = next(x["run"] for x in steps["unsigned"]["steps"]
+                 if x.get("name") == "Build just the four Core and Supervisor ZIPs")
+    assert '--previous-packages "$RUNNER_TEMP/prior/platform/packages"' in build
+    assert '--previous-dev-index "$RUNNER_TEMP/prior/platform/channels/dev/index.json"' in build
+    signed = next(x["run"] for x in steps["publish"]["steps"]
+                  if x.get("name") == "Sign only the admitted complete Dev candidate")
+    assert '--prior-platform "$RUNNER_TEMP/prior/platform"' in signed
+    admitted = next(x["run"] for x in steps["publish"]["steps"]
+                    if x.get("name") == "Admit exact four ZIPs and stage unsigned complete Dev closure")
+    assert 'root/"prior/platform/packages"' in admitted
+    assert 'root/"prior/platform/channels/dev/index.json"' in admitted

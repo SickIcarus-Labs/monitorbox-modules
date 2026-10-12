@@ -85,10 +85,10 @@ jobs:
           test "$observed" = "$EXPECTED_DEV_FULL"
           docker pull --quiet --platform linux/amd64 "$FULL@$EXPECTED_DEV_FULL" >/dev/null
           cid="$(docker create --platform linux/amd64 "$FULL@$EXPECTED_DEV_FULL")"
-          mkdir -p "$RUNNER_TEMP/prior"
-          docker cp "$cid:/feed/platform/." "$RUNNER_TEMP/prior/"
+          mkdir -p "$RUNNER_TEMP/prior/platform"
+          docker cp "$cid:/feed/platform/." "$RUNNER_TEMP/prior/platform/"
           docker rm -f "$cid" >/dev/null
-          test -s "$RUNNER_TEMP/prior/channels/dev/index.json"
+          test -s "$RUNNER_TEMP/prior/platform/channels/dev/index.json"
       - name: Build just the four Core and Supervisor ZIPs
         run: |
           set -euo pipefail
@@ -96,8 +96,8 @@ jobs:
           python modules/tools/build_successor_dev_delta.py \
             --modules-root "$GITHUB_WORKSPACE/modules" \
             --core-root "$GITHUB_WORKSPACE/core" \
-            --previous-packages "$RUNNER_TEMP/prior/packages" \
-            --previous-dev-index "$RUNNER_TEMP/prior/channels/dev/index.json" \
+            --previous-packages "$RUNNER_TEMP/prior/platform/packages" \
+            --previous-dev-index "$RUNNER_TEMP/prior/platform/channels/dev/index.json" \
             --trust-root "$GITHUB_WORKSPACE/modules/trust/official-ed25519-1.pub" \
             --core-source-sha "$CORE_SOURCE_SHA" \
             --output "$RUNNER_TEMP/unsigned"
@@ -109,7 +109,7 @@ jobs:
           import hashlib,json,os,shutil
           from pathlib import Path
           root=Path(os.environ["RUNNER_TEMP"])
-          before={p.name for p in (root/"prior/packages").glob("*.zip")}
+          before={p.name for p in (root/"prior/platform/packages").glob("*.zip")}
           entries=json.loads((root/"unsigned/catalog.source.json").read_text())["artifacts"]
           changed=[
               item for item in entries
@@ -182,11 +182,11 @@ jobs:
           done
           docker pull --quiet --platform linux/amd64 "$FULL@$EXPECTED_DEV_FULL" >/dev/null
           cid="$(docker create --platform linux/amd64 "$FULL@$EXPECTED_DEV_FULL")"
-          mkdir -p "$RUNNER_TEMP/prior"
-          docker cp "$cid:/feed/platform/." "$RUNNER_TEMP/prior/"
+          mkdir -p "$RUNNER_TEMP/prior/platform"
+          docker cp "$cid:/feed/platform/." "$RUNNER_TEMP/prior/platform/"
           docker rm -f "$cid" >/dev/null
           for channel in stable beta dev; do
-            test -s "$RUNNER_TEMP/prior/channels/$channel/index.json"
+            test -s "$RUNNER_TEMP/prior/platform/channels/$channel/index.json"
           done
       - name: Admit exact four ZIPs and stage unsigned complete Dev closure
         run: |
@@ -211,8 +211,8 @@ jobs:
             assert (mid,arch) not in replacements
             replacements[mid,arch]=source
           stage_unsigned_dev_delta(
-            previous_packages=root/"prior/packages",
-            previous_dev_index=root/"prior/channels/dev/index.json",
+            previous_packages=root/"prior/platform/packages",
+            previous_dev_index=root/"prior/platform/channels/dev/index.json",
             replacements=replacements,
             output=root/"unsigned",
             core_source_sha=os.environ["CORE_SOURCE_SHA"],
@@ -229,7 +229,7 @@ jobs:
           set -euo pipefail
           test -n "$MONITORBOX_PLATFORM_SIGNING_KEY"
           python tools/sign_successor_dev_stage.py \
-            --prior-platform "$RUNNER_TEMP/prior" \
+            --prior-platform "$RUNNER_TEMP/prior/platform" \
             --unsigned-candidate "$RUNNER_TEMP/unsigned" \
             --output "$RUNNER_TEMP/signed" \
             --trust-root trust/official-ed25519-1.pub \
