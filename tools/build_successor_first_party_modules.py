@@ -936,8 +936,8 @@ def _apply_ui_successor_asset_versions(
     /modules using the literal 1.17.1-54 key. Preserve its source bytes
     except for these two bounded, version-derived asset-key replacements.
     """
-    predecessor_key = b"?v=1.17.1-54"
-    successor_key = f"?v={record['version']}-{record['build']}".encode("ascii")
+    predecessor_key = b"1.17.1-54"
+    successor_key = f"{record['version']}-{record['build']}".encode("ascii")
     expected = {
         "monitorbox_ui_b54/__init__.py": 12,
         "monitorbox_ui_b54/assets/dashboard.html": 8,
