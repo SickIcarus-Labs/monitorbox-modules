@@ -34,6 +34,30 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
                 record["platform"]["dependencies"],
             )
 
+    def test_native_json_backup_restore_has_new_independent_module_version(self) -> None:
+        backup = self.records[subject.BACKUP_RESTORE_ID]
+        self.assertEqual("1.0.6", backup["version"])
+        self.assertEqual(8, backup["build"])
+        self.assertEqual(8, backup["module_runtime"]["build"])
+
+    def test_native_json_backup_module_never_starts_zip_scheduler_or_routes(self) -> None:
+        backup = self.records[subject.BACKUP_RESTORE_ID]
+        with tempfile.TemporaryDirectory(prefix="successor-native-json-br-") as folder:
+            built = subject.build_package(backup, Path(folder), release_eligible=False)
+            with zipfile.ZipFile(built) as archive:
+                source = archive.read(subject.BACKUP_RESTORE_ENTRYPOINT_MEMBER).decode("utf-8")
+                self.assertIn('if (platform.root / "portable").is_dir():', source)
+                self.assertIn('raise web.HTTPFound(location="/settings/restore-json")', source)
+                self.assertIn('app.router.add_get("/backup-restore", native_json_page)', source)
+                before = source.index('if (platform.root / "portable").is_dir():')
+                native_return = source.index('        return\n', before)
+                legacy = source.index('    management = BackupRestoreManagement(platform)', before)
+                self.assertLess(before, native_return)
+                self.assertLess(native_return, legacy)
+                self.assertNotIn("_install_admin_routes(", source[before:native_return])
+                self.assertNotIn("management.scheduler.install(", source[before:native_return])
+                self.assertIn("_install_admin_routes(app, application, management)", source[legacy:])
+
     def test_successor_ui_advances_for_scaffold_lifecycle_operator_contract(self) -> None:
         ui = self.records[subject.UI_ID]
         self.assertEqual("1.18.0", ui["version"])
@@ -174,6 +198,15 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
                     )
                     for name in old_names:
                         if (
+                            artifact_id == subject.BACKUP_RESTORE_ID
+                            and name == subject.BACKUP_RESTORE_ENTRYPOINT_MEMBER
+                        ):
+                            self.assertNotEqual(old.read(name), new.read(name))
+                            overlay = new.read(name).decode("utf-8")
+                            self.assertIn("native_json_recovery", overlay)
+                            self.assertIn("native_json_page", overlay)
+                            self.assertIn('"/settings/restore-json"', overlay)
+                        elif (
                             artifact_id == subject.PORTAINER_ID
                             and name == subject.PORTAINER_RUNTIME_MEMBER
                         ):
