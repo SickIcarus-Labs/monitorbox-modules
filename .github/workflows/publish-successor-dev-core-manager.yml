@@ -275,9 +275,19 @@ jobs:
           full="$(resolve "$FULL:$IMMUTABLE_TAG")"
           [[ "$full" =~ ^sha256:[0-9a-f]{64}$ ]]
           echo "NEW_DEV_FULL=$full" >> "$GITHUB_ENV"
+          # Classic Docker image stores cannot safely reuse a single OCI index
+          # digest as two different locally selected platform images.
+          # Bind each readback to the architecture-specific immutable manifest.
+          docker buildx imagetools inspect "$FULL@$full" --raw > "$RUNNER_TEMP/full-oci-index.json"
           for arch in amd64 arm64; do
-            docker pull --quiet --platform "linux/$arch" "$FULL@$full" >/dev/null
-            cid="$(docker create --platform "linux/$arch" "$FULL@$full")"
+            platform_digest="$(jq -er --arg arch "$arch" '
+              [.manifests[] | select(.platform.os == "linux" and
+                                    .platform.architecture == $arch) | .digest]
+              | if length == 1 then .[0] else error("missing/duplicate platform") end
+            ' "$RUNNER_TEMP/full-oci-index.json")"
+            [[ "$platform_digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+            docker pull --quiet --platform "linux/$arch" "$FULL@$platform_digest" >/dev/null
+            cid="$(docker create --platform "linux/$arch" "$FULL@$platform_digest")"
             mkdir -p "$RUNNER_TEMP/readback"
             docker cp "$cid:/feed/platform/." "$RUNNER_TEMP/readback/"
             docker rm -f "$cid" >/dev/null
