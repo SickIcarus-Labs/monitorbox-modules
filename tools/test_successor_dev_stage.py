@@ -9,7 +9,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 from tools import successor_dev_stage as stage
-from tools.successor_dev_release import CORE, MANAGER, DevReleaseRefused
+from successor_dev_release import CORE, MANAGER, DevReleaseRefused
 from tools.test_successor_dev_release import fixture
 
 SOURCE = "f" * 40

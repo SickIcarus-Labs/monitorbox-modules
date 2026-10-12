@@ -126,7 +126,7 @@ def qualify_dev_delta(
         raise DevReleaseRefused("missing paired signed Supervisor architectures")
     for arch in sorted(ARCHES):
         sup = supervisor_by_arch[arch]
-        managers = _records(sup, channel="dev", full=False)
+        managers = _records(sup, channel="stable", full=False)
         only = next(iter(managers.values()))
         if only["artifact_id"] != MANAGER or only["platform"]["arch"] != arch:
             raise DevReleaseRefused("Supervisor catalog has wrong manager architecture")

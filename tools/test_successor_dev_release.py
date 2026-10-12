@@ -48,7 +48,7 @@ def fixture():
             artifact["package"]["sha256"] = "b" * 64
     managers = {
         arch: {
-            "repository_id": "official-platform", "channel": "dev",
+            "repository_id": "official-platform", "channel": "stable",
             "sequence": 11,
             "artifacts": [
                 copy.deepcopy(next(
