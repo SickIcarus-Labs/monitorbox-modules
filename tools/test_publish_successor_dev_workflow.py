@@ -1,0 +1,91 @@
+"""Parse and validate the non-executable Dev publisher safety contract."""
+from pathlib import Path
+
+import yaml
+
+
+PATH = Path(__file__).resolve().parents[1] / ".github/workflows/publish-successor-dev-core-manager.yml"
+
+
+def _parsed():
+    parsed = yaml.load(PATH.read_text("utf-8"), Loader=yaml.BaseLoader)
+    assert isinstance(parsed, dict)
+    return parsed
+
+
+def test_protected_publisher_is_manual_trusted_main_and_owner_only():
+    parsed = _parsed()
+    assert list(parsed["on"]) == ["workflow_dispatch"]
+    inputs = parsed["on"]["workflow_dispatch"]["inputs"]
+    assert set(inputs) == {
+        "confirmation", "core_source_sha", "expected_dev_full",
+        "expected_dev_supervisor",
+    }
+    for value in inputs.values():
+        assert value["required"] == "true"
+    jobs = parsed["jobs"]
+    assert set(jobs) == {"unsigned", "publish"}
+    assert jobs["publish"]["needs"] == "unsigned"
+    guard = jobs["unsigned"]["if"]
+    assert "github.ref == 'refs/heads/main'" in guard
+    assert "github.actor == 'SickIcarus'" in guard
+    assert "publish-v3-dev-core-manager" in guard
+    assert parsed["concurrency"]["cancel-in-progress"] == "false"
+    assert parsed["concurrency"]["group"] == "successor-signed-feed-publication"
+    assert "pull_request" not in parsed["on"]
+    assert "issue_comment" not in parsed["on"]
+
+
+def test_candidate_build_receives_no_registry_auth_or_signer_secret():
+    unsigned = _parsed()["jobs"]["unsigned"]
+    steps = unsigned["steps"]
+    assert "MONITORBOX_PLATFORM_SIGNING_KEY" not in str(unsigned)
+    assert all("docker/login-action" not in step.get("uses", "") for step in steps)
+    build_step = next(step for step in steps if step.get("name") == "Build just the four Core and Supervisor ZIPs")
+    assert "build_successor_dev_delta.py" in build_step["run"]
+    assert "--core-source-sha" in build_step["run"]
+    assert "GH_TOKEN" not in unsigned.get("env", {})
+    checkout = next(step for step in steps if step.get("name") == "Check out reviewed private Core source (no signing key)")
+    assert checkout["with"]["persist-credentials"] == "false"
+    assert checkout["with"]["ref"] == "${{ inputs.core_source_sha }}"
+    token_steps = [
+        step for step in steps
+        if "MONITORBOX_CORE_SOURCE_READ_TOKEN" in str(step)
+    ]
+    assert len(token_steps) == 2
+
+
+def test_signing_confined_to_protected_job_and_dev_only_promotion():
+    job = _parsed()["jobs"]["publish"]
+    steps = job["steps"]
+    assert not [
+        step for step in steps
+        if "SickIcarus-Labs/monitorbox" in str(step.get("with", {}))
+    ]
+    signing = next(step for step in steps if step.get("name") == "Sign only the admitted complete Dev candidate")
+    assert signing["env"]["MONITORBOX_PLATFORM_SIGNING_KEY"] == "${{ secrets.MONITORBOX_MODULE_SIGNING_KEY }}"
+    assert "sign_successor_dev_stage.py" in signing["run"]
+    assert "stage_unsigned_dev_delta(" in next(
+        step["run"] for step in steps
+        if step.get("name") == "Admit exact four ZIPs and stage unsigned complete Dev closure"
+    )
+    promotion = next(
+        step["run"] for step in steps
+        if step.get("name") == "Guarded Dev-only two-pointer promotion with rollback"
+    )
+    assert "trap rollback_dev ERR" in promotion
+    assert 'test "$(resolve "$FULL:dev")" = "$EXPECTED_DEV_FULL"' in promotion
+    assert 'test "$(resolve "$SUP:dev")" = "$EXPECTED_DEV_SUP"' in promotion
+    assert 'docker buildx imagetools create --tag "$FULL:dev"' in promotion
+    assert 'docker buildx imagetools create --tag "$SUP:dev"' in promotion
+    for channel in ("stable", "beta"):
+        assert 'imagetools create --tag "$FULL:' + channel + '"' not in promotion
+        assert 'imagetools create --tag "$SUP:' + channel + '"' not in promotion
+    immutable = next(
+        step["run"] for step in steps
+        if step.get("name") == "Publish immutable full/Supervisor images; do not move channels"
+    )
+    assert 'tag="dev-core-$CORE_SOURCE_SHA-$GITHUB_RUN_ID"' in immutable
+    assert "docker buildx build --platform linux/amd64,linux/arm64" in immutable
+    assert 'docker buildx imagetools create --tag "$SUP:$tag"' in immutable
+    assert any(step.get("name", "").startswith("Verify both immutable OCI images") for step in steps)
