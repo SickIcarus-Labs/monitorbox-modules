@@ -1,0 +1,372 @@
+name: Protected signed successor Dev Core/Manager publication
+
+# Manual owner-only release AFTER review/merge of the publication policy.
+# Draft PR tests cannot invoke this; never signs code in an untrusted PR job.
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type publish-v3-dev-core-manager
+        required: true
+        type: string
+      core_source_sha:
+        description: Exact reviewed 40-character Core PR #782 commit
+        required: true
+        type: string
+      expected_dev_full:
+        description: Current immutable full-feed :dev sha256 digest
+        required: true
+        type: string
+      expected_dev_supervisor:
+        description: Current immutable Supervisor-feed :dev sha256 digest
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: successor-signed-feed-publication
+  cancel-in-progress: false
+
+jobs:
+  unsigned:
+    name: Build exact Core/Manager Dev delta without signing key
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.actor == 'SickIcarus' &&
+      inputs.confirmation == 'publish-v3-dev-core-manager'
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    permissions:
+      contents: read
+      packages: read
+    env:
+      CORE_SOURCE_SHA: ${{ inputs.core_source_sha }
+      EXPECTED_DEV_FULL: ${{ inputs.expected_dev_full }
+      GH_TOKEN: ${{ secrets.MONITORBOX_CORE_SOURCE_READ_TOKEN }
+      FULL: ghcr.io/sickicarus-labs/monitorbox-successor-signed-feed
+    steps:
+      - name: Refuse malformed selection or unavailable private read credential
+        run: |
+          set -euo pipefail
+          [[ "$CORE_SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$EXPECTED_DEV_FULL" =~ ^sha256:[0-9a-f]{64}$ ]]
+          [[ "${{ inputs.expected_dev_supervisor }" =~ ^sha256:[0-9a-f]{64}$ ]]
+          test -n "$GH_TOKEN"
+          # Never accept a moving PR head behind the operator's reviewed SHA.
+          current="$(gh api repos/SickIcarus-Labs/monitorbox/pulls/782 --jq '.head.sha')"
+          test "$current" = "$CORE_SOURCE_SHA"
+          # Exact Core commit must have completed its normal CI successfully.
+          gh api "repos/SickIcarus-Labs/monitorbox/actions/runs?head_sha=$CORE_SOURCE_SHA&per_page=100" \
+            | jq -e '[.workflow_runs[] | select(.head_sha == $sha)] as $r
+              | ($r | length) >= 17 and all($r[]; .status == "completed" and .conclusion == "success")' \
+              --arg sha "$CORE_SOURCE_SHA"
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          path: modules
+      - name: Check out reviewed private Core source (no signing key)
+        uses: actions/checkout@v7
+        with:
+          repository: SickIcarus-Labs/monitorbox
+          ref: ${{ inputs.core_source_sha }
+          token: ${{ secrets.MONITORBOX_CORE_SOURCE_READ_TOKEN }
+          persist-credentials: false
+          path: core
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: core/scaffold/go.mod
+      - name: Install verifier dependencies
+        run: python -m pip install --disable-pip-version-check 'cryptography>=45,<49' 'jsonschema>=4,<5'
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }
+          password: ${{ github.token }
+      - name: Verify current signed Dev digest and obtain baseline packages
+        run: |
+          set -euo pipefail
+          observed="$(docker buildx imagetools inspect "$FULL:dev" | awk '/^Digest:/ {print $2;exit}')"
+          test "$observed" = "$EXPECTED_DEV_FULL"
+          docker pull --quiet --platform linux/amd64 "$FULL@$EXPECTED_DEV_FULL" >/dev/null
+          cid="$(docker create --platform linux/amd64 "$FULL@$EXPECTED_DEV_FULL")"
+          mkdir -p "$RUNNER_TEMP/prior"
+          docker cp "$cid:/feed/platform/." "$RUNNER_TEMP/prior/"
+          docker rm -f "$cid" >/dev/null
+          test -s "$RUNNER_TEMP/prior/channels/dev/index.json"
+      - name: Build just the four Core and Supervisor ZIPs
+        run: |
+          set -euo pipefail
+          test "$(git -C core rev-parse HEAD)" = "$CORE_SOURCE_SHA"
+          python modules/tools/build_successor_dev_delta.py \
+            --modules-root "$GITHUB_WORKSPACE/modules" \
+            --core-root "$GITHUB_WORKSPACE/core" \
+            --previous-packages "$RUNNER_TEMP/prior/packages" \
+            --previous-dev-index "$RUNNER_TEMP/prior/channels/dev/index.json" \
+            --trust-root "$GITHUB_WORKSPACE/modules/trust/official-ed25519-1.pub" \
+            --core-source-sha "$CORE_SOURCE_SHA" \
+            --output "$RUNNER_TEMP/unsigned"
+      - name: Export only four new packages (no large unchanged runtime ZIPs)
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/new-packages"
+          python - <<'PY'
+          import hashlib,json,os,shutil
+          from pathlib import Path
+          root=Path(os.environ["RUNNER_TEMP"])
+          before={p.name for p in (root/"prior/packages").glob("*.zip")}
+          entries=json.loads((root/"unsigned/catalog.source.json").read_text())["artifacts"]
+          changed=[
+              item for item in entries
+              if item["artifact_id"] in {
+                  "com.sickicarus.monitorbox.core",
+                  "com.sickicarus.monitorbox.scaffold-manager",
+              }
+          ]
+          assert len(changed)==4
+          receipt={"core_source_sha":os.environ["CORE_SOURCE_SHA"],"packages":[]}
+          for item in changed:
+              filename=item["package_file"]
+              assert filename not in before and Path(filename).name==filename
+              src=root/"unsigned/platform/packages"/filename
+              shutil.copyfile(src,root/"new-packages"/filename)
+              receipt["packages"].append({
+                  "artifact_id":item["artifact_id"],
+                  "arch":item["platform"]["arch"],
+                  "name":filename,
+                  "sha256":hashlib.sha256(src.read_bytes()).hexdigest(),
+              })
+          assert len({(x["artifact_id"],x["arch"]) for x in receipt["packages"]})==4
+          (root/"new-packages/manifest.json").write_text(json.dumps(receipt,sort_keys=True)+"\n")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-dev-core-manager
+          path: ${{ runner.temp }/new-packages/
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Protected official signer; immutable readback; Dev-only pointer transaction
+    needs: unsigned
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    env:
+      CORE_SOURCE_SHA: ${{ inputs.core_source_sha }
+      EXPECTED_DEV_FULL: ${{ inputs.expected_dev_full }
+      EXPECTED_DEV_SUP: ${{ inputs.expected_dev_supervisor }
+      FULL: ghcr.io/sickicarus-labs/monitorbox-successor-signed-feed
+      SUP: ghcr.io/sickicarus-labs/monitorbox-successor-supervisor-feed
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Install trusted signer/verifier dependencies
+        run: python -m pip install --disable-pip-version-check 'cryptography>=45,<49' 'jsonschema>=4,<5'
+      - uses: actions/download-artifact@v4
+        with:
+          name: unsigned-dev-core-manager
+          path: ${{ runner.temp }/new-packages/
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }
+          password: ${{ github.token }
+      - name: Assert unmodified Dev feed pair and download trusted baseline
+        run: |
+          set -euo pipefail
+          resolve() { docker buildx imagetools inspect "$1" | awk '/^Digest:/ {print $2;exit}'; }
+          test "$(resolve "$FULL:dev")" = "$EXPECTED_DEV_FULL"
+          test "$(resolve "$SUP:dev")" = "$EXPECTED_DEV_SUP"
+          for channel in stable beta; do
+            test -n "$(resolve "$FULL:$channel")"
+            test -n "$(resolve "$SUP:$channel")"
+          done
+          docker pull --quiet --platform linux/amd64 "$FULL@$EXPECTED_DEV_FULL" >/dev/null
+          cid="$(docker create --platform linux/amd64 "$FULL@$EXPECTED_DEV_FULL")"
+          mkdir -p "$RUNNER_TEMP/prior"
+          docker cp "$cid:/feed/platform/." "$RUNNER_TEMP/prior/"
+          docker rm -f "$cid" >/dev/null
+          for channel in stable beta dev; do
+            test -s "$RUNNER_TEMP/prior/channels/$channel/index.json"
+          done
+      - name: Admit exact four ZIPs and stage unsigned complete Dev closure
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib,json,os,re
+          from pathlib import Path
+          from successor_dev_release import CORE,MANAGER
+          from successor_dev_stage import stage_unsigned_dev_delta
+          root=Path(os.environ["RUNNER_TEMP"])
+          manifest=json.loads((root/"new-packages/manifest.json").read_text())
+          assert manifest["core_source_sha"]==os.environ["CORE_SOURCE_SHA"]
+          assert len(manifest["packages"])==4
+          replacements={}
+          for item in manifest["packages"]:
+            mid,arch=item["artifact_id"],item["arch"]
+            filename=item["name"]
+            assert mid in (CORE,MANAGER) and arch in ("amd64","arm64")
+            assert Path(filename).name==filename and re.fullmatch(r"[0-9a-f]{64}",item["sha256"])
+            source=root/"new-packages"/filename
+            assert hashlib.sha256(source.read_bytes()).hexdigest()==item["sha256"]
+            assert (mid,arch) not in replacements
+            replacements[mid,arch]=source
+          stage_unsigned_dev_delta(
+            previous_packages=root/"prior/packages",
+            previous_dev_index=root/"prior/channels/dev/index.json",
+            replacements=replacements,
+            output=root/"unsigned",
+            core_source_sha=os.environ["CORE_SOURCE_SHA"],
+            trust_root=Path("trust/official-ed25519-1.pub"),
+          )
+          PY
+        env:
+          PYTHONPATH: tools
+      - name: Sign only the admitted complete Dev candidate
+        env:
+          MONITORBOX_PLATFORM_SIGNING_KEY: ${{ secrets.MONITORBOX_MODULE_SIGNING_KEY }
+          PYTHONPATH: tools
+        run: |
+          set -euo pipefail
+          test -n "$MONITORBOX_PLATFORM_SIGNING_KEY"
+          python tools/sign_successor_dev_stage.py \
+            --prior-platform "$RUNNER_TEMP/prior" \
+            --unsigned-candidate "$RUNNER_TEMP/unsigned" \
+            --output "$RUNNER_TEMP/signed" \
+            --trust-root trust/official-ed25519-1.pub \
+            --core-source-sha "$CORE_SOURCE_SHA"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          root=Path(os.environ["RUNNER_TEMP"])/"signed"
+          intent=json.loads((root/"release-intent.json").read_text())
+          assert intent["outer_channels_to_publish"]==["dev"]
+          assert intent["artifact_count"]==22
+          assert intent["changed_module_ids"]==[
+              "com.sickicarus.monitorbox.core",
+              "com.sickicarus.monitorbox.scaffold-manager",
+          ]
+          PY
+      - name: Publish immutable full/Supervisor images; do not move channels
+        run: |
+          set -euo pipefail
+          tag="dev-core-$CORE_SOURCE_SHA-$GITHUB_RUN_ID"
+          echo "IMMUTABLE_TAG=$tag" >> "$GITHUB_ENV"
+          for component in full supervisor-amd64 supervisor-arm64; do
+            mkdir -p "$RUNNER_TEMP/signed/$component/tools"
+            cp platform/acceptance-feed.Dockerfile "$RUNNER_TEMP/signed/$component/Dockerfile"
+            cp tools/successor_feed_server.go "$RUNNER_TEMP/signed/$component/tools/"
+          done
+          for image in "$FULL:$tag" "$SUP:$tag" "$SUP:$tag-amd64" "$SUP:$tag-arm64"; do
+            if docker buildx imagetools inspect "$image" >/dev/null 2>&1; then
+              echo "::error::immutable release tag already exists"; exit 1
+            fi
+          done
+          docker buildx build --platform linux/amd64,linux/arm64 --provenance=false --push \
+            --tag "$FULL:$tag" "$RUNNER_TEMP/signed/full"
+          for arch in amd64 arm64; do
+            docker buildx build --platform "linux/$arch" --provenance=false --push \
+              --tag "$SUP:$tag-$arch" "$RUNNER_TEMP/signed/supervisor-$arch"
+          done
+          docker buildx imagetools create --tag "$SUP:$tag" \
+            "$SUP:$tag-amd64" "$SUP:$tag-arm64"
+      - name: Verify both immutable OCI images byte-for-byte on each architecture
+        run: |
+          set -euo pipefail
+          resolve() { docker buildx imagetools inspect "$1" | awk '/^Digest:/ {print $2;exit}'; }
+          full="$(resolve "$FULL:$IMMUTABLE_TAG")"
+          sup="$(resolve "$SUP:$IMMUTABLE_TAG")"
+          [[ "$full" =~ ^sha256:[0-9a-f]{64}$ ]]
+          [[ "$sup" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "NEW_DEV_FULL=$full" >> "$GITHUB_ENV"
+          echo "NEW_DEV_SUP=$sup" >> "$GITHUB_ENV"
+          for arch in amd64 arm64; do
+            for kind in full supervisor; do
+              if [[ "$kind" == full ]]; then
+                image="$FULL@$full"
+                expected="$RUNNER_TEMP/signed/full/platform"
+              else
+                image="$SUP@$sup"
+                expected="$RUNNER_TEMP/signed/supervisor-$arch/platform"
+              fi
+              docker pull --quiet --platform "linux/$arch" "$image" >/dev/null
+              cid="$(docker create --platform "linux/$arch" "$image")"
+              mkdir -p "$RUNNER_TEMP/readback"
+              docker cp "$cid:/feed/platform/." "$RUNNER_TEMP/readback/"
+              docker rm -f "$cid" >/dev/null
+              diff -rq "$expected" "$RUNNER_TEMP/readback"
+              rm -rf "$RUNNER_TEMP/readback"
+            done
+          done
+      - name: Save immutable release receipt before moving Dev pointers
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          root=Path(os.environ["RUNNER_TEMP"])/"signed"
+          intent=json.loads((root/"release-intent.json").read_text())
+          intent.update({
+            "source_sha":os.environ["CORE_SOURCE_SHA"],
+            "prior_dev_full_digest":os.environ["EXPECTED_DEV_FULL"],
+            "prior_dev_supervisor_digest":os.environ["EXPECTED_DEV_SUP"],
+            "new_dev_full_digest":os.environ["NEW_DEV_FULL"],
+            "new_dev_supervisor_digest":os.environ["NEW_DEV_SUP"],
+            "state":"immutable-published-not-promoted",
+          })
+          (root/"promotion-receipt.json").write_text(json.dumps(intent,indent=2,sort_keys=True)+"\n")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: successor-dev-protected-promotion-receipt
+          path: ${{ runner.temp }/signed/promotion-receipt.json
+          retention-days: 90
+          if-no-files-found: error
+      - name: Guarded Dev-only two-pointer promotion with rollback
+        run: |
+          set -euo pipefail
+          resolve() { docker buildx imagetools inspect "$1" | awk '/^Digest:/ {print $2;exit}'; }
+          test "$(resolve "$FULL:dev")" = "$EXPECTED_DEV_FULL"
+          test "$(resolve "$SUP:dev")" = "$EXPECTED_DEV_SUP"
+          stable_full="$(resolve "$FULL:stable")"
+          stable_sup="$(resolve "$SUP:stable")"
+          beta_full="$(resolve "$FULL:beta")"
+          beta_sup="$(resolve "$SUP:beta")"
+          rollback_dev() {
+            echo "::error::Dev channel update failed; restoring both exact previous OCI digest pointers"
+            current="$(resolve "$FULL:dev" 2>/dev/null || true)"
+            if [[ "$current" == "$NEW_DEV_FULL" ]]; then
+              docker buildx imagetools create --tag "$FULL:dev" "$FULL@$EXPECTED_DEV_FULL" || true
+            fi
+            current="$(resolve "$SUP:dev" 2>/dev/null || true)"
+            if [[ "$current" == "$NEW_DEV_SUP" ]]; then
+              docker buildx imagetools create --tag "$SUP:dev" "$SUP@$EXPECTED_DEV_SUP" || true
+            fi
+            test "$(resolve "$FULL:dev")" = "$EXPECTED_DEV_FULL" || echo "::error::manual Dev full recovery required"
+            test "$(resolve "$SUP:dev")" = "$EXPECTED_DEV_SUP" || echo "::error::manual Dev Supervisor recovery required"
+          }
+          trap rollback_dev ERR
+          docker buildx imagetools create --tag "$SUP:dev" "$SUP@$NEW_DEV_SUP"
+          test "$(resolve "$SUP:dev")" = "$NEW_DEV_SUP"
+          docker buildx imagetools create --tag "$FULL:dev" "$FULL@$NEW_DEV_FULL"
+          test "$(resolve "$FULL:dev")" = "$NEW_DEV_FULL"
+          test "$(resolve "$SUP:dev")" = "$NEW_DEV_SUP"
+          test "$(resolve "$FULL:stable")" = "$stable_full"
+          test "$(resolve "$SUP:stable")" = "$stable_sup"
+          test "$(resolve "$FULL:beta")" = "$beta_full"
+          test "$(resolve "$SUP:beta")" = "$beta_sup"
+          trap - ERR
+          echo "Verified signed v3 Dev full/Supervisor pair available to Check for Updates → Update All." >> "$GITHUB_STEP_SUMMARY"
