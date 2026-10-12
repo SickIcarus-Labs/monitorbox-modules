@@ -77,11 +77,10 @@ REVIEWED_DEV_WRITERS = {
         "MONITORBOX_CORE_SOURCE_READ_TOKEN",
         "MONITORBOX_MODULE_SIGNING_KEY",
         "expected_dev_full",
-        "expected_dev_supervisor",
         "tools/build_successor_dev_delta.py",
         "tools/sign_successor_dev_stage.py",
         "actions/upload-artifact@v4",
-        "Guarded Dev-only two-pointer promotion with rollback",
+        "Guarded full Dev promotion with verified readback and rollback",
     ),
 }
 
@@ -115,7 +114,7 @@ def test_no_unreviewed_successor_registry_write_path_is_active():
             assert "on:\n  workflow_dispatch:" in raw
             assert "persist-credentials: false" in raw
             assert raw.index("actions/upload-artifact@v4") < raw.index(
-                "Guarded Dev-only two-pointer promotion with rollback"
+                "Guarded full Dev promotion with verified readback and rollback"
             )
             for sentinel in REVIEWED_DEV_WRITERS[workflow.name]:
                 assert sentinel in raw, (workflow.name, sentinel)

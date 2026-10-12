@@ -19,7 +19,6 @@ def test_protected_publisher_is_manual_trusted_main_and_owner_only():
     inputs = parsed["on"]["workflow_dispatch"]["inputs"]
     assert set(inputs) == {
         "confirmation", "core_source_sha", "expected_dev_full",
-        "expected_dev_supervisor",
     }
     for value in inputs.values():
         assert value["required"] == "true"
@@ -71,37 +70,36 @@ def test_signing_confined_to_protected_job_and_dev_only_promotion():
     )
     promotion = next(
         step["run"] for step in steps
-        if step.get("name") == "Guarded Dev-only two-pointer promotion with rollback"
+        if step.get("name") == "Guarded full Dev promotion with verified readback and rollback"
     )
     assert "trap rollback_dev ERR" in promotion
     assert 'test "$(resolve "$FULL:dev")" = "$EXPECTED_DEV_FULL"' in promotion
-    assert 'test "$(resolve "$SUP:dev")" = "$EXPECTED_DEV_SUP"' in promotion
     assert 'docker buildx imagetools create --tag "$FULL:dev"' in promotion
-    assert 'docker buildx imagetools create --tag "$SUP:dev"' in promotion
     for channel in ("stable", "beta"):
         assert 'imagetools create --tag "$FULL:' + channel + '"' not in promotion
-        assert 'imagetools create --tag "$SUP:' + channel + '"' not in promotion
+    assert "supervisor-feed" not in promotion
+    assert "SUP:dev" not in promotion
     immutable = next(
         step["run"] for step in steps
-        if step.get("name") == "Publish immutable full/Supervisor images; do not move channels"
+        if step.get("name") == "Publish immutable full Dev image; leave Stable and Beta untouched"
     )
     assert 'tag="dev-core-$CORE_SOURCE_SHA-$GITHUB_RUN_ID"' in immutable
     assert "docker buildx build --platform linux/amd64,linux/arm64" in immutable
-    assert 'docker buildx imagetools create --tag "$SUP:$tag"' in immutable
-    assert any(step.get("name", "").startswith("Verify both immutable OCI images") for step in steps)
+    assert "imagetools create" not in immutable
+    assert any(step.get("name", "").startswith("Verify immutable full Dev image") for step in steps)
 
 
-def test_existing_dev_supervisor_pair_is_verified_before_signing():
+def test_current_full_dev_baseline_is_verified_before_signing():
     steps = _parsed()["jobs"]["publish"]["steps"]
     names = [step.get("name") for step in steps]
-    signed_pair = "Verify signed current Dev full/Supervisor pair before staging"
-    assert signed_pair in names
-    assert names.index(signed_pair) < names.index("Sign only the admitted complete Dev candidate")
-    proof = next(step["run"] for step in steps if step.get("name") == signed_pair)
-    assert 'channel="dev"' in proof
-    assert 'channel="stable"' in proof
-    assert 'signed["artifacts"][0]==rows[0]' in proof
-    assert 'verify_package(rows[0]' in proof
+    baseline = "Verify exact signed full Dev baseline and reuse its packages"
+    assert baseline in names
+    assert names.index(baseline) < names.index("Sign only the admitted complete Dev candidate")
+    proof = next(step["run"] for step in steps if step.get("name") == baseline)
+    assert 'test "$(resolve "$FULL:dev")" = "$EXPECTED_DEV_FULL"' in proof
+    assert 'test -s "$RUNNER_TEMP/prior/channels/dev/index.json"' not in proof or "for channel in stable beta dev;" in proof
+    assert "SUP:dev" not in _parsed()["jobs"]["publish"]["env"]
+    assert "supervisor-feed:dev" not in PATH.read_text()
 
 
 def test_core_ci_admission_shell_has_no_dangling_continuation():
