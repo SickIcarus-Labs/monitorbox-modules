@@ -12,6 +12,8 @@ on:
       - "docs/release-intent-history/successor-signed-feed-stable-pointer-seq9.yml"
       - "tools/test_successor_signed_feed_stable_pointer_9.py"
       - "tools/successor_release_pairing.py"
+      - "tools/successor_dev_release.py"
+      - "tools/test_successor_dev_release.py"
       - "tools/successor_release_manifest.py"
       - "tools/successor_oci_evidence.py"
       - "tools/successor_registry_extract.py"
@@ -81,6 +83,7 @@ jobs:
           tools/test_successor_signed_feed_stable_pointer.py
           tools/test_successor_signed_feed_stable_pointer_9.py
           tools/test_successor_release_pairing.py
+          tools/test_successor_dev_release.py
           tools/test_successor_promotion_recovery_model.py
           tools/test_successor_release_manifest.py
           tools/test_successor_oci_evidence.py
