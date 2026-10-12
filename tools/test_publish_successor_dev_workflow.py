@@ -31,8 +31,7 @@ def test_protected_publisher_is_manual_trusted_main_and_owner_only():
     assert "github.ref == 'refs/heads/main'" in guard
     assert "github.actor == 'SickIcarus'" in guard
     assert "publish-v3-dev-core-manager" in guard
-    assert parsed["concurrency"]["cancel-in-progress"] == "false"
-    assert parsed["concurrency"]["group"] == "successor-signed-feed-publication"
+    assert "concurrency" not in parsed
     assert "pull_request" not in parsed["on"]
     assert "github.event.comment.user.login == 'SickIcarus'" in guard
     assert "github.event.issue.number == 195" in guard
@@ -152,3 +151,22 @@ def test_real_feed_copy_layout_matches_package_verifier_root():
                     if x.get("name") == "Admit exact four ZIPs and stage unsigned complete Dev closure")
     assert 'root/"prior/platform/packages"' in admitted
     assert 'root/"prior/platform/channels/dev/index.json"' in admitted
+
+
+def test_only_eligible_release_jobs_compete_for_shared_feed_lock():
+    """An unrelated issue comment must not cancel a queued writer before if guards."""
+    for filename, writer in (
+        ("publish-successor-dev-core-manager.yml", "publish"),
+        ("publish-successor-ui58.yml", "publish"),
+        ("resume-successor-ui58.yml", "resume"),
+    ):
+        workflow = yaml.load(
+            (PATH.parent / filename).read_text("utf-8"), Loader=yaml.BaseLoader
+        )
+        assert "concurrency" not in workflow, filename
+        job = workflow["jobs"][writer]
+        assert "if" in job, filename
+        assert job["concurrency"] == {
+            "group": "successor-signed-feed-publication",
+            "cancel-in-progress": "false",
+        }, filename

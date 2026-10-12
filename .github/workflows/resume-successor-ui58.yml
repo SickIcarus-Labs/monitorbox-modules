@@ -15,12 +15,13 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: successor-signed-feed-publication
-  cancel-in-progress: false
-
 jobs:
   resume:
+    # Lock only eligible publishing jobs: unrelated issue comments must not
+    # cancel pending releases before their owner/command guards can skip.
+    concurrency:
+      group: successor-signed-feed-publication
+      cancel-in-progress: false
     name: GET-only immutable readback, signed candidate pairing, durable receipt, promote
     if: >-
       github.ref == 'refs/heads/main' &&
