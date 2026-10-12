@@ -19,7 +19,7 @@ from pathlib import Path
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
-from successor_dev_release import CORE, MANAGER, DevReleaseRefused, _records
+from successor_dev_release import AGENT, CORE, MANAGER, DevReleaseRefused, _records
 from successor_dev_stage import stage_unsigned_dev_delta
 from verify_platform_index import _date, verify_index, verify_package
 
@@ -153,6 +153,93 @@ def build_unsigned_dev(
         )
 
 
+def build_unsigned_agent(
+    *, modules_root: Path, core_root: Path,
+    previous_packages: Path, previous_dev_index: Path,
+    output: Path, trust_root: Path, core_source_sha: str,
+) -> dict:
+    """Build only matched Agent3 ZIPs from reviewed Core source; preserve Core4."""
+    if not isinstance(core_source_sha, str) or not SHA.fullmatch(core_source_sha):
+        raise DevReleaseRefused("invalid exact Core source SHA")
+    for path in (modules_root, core_root):
+        if path.is_symlink() or not path.is_dir():
+            raise DevReleaseRefused("reviewed source directory missing")
+    if output.exists() or output.is_symlink():
+        raise DevReleaseRefused("refusing to overwrite candidate")
+    source_sha = subprocess.check_output(
+        ["git", "-C", str(core_root), "rev-parse", "HEAD"], text=True
+    ).strip()
+    if source_sha != core_source_sha:
+        raise DevReleaseRefused("Agent source checkout does not match approved Core SHA")
+    raw = previous_dev_index.read_bytes()
+    try:
+        index = json.loads(raw)
+        public = Ed25519PublicKey.from_public_bytes(
+            base64.b64decode(trust_root.read_text().strip(), validate=True)
+        )
+        issued = _date(index["signed"]["generated_at"])
+        signed = verify_index(raw, keys={KEY_ID: public}, channel="dev", now=issued)
+        for item in signed["artifacts"]:
+            verify_package(item, previous_packages.parent.parent, {KEY_ID: public})
+        prior = _records(signed, channel="dev", full=True)
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        raise DevReleaseRefused("prior Dev catalog is not signed and complete") from exc
+
+    with tempfile.TemporaryDirectory(prefix="monitorbox-unsigned-dev-agent-") as td:
+        work = Path(td)
+        changes: dict[tuple[str, str], Path] = {}
+        for arch in ARCHES:
+            old_agent = next(
+                (item for key, item in prior.items()
+                 if key[0] == AGENT and key[2] == arch), None
+            )
+            old_core = next(
+                (item for key, item in prior.items()
+                 if key[0] == CORE and key[2] == arch), None
+            )
+            if old_agent is None or old_core is None:
+                raise DevReleaseRefused("signed Agent/Core architecture is absent")
+            version, build = old_agent["version"], old_agent["build"] + 1
+            old_name = old_agent["package"]["url"].removeprefix("platform/packages/")
+            info = _json_from_package(previous_packages / old_name)
+            core_name = old_core["package"]["url"].removeprefix("platform/packages/")
+            core_info = _json_from_package(previous_packages / core_name)
+            if info.get("artifact_id") != AGENT or core_info.get("artifact_id") != CORE:
+                raise DevReleaseRefused("wrong signed Core/Agent artifact identity")
+            runtime_ref = info.get("runtime")
+            wheelhouse_ref = info.get("wheelhouse")
+            if not isinstance(runtime_ref, dict) or not isinstance(wheelhouse_ref, dict):
+                raise DevReleaseRefused("signed Agent runtime dependencies are missing")
+            if runtime_ref != core_info.get("runtime") or wheelhouse_ref != core_info.get("wheelhouse"):
+                raise DevReleaseRefused("signed Core/Agent Python dependency closure differs")
+            out = work / arch
+            out.mkdir()
+            (out / "runtime.json").write_text(json.dumps(runtime_ref, sort_keys=True))
+            (out / "wheelhouse.json").write_text(json.dumps(wheelhouse_ref, sort_keys=True))
+            portable = out / "portable.json"
+            _call([
+                sys.executable, str(modules_root / "tools" / "portable_contracts.py"),
+                "--artifact-id", AGENT, "--version", version,
+                "--build", str(build), "--output", str(portable),
+            ])
+            candidate = out / "new-agent.zip"
+            _call([
+                sys.executable, str(core_root / "tools" / "build_successor_agent3_package.py"),
+                "--source-root", str(core_root), "--artifact-version", version,
+                "--build", str(build), "--git-sha", core_source_sha,
+                "--runtime-ref", str(out / "runtime.json"),
+                "--wheelhouse-ref", str(out / "wheelhouse.json"),
+                "--portable-contract", str(portable),
+                "--release-eligible", "--output", str(candidate),
+            ])
+            changes[AGENT, arch] = candidate
+        return stage_unsigned_dev_delta(
+            previous_packages=previous_packages, previous_dev_index=previous_dev_index,
+            replacements=changes, output=output, core_source_sha=core_source_sha,
+            trust_root=trust_root, changed_ids=frozenset({AGENT}),
+        )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--modules-root", type=Path, required=True)
@@ -162,9 +249,11 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--trust-root", type=Path, required=True)
     parser.add_argument("--core-source-sha", required=True)
-    args = parser.parse_args()
-    receipt = build_unsigned_dev(**vars(args))
-    print("Unsigned Core/Supervisor Dev candidate staged (NOT SIGNED/PUBLISHED): " +
+    parser.add_argument("--agent-only", action="store_true")
+    args = vars(parser.parse_args())
+    agent_only = args.pop("agent_only")
+    receipt = (build_unsigned_agent if agent_only else build_unsigned_dev)(**args)
+    print("Unsigned Dev candidate staged (NOT SIGNED/PUBLISHED): " +
           json.dumps(receipt, sort_keys=True))
 
 

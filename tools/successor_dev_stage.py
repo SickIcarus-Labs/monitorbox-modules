@@ -18,14 +18,29 @@ from typing import Mapping
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
-from successor_dev_release import CORE, MANAGER, DevReleaseRefused, _records, _release_key
+from successor_dev_release import AGENT, CORE, MANAGER, DevReleaseRefused, _records, _release_key
 from verify_platform_index import _date, verify_index, verify_package
 
 SHA = re.compile(r"^[0-9a-f]{40}$")
 DIGEST = re.compile(r"^[0-9a-f]{64}$")
 KEY_ID = "official-ed25519-1"
 ARCHES = ("amd64", "arm64")
-REQUIRED = frozenset((identity, arch) for identity in (CORE, MANAGER) for arch in ARCHES)
+CORE_MANAGER = frozenset({CORE, MANAGER})
+AGENT_ONLY = frozenset({AGENT})
+REQUIRED = frozenset((identity, arch) for identity in CORE_MANAGER for arch in ARCHES)
+
+
+def _agent_config_bytes(path: Path) -> bytes:
+    """Read the exact shared Agent-generation parser from a fully admitted ZIP."""
+    with zipfile.ZipFile(path) as archive:
+        name = "app/monitorbox/v2/config.py"
+        if archive.namelist().count(name) != 1:
+            raise DevReleaseRefused("Core/Agent ZIP lacks a unique generation parser")
+        info = archive.getinfo(name)
+        if info.file_size > 250_000:
+            raise DevReleaseRefused("Core/Agent generation parser is oversized")
+        return archive.read(info)
+
 
 
 def _manifest(path: Path) -> dict:
@@ -53,17 +68,21 @@ def stage_unsigned_dev_delta(
     output: Path,
     core_source_sha: str,
     trust_root: Path,
+    changed_ids: frozenset[str] = CORE_MANAGER,
 ) -> dict:
     """Prepare one 22-ZIP Dev candidate; never sign or modify any OCI tags.
 
-    Caller supplies exactly four unsigned Core/Manager files, one of each per
-    architecture, built from the CI-qualified source commit. Signing remains
-    restricted to trusted main after independent provenance requalification.
+    Caller supplies Core/Manager (four ZIPs) or a repaired Agent (two ZIPs),
+    one per architecture, built from the CI-qualified source commit. Signing
+    remains restricted to trusted main after independent requalification.
     """
     if not SHA.fullmatch(core_source_sha):
         raise DevReleaseRefused("exact Core source commit is required")
-    if set(replacements) != REQUIRED:
-        raise DevReleaseRefused("exact two-architecture Core/Manager change set required")
+    if changed_ids not in (CORE_MANAGER, AGENT_ONLY):
+        raise DevReleaseRefused("Dev delta must change exactly Core/Manager or Agent")
+    required = frozenset((identity, arch) for identity in changed_ids for arch in ARCHES)
+    if set(replacements) != required:
+        raise DevReleaseRefused("exact two-architecture Dev change set required")
     if output.exists() or output.is_symlink():
         raise DevReleaseRefused("refusing to overwrite candidate output")
     if previous_packages.is_symlink() or not previous_packages.is_dir():
@@ -85,13 +104,13 @@ def stage_unsigned_dev_delta(
     previous = _records(signed, channel="dev", full=True)
     if not isinstance(signed.get("sequence"), int) or signed["sequence"] < 1:
         raise DevReleaseRefused("baseline has no valid signed sequence")
-    if not {key[0] for key in previous if key[0] in (CORE, MANAGER)} == {CORE, MANAGER}:
-        raise DevReleaseRefused("baseline lacks Core/Manager roles")
+    if not {key[0] for key in previous if key[0] in (CORE, MANAGER, AGENT)} == {CORE, MANAGER, AGENT}:
+        raise DevReleaseRefused("baseline lacks Core/Agent/Manager roles")
     if not all(
         len([key for key in previous if key[0] == module]) == 2
-        for module in (CORE, MANAGER)
+        for module in (CORE, MANAGER, AGENT)
     ):
-        raise DevReleaseRefused("baseline Core/Manager architecture inventory is incomplete")
+        raise DevReleaseRefused("baseline native architecture inventory is incomplete")
     old_names = {}
     for key, artifact in previous.items():
         url = artifact["package"]["url"]
@@ -115,10 +134,10 @@ def stage_unsigned_dev_delta(
     if len(old_names) != 22 or not set(old_names).issubset(actual_names):
         raise DevReleaseRefused("previous signed Dev ZIP inventory is incomplete")
 
-    # Staged unsigned ZIPs must come from one reviewed Core source, while the
-    # unchanged Agent and ten app packages retain their earlier provenance.
+    # Staged ZIPs must come from one reviewed Core source, while all unchanged
+    # artifacts retain their earlier verified provenance.
     staged = {}
-    for module_id, arch in sorted(REQUIRED):
+    for module_id, arch in sorted(required):
         new_file = replacements[module_id, arch]
         info = _manifest(new_file)
         previous_record = next(
@@ -146,13 +165,13 @@ def stage_unsigned_dev_delta(
         proposed = dict(previous_record, **new_identity)
         if _release_key(proposed) <= _release_key(previous_record):
             raise DevReleaseRefused("changed module version/build must increase")
-        if module_id == CORE:
-            # Preserve the existing sealed Python/wheelhouse closure; this
-            # campaign changes Core code, not dependency packages or Agent.
+        if module_id in (CORE, AGENT):
+            # Preserve the sealed Python/wheelhouse closure for interpreted
+            # native modules. No dependency upgrades during this repair.
             old_name = previous_record["package"]["url"].removeprefix("platform/packages/")
             old_info = _manifest(previous_packages / old_name)
             if info.get("runtime") != old_info.get("runtime") or info.get("wheelhouse") != old_info.get("wheelhouse"):
-                raise DevReleaseRefused("Core changed its protected runtime dependencies")
+                raise DevReleaseRefused("Core/Agent changed protected runtime dependencies")
         else:
             if info.get("platform") != previous_record.get("platform"):
                 raise DevReleaseRefused("Supervisor manager platform changed")
@@ -160,6 +179,21 @@ def stage_unsigned_dev_delta(
         if name in actual_names or name in staged:
             raise DevReleaseRefused("new version reuses existing package filename")
         staged[name] = (new_file, (module_id, arch), new_identity)
+
+    # Enforce identical runtime generation wire semantics across the exact
+    # selected signed Core and Agent. A newer Core with a stale Agent is not
+    # a valid full Dev closure even when both ZIPs are individually signed.
+    for arch in ARCHES:
+        def package_for(identity: str) -> Path:
+            if identity in changed_ids:
+                return replacements[identity, arch]
+            old = next((item for key, item in previous.items()
+                        if key[0] == identity and key[2] == arch), None)
+            if old is None:
+                raise DevReleaseRefused("missing native runtime role")
+            return previous_packages / old["package"]["url"].removeprefix("platform/packages/")
+        if _agent_config_bytes(package_for(CORE)) != _agent_config_bytes(package_for(AGENT)):
+            raise DevReleaseRefused("Core/Agent selected generation parsers are incompatible")
 
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=".dev-source-stage-", dir=output.parent) as tmp:
@@ -169,7 +203,7 @@ def stage_unsigned_dev_delta(
         records = []
         for key, artifact in previous.items():
             original = artifact["package"]["url"].removeprefix("platform/packages/")
-            if (key[0], key[2]) in REQUIRED:
+            if (key[0], key[2]) in required:
                 continue
             shutil.copyfile(previous_packages / original, package_dir / original)
             record = {k: v for k, v in artifact.items() if k not in ("package", "portable_config")}
@@ -201,7 +235,7 @@ def stage_unsigned_dev_delta(
             "baseline_dev_sequence": signed["sequence"],
             "candidate_dev_sequence": signed["sequence"] + 1,
             "core_source_sha": core_source_sha,
-            "changed_roles": sorted({identity[0] for identity in REQUIRED}),
+            "changed_roles": sorted(changed_ids),
             "channels_to_publish": ["dev"],
             "complete_artifact_count": 22,
             "signed": False,

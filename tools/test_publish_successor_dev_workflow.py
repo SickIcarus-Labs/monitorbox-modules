@@ -31,6 +31,7 @@ def test_protected_publisher_is_manual_trusted_main_and_owner_only():
     assert "github.ref == 'refs/heads/main'" in guard
     assert "github.actor == 'SickIcarus'" in guard
     assert "publish-v3-dev-core-manager" in guard
+    assert "publish-v3-dev-agent" in guard
     assert "concurrency" not in parsed
     assert "pull_request" not in parsed["on"]
     assert "github.event.comment.user.login == 'SickIcarus'" in guard
@@ -39,6 +40,7 @@ def test_protected_publisher_is_manual_trusted_main_and_owner_only():
     resolver = jobs["resolve"]["steps"][0]["run"]
     assert 'jq -r ' + "'.comment.body // empty'" + ' "$GITHUB_EVENT_PATH"' in resolver
     assert 'test "$action" = "/publish-v3-dev-core-manager"' in resolver
+    assert 'test "$action" = "/publish-v3-dev-agent"' in resolver
     assert '[[ "$source_sha" =~ ^[0-9a-f]{40}$ ]]' in resolver
     assert '[[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]' in resolver
     assert '[[ "$unsigned_digest" =~ ^sha256:[0-9a-f]{64}$ ]]' in resolver
@@ -62,8 +64,9 @@ def test_unsigned_builder_consumes_only_digest_pinned_oci_without_private_pat():
     assert '"$STAGING@$UNSIGNED_DIGEST"' in read
     assert 'docker cp "$cid:/unsigned/." "$RUNNER_TEMP/new-packages/"' in read
     admit = next(x["run"] for x in steps
-                 if x.get("name") == "Admit exact four changed ZIPs and Core source provenance")
-    assert 'len(packages)==4' in admit
+                 if x.get("name") == "Admit exact native ZIP set and Core source provenance")
+    assert 'len(packages)==len(expected)' in admit
+    assert 'os.environ["RELEASE_KIND"]=="agent"' in admit
     assert 'meta["git_sha"]==os.environ["CORE_SOURCE_SHA"]' in admit
     assert 'hashlib.sha256(file.read_bytes()).hexdigest()==item["sha256"]' in admit
 
@@ -80,7 +83,7 @@ def test_signing_confined_to_protected_job_and_dev_only_promotion():
     assert "sign_successor_dev_stage.py" in signing["run"]
     assert "stage_unsigned_dev_delta(" in next(
         step["run"] for step in steps
-        if step.get("name") == "Admit exact four ZIPs and stage unsigned complete Dev closure"
+        if step.get("name") == "Admit exact native ZIPs and stage unsigned complete Dev closure"
     )
     promotion = next(
         step["run"] for step in steps
@@ -97,7 +100,7 @@ def test_signing_confined_to_protected_job_and_dev_only_promotion():
         step["run"] for step in steps
         if step.get("name") == "Publish immutable full Dev image; leave Stable and Beta untouched"
     )
-    assert 'tag="dev-core-$CORE_SOURCE_SHA-$GITHUB_RUN_ID"' in immutable
+    assert 'tag="dev-$RELEASE_KIND-$CORE_SOURCE_SHA-$GITHUB_RUN_ID"' in immutable
     assert "docker buildx build --platform linux/amd64,linux/arm64" in immutable
     assert "imagetools create" not in immutable
     assert any(step.get("name", "").startswith("Verify immutable full Dev image") for step in steps)
@@ -162,7 +165,7 @@ def test_real_feed_copy_layout_matches_signer_package_verifier_root():
                   "Sign only the admitted complete Dev candidate")
     assert '--prior-platform "$RUNNER_TEMP/prior/platform"' in signed
     admitted = next(x["run"] for x in signer if x.get("name") ==
-                    "Admit exact four ZIPs and stage unsigned complete Dev closure")
+                    "Admit exact native ZIPs and stage unsigned complete Dev closure")
     assert 'root/"prior/platform/packages"' in admitted
     assert 'root/"prior/platform/channels/dev/index.json"' in admitted
 
@@ -189,3 +192,25 @@ def test_only_eligible_release_jobs_compete_for_shared_feed_lock():
             "group": "successor-signed-feed-publication",
             "cancel-in-progress": "false",
         }, filename
+
+
+def test_owner_only_agent_lane_keeps_signer_protected_and_core_lane_unchanged():
+    jobs = _parsed()["jobs"]
+    guard = jobs["resolve"]["if"]
+    assert "github.actor == 'SickIcarus'" in guard
+    assert "github.event.issue.number == 195" in guard
+    assert "publish-v3-dev-agent" in guard
+    assert "publish-v3-dev-core-manager" in guard
+    intent = jobs["resolve"]["steps"][0]["run"]
+    assert 'case "$action" in' in intent
+    assert '/publish-v3-dev-agent) kind=agent' in intent
+    unsigned = jobs["unsigned"]
+    assert unsigned["env"]["STAGING"] == "ghcr.io/sickicarus-labs/monitorbox-dev-unsigned-core-manager"
+    assert unsigned["permissions"]["packages"] == "read"
+    assert "MONITORBOX_MODULE_SIGNING_KEY" not in str(unsigned)
+    publish = jobs["publish"]
+    assert publish["concurrency"]["group"] == "successor-signed-feed-publication"
+    assert "changed_ids=frozenset(expected)" in str(publish)
+    assert '"com.sickicarus.monitorbox.agent"' in str(publish)
+    assert "$FULL:dev" in str(publish)
+    assert 'docker buildx imagetools create --tag "$FULL:stable"' not in str(publish)

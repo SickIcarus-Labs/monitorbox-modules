@@ -1,4 +1,4 @@
-name: Protected signed successor Dev Core/Manager publication
+name: Protected signed successor Dev native-module publication
 
 # Owner-only main branch: manual dispatch or authenticated issue #195 comment.
 # Private Core CI publishes a digest-pinned unsigned build; only this trusted
@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       confirmation:
-        description: Type publish-v3-dev-core-manager
+        description: Type publish-v3-dev-core-manager or publish-v3-dev-agent
         required: true
         type: string
       core_source_sha:
@@ -36,12 +36,14 @@ jobs:
       github.actor == 'SickIcarus' &&
       (
         (github.event_name == 'workflow_dispatch' &&
-         inputs.confirmation == 'publish-v3-dev-core-manager') ||
+         (inputs.confirmation == 'publish-v3-dev-core-manager' ||
+          inputs.confirmation == 'publish-v3-dev-agent')) ||
         (github.event_name == 'issue_comment' &&
          github.event.comment.user.login == 'SickIcarus' &&
          github.event.issue.number == 195 &&
          !github.event.issue.pull_request &&
-         startsWith(github.event.comment.body, '/publish-v3-dev-core-manager '))
+         (startsWith(github.event.comment.body, '/publish-v3-dev-core-manager ') ||
+          startsWith(github.event.comment.body, '/publish-v3-dev-agent ')))
       )
     runs-on: ubuntu-latest
     permissions:
@@ -50,6 +52,7 @@ jobs:
       core_source_sha: ${{ steps.intent.outputs.core_source_sha }}
       expected_dev_full: ${{ steps.intent.outputs.expected_dev_full }}
       unsigned_digest: ${{ steps.intent.outputs.unsigned_digest }}
+      release_kind: ${{ steps.intent.outputs.release_kind }}
     steps:
       - name: Validate exact owner release intent
         id: intent
@@ -59,26 +62,34 @@ jobs:
           MANUAL_SHA: ${{ inputs.core_source_sha }}
           MANUAL_DIGEST: ${{ inputs.expected_dev_full }}
           MANUAL_UNSIGNED: ${{ inputs.unsigned_candidate_digest }}
+          CONFIRMATION: ${{ inputs.confirmation }}
         run: |
           set -euo pipefail
           if [[ "$EVENT_NAME" == "issue_comment" ]]; then
             command="$(jq -r '.comment.body // empty' "$GITHUB_EVENT_PATH")"
             read -r action source_sha digest unsigned_digest extra <<< "$command"
-            test "$action" = "/publish-v3-dev-core-manager"
+            test "$action" = "/publish-v3-dev-core-manager" || test "$action" = "/publish-v3-dev-agent"
             test -z "${extra:-}"
           else
             source_sha="$MANUAL_SHA"
             digest="$MANUAL_DIGEST"
             unsigned_digest="$MANUAL_UNSIGNED"
+            action="/$CONFIRMATION"
           fi
+          case "$action" in
+            /publish-v3-dev-core-manager) kind=core-manager ;;
+            /publish-v3-dev-agent) kind=agent ;;
+            *) exit 1 ;;
+          esac
           [[ "$source_sha" =~ ^[0-9a-f]{40}$ ]]
           [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
           [[ "$unsigned_digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "release_kind=$kind" >> "$GITHUB_OUTPUT"
           echo "unsigned_digest=$unsigned_digest" >> "$GITHUB_OUTPUT"
           echo "core_source_sha=$source_sha" >> "$GITHUB_OUTPUT"
           echo "expected_dev_full=$digest" >> "$GITHUB_OUTPUT"
   unsigned:
-    name: Verify digest-pinned unsigned Core/Manager ZIPs
+    name: Verify digest-pinned unsigned native ZIPs
     needs: resolve
     runs-on: ubuntu-latest
     timeout-minutes: 12
@@ -89,6 +100,8 @@ jobs:
       CORE_SOURCE_SHA: ${{ needs.resolve.outputs.core_source_sha }}
       EXPECTED_DEV_FULL: ${{ needs.resolve.outputs.expected_dev_full }}
       UNSIGNED_DIGEST: ${{ needs.resolve.outputs.unsigned_digest }}
+      RELEASE_KIND: ${{ needs.resolve.outputs.release_kind }}
+      # Reuse the already-authorized unsigned package, with immutable digest-pinned tags.
       STAGING: ghcr.io/sickicarus-labs/monitorbox-dev-unsigned-core-manager
       FULL: ghcr.io/sickicarus-labs/monitorbox-successor-signed-feed
     steps:
@@ -110,7 +123,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/new-packages"
           docker cp "$cid:/unsigned/." "$RUNNER_TEMP/new-packages/"
           docker rm -f "$cid" >/dev/null
-      - name: Admit exact four changed ZIPs and Core source provenance
+      - name: Admit exact native ZIP set and Core source provenance
         run: |
           python - <<'PY'
           import hashlib,json,os,re,zipfile
@@ -119,11 +132,11 @@ jobs:
           receipt=json.loads((root/"manifest.json").read_text())
           assert receipt["core_source_sha"]==os.environ["CORE_SOURCE_SHA"]
           packages=receipt["packages"]
-          expected={(mid,arch) for mid in (
-              "com.sickicarus.monitorbox.core",
-              "com.sickicarus.monitorbox.scaffold-manager",
-          ) for arch in ("amd64","arm64")}
-          assert len(packages)==4
+          ids=("com.sickicarus.monitorbox.agent",) if os.environ["RELEASE_KIND"]=="agent" else (
+              "com.sickicarus.monitorbox.core", "com.sickicarus.monitorbox.scaffold-manager",
+          )
+          expected={(mid,arch) for mid in ids for arch in ("amd64","arm64")}
+          assert len(packages)==len(expected)
           assert {(p["artifact_id"],p["arch"]) for p in packages}==expected
           assert {p.name for p in root.iterdir()}=={"manifest.json"}|{p["name"] for p in packages}
           for item in packages:
@@ -140,7 +153,7 @@ jobs:
           PY
       - uses: actions/upload-artifact@v4
         with:
-          name: unsigned-dev-core-manager
+          name: unsigned-dev-native
           path: ${{ runner.temp }}/new-packages/
           if-no-files-found: error
           retention-days: 7
@@ -161,6 +174,7 @@ jobs:
     env:
       CORE_SOURCE_SHA: ${{ needs.resolve.outputs.core_source_sha }}
       EXPECTED_DEV_FULL: ${{ needs.resolve.outputs.expected_dev_full }}
+      RELEASE_KIND: ${{ needs.resolve.outputs.release_kind }}
       FULL: ghcr.io/sickicarus-labs/monitorbox-successor-signed-feed
     steps:
       - uses: actions/checkout@v7
@@ -173,7 +187,7 @@ jobs:
         run: python -m pip install --disable-pip-version-check 'cryptography>=45,<49' 'jsonschema>=4,<5'
       - uses: actions/download-artifact@v4
         with:
-          name: unsigned-dev-core-manager
+          name: unsigned-dev-native
           path: ${{ runner.temp }}/new-packages/
       - uses: docker/setup-buildx-action@v4
       - uses: docker/login-action@v4
@@ -197,23 +211,26 @@ jobs:
           for channel in stable beta dev; do
             test -s "$RUNNER_TEMP/prior/platform/channels/$channel/index.json"
           done
-      - name: Admit exact four ZIPs and stage unsigned complete Dev closure
+      - name: Admit exact native ZIPs and stage unsigned complete Dev closure
         run: |
           set -euo pipefail
           python - <<'PY'
           import hashlib,json,os,re
           from pathlib import Path
-          from successor_dev_release import CORE,MANAGER
+          from successor_dev_release import AGENT,CORE,MANAGER
           from successor_dev_stage import stage_unsigned_dev_delta
           root=Path(os.environ["RUNNER_TEMP"])
           manifest=json.loads((root/"new-packages/manifest.json").read_text())
           assert manifest["core_source_sha"]==os.environ["CORE_SOURCE_SHA"]
-          assert len(manifest["packages"])==4
+          expected={"com.sickicarus.monitorbox.agent"} if os.environ["RELEASE_KIND"]=="agent" else {
+              "com.sickicarus.monitorbox.core", "com.sickicarus.monitorbox.scaffold-manager"
+          }
+          assert len(manifest["packages"])==len(expected)*2
           replacements={}
           for item in manifest["packages"]:
             mid,arch=item["artifact_id"],item["arch"]
             filename=item["name"]
-            assert mid in (CORE,MANAGER) and arch in ("amd64","arm64")
+            assert mid in expected and arch in ("amd64","arm64")
             assert Path(filename).name==filename and re.fullmatch(r"[0-9a-f]{64}",item["sha256"])
             source=root/"new-packages"/filename
             assert hashlib.sha256(source.read_bytes()).hexdigest()==item["sha256"]
@@ -226,6 +243,7 @@ jobs:
             output=root/"unsigned",
             core_source_sha=os.environ["CORE_SOURCE_SHA"],
             trust_root=Path("trust/official-ed25519-1.pub"),
+            changed_ids=frozenset(expected),
           )
           PY
         env:
@@ -250,15 +268,15 @@ jobs:
           intent=json.loads((root/"release-intent.json").read_text())
           assert intent["outer_channels_to_publish"]==["dev"]
           assert intent["artifact_count"]==22
-          assert intent["changed_module_ids"]==[
-              "com.sickicarus.monitorbox.core",
-              "com.sickicarus.monitorbox.scaffold-manager",
-          ]
+          assert intent["changed_module_ids"]==(\
+              ["com.sickicarus.monitorbox.agent"] if os.environ["RELEASE_KIND"]=="agent" else [
+              "com.sickicarus.monitorbox.core", "com.sickicarus.monitorbox.scaffold-manager",
+          ])
           PY
       - name: Publish immutable full Dev image; leave Stable and Beta untouched
         run: |
           set -euo pipefail
-          tag="dev-core-$CORE_SOURCE_SHA-$GITHUB_RUN_ID"
+          tag="dev-$RELEASE_KIND-$CORE_SOURCE_SHA-$GITHUB_RUN_ID"
           echo "IMMUTABLE_TAG=$tag" >> "$GITHUB_ENV"
           mkdir -p "$RUNNER_TEMP/signed/full/tools"
           cp platform/acceptance-feed.Dockerfile "$RUNNER_TEMP/signed/full/Dockerfile"

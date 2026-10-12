@@ -21,7 +21,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 from build_platform_index import sign_candidate
-from successor_dev_release import DevReleaseRefused, qualify_dev_delta
+from successor_dev_release import AGENT, CORE, MANAGER, DevReleaseRefused, qualify_dev_delta
 from verify_platform_index import _date, verify_index, verify_package
 
 CHANNELS = ("stable", "beta", "dev")
@@ -137,6 +137,11 @@ def stage_signed_dev(
         or unsigned_receipt.get("complete_artifact_count") != 22
     ):
         raise DevReleaseRefused("unsigned Core candidate has wrong release authority")
+    changed = unsigned_receipt.get("changed_roles")
+    permitted = ({CORE, MANAGER}, {AGENT})
+    if not isinstance(changed, list) or set(changed) not in permitted or len(changed) != len(set(changed)):
+        raise DevReleaseRefused("unsigned Dev changed-role intent is not admitted")
+    expected_new_zip_count = 2 * len(changed)
     unsigned_source = (unsigned_candidate / "catalog.source.json").read_bytes()
     unsigned_inventory = json.loads(unsigned_source)
     if unsigned_inventory.get("repository_id") != "official-platform" or len(unsigned_inventory.get("artifacts", [])) != 22:
@@ -174,8 +179,8 @@ def stage_signed_dev(
             else:
                 shutil.copyfile(src, dst)
                 new_files.add(filename)
-        if len(new_files) != 4:
-            raise DevReleaseRefused("expected exactly four newly versioned Core/Manager ZIPs")
+        if len(new_files) != expected_new_zip_count:
+            raise DevReleaseRefused("newly versioned Dev ZIP count does not match declared roles")
         # Re-sign the old stable and beta *contents* only to refresh the
         # expiration inside the Dev OCI image. No stable/beta OCI tag write.
         signed = {}
@@ -201,7 +206,9 @@ def stage_signed_dev(
                 verify_package(artifact, full, public)
             if channel != "dev" and signed[channel]["artifacts"] != previous[channel]["artifacts"]:
                 raise DevReleaseRefused("non-Dev signed artifact inventory changed")
-        evidence = qualify_dev_delta(previous["dev"], signed["dev"])
+        evidence = qualify_dev_delta(
+            previous["dev"], signed["dev"], changed_ids=frozenset(changed)
+        )
         receipt = {
             **evidence,
             "core_source_sha": core_source_sha,

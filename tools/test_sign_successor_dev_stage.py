@@ -10,8 +10,8 @@ from cryptography.hazmat.primitives.serialization import Encoding, PrivateFormat
 
 from tools import successor_dev_stage as unsigned
 from tools import sign_successor_dev_stage as signed
-from tools.test_successor_dev_stage import staged_inputs
-from successor_dev_release import DevReleaseRefused
+from tools.test_successor_dev_stage import staged_inputs, package
+from successor_dev_release import AGENT, DevReleaseRefused
 
 
 def fake_signed(source, *, package_root, channel, sequence, **kwargs):
@@ -145,3 +145,42 @@ def test_signed_stable_reference_retains_historical_package(tmp_path, monkeypatc
     )
     assert (target / "full/platform/packages/archived.zip").is_file()
     assert len(list((target / "full/platform/packages").glob("*.zip"))) == 27
+
+
+def test_signer_allows_agent_only_dev_without_core_or_manager_replacement(tmp_path, monkeypatch):
+    old_packages, old_dev, _, trust = staged_inputs(tmp_path, monkeypatch)
+    baseline = json.loads(old_dev.read_text())["signed"]
+    for channel in ("stable", "beta"):
+        data = json.loads(old_dev.read_text())
+        data["signed"]["channel"] = channel
+        dest = old_dev.parent.parent / channel / "index.json"
+        dest.parent.mkdir()
+        dest.write_text(json.dumps(data))
+    new_agent = {}
+    for arch in ("amd64", "arm64"):
+        old = next(x for x in baseline["artifacts"]
+                   if x["artifact_id"] == AGENT and x["platform"]["arch"] == arch)
+        path = tmp_path / f"new-agent-{arch}.zip"
+        package(path, dict(old, build=old["build"] + 1), source_sha="f" * 40)
+        new_agent[AGENT, arch] = path
+    unsigned_out = tmp_path / "unsigned-agent"
+    unsigned.stage_unsigned_dev_delta(
+        previous_packages=old_packages, previous_dev_index=old_dev,
+        replacements=new_agent, output=unsigned_out, core_source_sha="f" * 40,
+        trust_root=trust, changed_ids=frozenset({AGENT}),
+    )
+    key = Ed25519PrivateKey.generate()
+    seed = base64.b64encode(key.private_bytes(Encoding.Raw, PrivateFormat.Raw, NoEncryption())).decode()
+    trust.write_text(base64.b64encode(key.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)).decode())
+    monkeypatch.setattr(signed, "verify_index", lambda data, **kw: json.loads(data)["signed"])
+    monkeypatch.setattr(signed, "verify_package", lambda item, root, keys: None)
+    monkeypatch.setattr(signed, "sign_candidate", fake_signed)
+    result = signed.stage_signed_dev(
+        prior_platform=old_packages.parent, unsigned_candidate=unsigned_out,
+        output=tmp_path / "signed-agent", trust_root=trust,
+        signer_seed=seed, core_source_sha="f" * 40,
+    )
+    assert result["changed_module_ids"] == [AGENT]
+    assert result["new_dev_zip_count"] == 2
+    assert result["outer_channels_to_publish"] == ["dev"]
+    assert len(list((tmp_path / "signed-agent/full/platform/packages").glob("*.zip"))) == 24
