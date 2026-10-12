@@ -16,6 +16,7 @@ on:
       - "tools/test_successor_dev_release.py"
       - "tools/successor_dev_stage.py"
       - "tools/test_successor_dev_stage.py"
+      - "tools/sign_successor_dev_stage.py"
       - "tools/successor_release_manifest.py"
       - "tools/successor_oci_evidence.py"
       - "tools/successor_registry_extract.py"
