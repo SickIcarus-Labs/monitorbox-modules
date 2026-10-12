@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 
 _UI_PREFIX = "monitorbox_ui_b54/"
-_ASSETS = Path(__file__).resolve().parent.parent / "sources/ui/successor-backup-restore"
+_ASSETS = Path(__file__).resolve().parent / "ui-assets/backup-restore"
 _FILES = ("backup-restore.html", "backup-restore.css", "backup-restore.js")
 
 
