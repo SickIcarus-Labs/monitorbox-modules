@@ -189,7 +189,7 @@ jobs:
           )
           kind = os.environ["RELEASE_KIND"]
           artifact_id = UI_ID if kind == "ui" else BACKUP_RESTORE_ID
-          expected = ("1.18.2", 60) if kind == "ui" else ("1.0.6", 8)
+          expected = ("1.18.3", 61) if kind == "ui" else ("1.0.6", 8)
           record = _parse_authority()[artifact_id]
           assert (record["version"], record["build"]) == expected
           root = Path(os.environ["RUNNER_TEMP"]) / "new-packages"
@@ -287,7 +287,7 @@ jobs:
               ["git","rev-parse","HEAD"],text=True).strip()==os.environ["CORE_SOURCE_SHA"]
             artifact_id=UI if kind=="ui" else BACKUP_RESTORE
             record=_parse_authority()[artifact_id]
-            assert (record["version"],record["build"])==( ("1.18.2",60) if kind=="ui" else ("1.0.6",8) )
+            assert (record["version"],record["build"])==( ("1.18.3",61) if kind=="ui" else ("1.0.6",8) )
             rebuilt=build_package(record,root/"rebuilt",release_eligible=True)
             submitted=root/"new-packages"/rebuilt.name
             assert rebuilt.read_bytes()==submitted.read_bytes()

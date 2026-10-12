@@ -60,10 +60,10 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
 
     def test_successor_ui_advances_for_scaffold_lifecycle_operator_contract(self) -> None:
         ui = self.records[subject.UI_ID]
-        self.assertEqual("1.18.2", ui["version"])
-        self.assertEqual(60, ui["build"])
-        self.assertEqual("1.18.2", ui["module_runtime"]["version"])
-        self.assertEqual(60, ui["module_runtime"]["build"])
+        self.assertEqual("1.18.3", ui["version"])
+        self.assertEqual(61, ui["build"])
+        self.assertEqual("1.18.3", ui["module_runtime"]["version"])
+        self.assertEqual(61, ui["module_runtime"]["build"])
 
     def test_scaffold_distribution_copy_does_not_inherit_false_legacy_failure(self) -> None:
         ui = self.records[subject.UI_ID]
@@ -89,12 +89,101 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
                 js = archive.read("monitorbox_ui_b54/assets/modules.js").decode()
         # These are the URL fragments used by the actual /modules HTTP adapter.
         self.assertIn('"modules.js": "text/javascript"', adapter)
-        self.assertIn("?v=1.18.2-60", adapter)
+        self.assertIn("?v=1.18.3-61", adapter)
         self.assertNotIn("?v=1.17.1-54", adapter)
-        self.assertIn("?v=1.18.2-60", dashboard)
+        self.assertIn("?v=1.18.3-61", dashboard)
         self.assertNotIn("?v=1.17.1-54", dashboard)
         self.assertIn("const distributionReady = scaffoldLifecycle", js)
         self.assertIn("platform_update_count", js)
+
+    def test_ui_owned_backup_page_preserves_protected_core_json_logic(self) -> None:
+        ui = self.records[subject.UI_ID]
+        with tempfile.TemporaryDirectory(prefix="ui61-json-page-") as root:
+            pkg = subject.build_package(ui, Path(root), release_eligible=True)
+            with zipfile.ZipFile(pkg) as archive:
+                adapter = archive.read("monitorbox_ui_b54/__init__.py").decode()
+                html = archive.read("monitorbox_ui_b54/assets/backup-restore.html").decode()
+                css = archive.read("monitorbox_ui_b54/assets/backup-restore.css").decode()
+                js = archive.read("monitorbox_ui_b54/assets/backup-restore.js").decode()
+        self.assertIn("native_json_backup_restore_ui", adapter)
+        self.assertIn('<title>MonitorBox Restore JSON</title>', adapter)
+        self.assertIn('"/settings/restore-json"', adapter)
+        self.assertIn("<!-- CORE_JSON_ACTIONS -->", adapter)
+        self.assertIn('app.middlewares.append(native_json_backup_restore_ui)', adapter)
+        self.assertIn("1.18.3-61", html)
+        self.assertNotIn("1.17.1-54", html)
+        self.assertIn("Download configuration JSON", html)
+        self.assertIn("Restore configuration (clear history)", html)
+        self.assertIn("Save JSON (retain history)", html)
+        self.assertIn('id="jsonEditor"', html)
+        self.assertIn('id="restoreButton"', html)
+        self.assertIn('id="status"', html)
+        self.assertIn("/api/v2/config/portable-json", js)
+        self.assertNotIn("/api/v2/config/backup-restore", js)
+        self.assertIn(".mb-br-page", css)
+        self.assertNotIn("application/zip", html + css + js)
+        self.assertNotIn("Appliance backups", html)
+
+    def test_ui_normal_backup_page_delegates_to_core_and_preserves_fallback(self) -> None:
+        import asyncio
+        import types
+
+        ui = self.records[subject.UI_ID]
+        with tempfile.TemporaryDirectory(prefix="ui61-native-render-") as raw:
+            pkg = subject.build_package(ui, Path(raw), release_eligible=False)
+            with zipfile.ZipFile(pkg) as archive:
+                source = archive.read("monitorbox_ui_b54/__init__.py").decode()
+                html = archive.read("monitorbox_ui_b54/assets/backup-restore.html").decode()
+        start = source.index("@web.middleware" + chr(10) + "async def native_json_backup_restore_ui")
+        end = source.index(chr(10) + "def install(app: web.Application) -> None:", start)
+        code = source[start:end]
+
+        class Response:
+            status = 200
+            content_type = "text/html"
+            def __init__(self, text):
+                self.text = text
+                self.headers = {}
+            @property
+            def body(self):
+                return self.text.encode()
+
+        ns = {
+            "web": types.SimpleNamespace(
+                middleware=lambda fn: fn, Request=object, Response=Response),
+            "_resource": lambda path: types.SimpleNamespace(
+                read_text=lambda encoding: html if path == "backup-restore.html" else None),
+        }
+        exec(compile(code, "<ui61-backup-presentation>", "exec"), ns)
+        render = ns["native_json_backup_restore_ui"]
+        core = ('<title>MonitorBox Restore JSON</title><script>'
+                'fetch("/api/v2/config/restore-json");'
+                'fetch("/api/v2/config/portable-json");'
+                "el('saveButton').onclick=()=>{};"
+                '</script>')
+        async def serve(request):
+            return Response(core)
+
+        native = asyncio.run(render(types.SimpleNamespace(
+            path="/settings/restore-json", method="GET"), serve))
+        self.assertIn("Download configuration JSON", native.text)
+        self.assertIn('id="restoreButton"', native.text)
+        self.assertIn('id="saveButton"', native.text)
+        self.assertIn('id="jsonEditor"', native.text)
+        self.assertIn("el('saveButton').onclick", native.text)
+        self.assertNotIn("CORE_JSON_ACTIONS", native.text)
+        self.assertEqual("no-store", native.headers["Cache-Control"])
+
+        for path in ("/settings/recovery", "/settings", "/"):
+            fallback = asyncio.run(render(types.SimpleNamespace(
+                path=path, method="GET"), serve))
+            self.assertEqual(core, fallback.text)
+        changed = "<title>Unreviewed Core UI</title><script>unknown()</script>"
+        async def changed_core(request):
+            return Response(changed)
+        result = asyncio.run(render(types.SimpleNamespace(
+            path="/settings/restore-json", method="GET"), changed_core))
+        self.assertEqual(changed, result.text)
 
     def test_successor_portainer_advances_for_bounded_parallel_inventory(self) -> None:
         portainer = self.records[subject.PORTAINER_ID]
@@ -223,8 +312,15 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
                      zipfile.ZipFile(left, "r") as new:
                     old_names = old.namelist()
                     new_names = new.namelist()
+                    extra_ui_assets = (
+                        [
+                            "monitorbox_ui_b54/assets/backup-restore.html",
+                            "monitorbox_ui_b54/assets/backup-restore.css",
+                            "monitorbox_ui_b54/assets/backup-restore.js",
+                        ] if artifact_id == subject.UI_ID else []
+                    )
                     self.assertEqual(
-                        sorted(old_names + ["package.json", "portable-config.json"]),
+                        sorted(old_names + ["package.json", "portable-config.json"] + extra_ui_assets),
                         sorted(new_names),
                     )
                     for name in old_names:
@@ -356,7 +452,15 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
                             self.assertEqual(count, before.count(original), name)
                             self.assertEqual(count, after.count(selected), name)
                             self.assertNotIn(original, after)
-                            self.assertEqual(before.replace(original, selected), after)
+                            expected = before.replace(original, selected)
+                            if name.endswith("/__init__.py"):
+                                self.assertIn("native_json_backup_restore_ui", after.decode())
+                                self.assertIn('app.middlewares.append(native_json_backup_restore_ui)', after.decode())
+                                self.assertIn('"backup-restore.js": "text/javascript"', after.decode())
+                                self.assertIn('"backup-restore.css": "text/css"', after.decode())
+                                self.assertNotEqual(expected, after)
+                            else:
+                                self.assertEqual(expected, after)
                         elif (
                             artifact_id == subject.UI_ID
                             and b"1.17.1-54" in old.read(name)
