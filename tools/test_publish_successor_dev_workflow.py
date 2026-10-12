@@ -89,3 +89,16 @@ def test_signing_confined_to_protected_job_and_dev_only_promotion():
     assert "docker buildx build --platform linux/amd64,linux/arm64" in immutable
     assert 'docker buildx imagetools create --tag "$SUP:$tag"' in immutable
     assert any(step.get("name", "").startswith("Verify both immutable OCI images") for step in steps)
+
+
+def test_existing_dev_supervisor_pair_is_verified_before_signing():
+    steps = _parsed()["jobs"]["publish"]["steps"]
+    names = [step.get("name") for step in steps]
+    signed_pair = "Verify signed current Dev full/Supervisor pair before staging"
+    assert signed_pair in names
+    assert names.index(signed_pair) < names.index("Sign only the admitted complete Dev candidate")
+    proof = next(step["run"] for step in steps if step.get("name") == signed_pair)
+    assert 'channel="dev"' in proof
+    assert 'channel="stable"' in proof
+    assert 'signed["artifacts"][0]==rows[0]' in proof
+    assert 'verify_package(rows[0]' in proof
