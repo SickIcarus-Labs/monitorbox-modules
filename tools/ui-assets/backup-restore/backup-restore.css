@@ -10,7 +10,7 @@
   --mb-br-text:var(--mb-shell-text,#edf4ff);
   --mb-br-muted:var(--mb-shell-muted,#9fb4cf);
 }
-html:has(body.mb-br-surface) {
+html {
   background:var(--mb-br-bg);
   min-height:100%;
 }
