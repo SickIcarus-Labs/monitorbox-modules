@@ -124,6 +124,32 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
         self.assertNotIn("application/zip", html + css + js)
         self.assertNotIn("Appliance backups", html)
 
+    def test_ui62_normal_page_reuses_shared_dark_document_canvas(self) -> None:
+        """Regression: UI61 cards were dark but bare HTML body was white in Safari."""
+        ui = self.records[subject.UI_ID]
+        with tempfile.TemporaryDirectory(prefix="ui62-canvas-regression-") as root:
+            pkg = subject.build_package(ui, Path(root), release_eligible=True)
+            with zipfile.ZipFile(pkg) as archive:
+                html = archive.read("monitorbox_ui_b54/assets/backup-restore.html").decode()
+                css = archive.read("monitorbox_ui_b54/assets/backup-restore.css").decode()
+
+        # Generic MonitorBox app/settings shell CSS paints its own header,
+        # not the document. Every independently packaged normal HTML surface
+        # must explicitly reset body margins and use the same dark canvas.
+        self.assertIn('<body class="mb-br-surface">', html)
+        self.assertIn('backup-restore.css?v=1.18.4-62', html)
+        self.assertIn('--mb-br-bg:var(--mb-shell-bg,#07111f)', css)
+        self.assertIn('--mb-br-text:var(--mb-shell-text,#edf4ff)', css)
+        self.assertIn('body.mb-br-surface {', css)
+        body_rule = css.split('body.mb-br-surface {', 1)[1].split('}', 1)[0]
+        for required in ('margin:0;', 'background:var(--mb-br-bg);',
+                         'color:var(--mb-br-text);', 'min-height:100vh;'):
+            self.assertIn(required, body_rule)
+        self.assertIn('html {', css)
+        self.assertIn('width:min(100%,1120px)', css)
+        self.assertIn('background:var(--mb-br-panel)', css)
+        self.assertNotIn('background:white', css)
+
     def test_ui_normal_backup_page_delegates_to_core_and_preserves_fallback(self) -> None:
         import asyncio
         import types
