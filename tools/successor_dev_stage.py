@@ -18,7 +18,7 @@ from typing import Mapping
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
-from successor_dev_release import AGENT, CORE, MANAGER, BACKUP_RESTORE, DevReleaseRefused, _records, _release_key
+from successor_dev_release import AGENT, CORE, MANAGER, BACKUP_RESTORE, UI, DevReleaseRefused, _records, _release_key
 from verify_platform_index import _date, verify_index, verify_package
 
 SHA = re.compile(r"^[0-9a-f]{40}$")
@@ -28,6 +28,8 @@ ARCHES = ("amd64", "arm64")
 CORE_MANAGER = frozenset({CORE, MANAGER})
 AGENT_ONLY = frozenset({AGENT})
 BACKUP_RESTORE_ONLY = frozenset({BACKUP_RESTORE})
+UI_ONLY = frozenset({UI})
+APP_ONLY = frozenset({BACKUP_RESTORE, UI})
 REQUIRED = frozenset((identity, arch) for identity in CORE_MANAGER for arch in ARCHES)
 
 
@@ -79,9 +81,9 @@ def stage_unsigned_dev_delta(
     """
     if not SHA.fullmatch(core_source_sha):
         raise DevReleaseRefused("exact Core source commit is required")
-    if changed_ids not in (CORE_MANAGER, AGENT_ONLY, BACKUP_RESTORE_ONLY):
-        raise DevReleaseRefused("Dev delta must change exactly Core/Manager, Agent or Backup/Restore")
-    required = (frozenset({(BACKUP_RESTORE, "any")}) if changed_ids == BACKUP_RESTORE_ONLY
+    if changed_ids not in (CORE_MANAGER, AGENT_ONLY, BACKUP_RESTORE_ONLY, UI_ONLY):
+        raise DevReleaseRefused("Dev delta must change exactly Core/Manager, Agent, Backup/Restore or UI")
+    required = (frozenset({(next(iter(changed_ids)), "any")}) if changed_ids in (BACKUP_RESTORE_ONLY, UI_ONLY)
                 else frozenset((identity, arch) for identity in changed_ids for arch in ARCHES))
     if set(replacements) != required:
         raise DevReleaseRefused("exact two-architecture Dev change set required")
@@ -148,15 +150,15 @@ def stage_unsigned_dev_delta(
         )
         if previous_record is None:
             raise DevReleaseRefused("changed signed package identity is absent")
-        stage = ("successor-module-requalification" if module_id == BACKUP_RESTORE
+        stage = ("successor-module-requalification" if module_id in APP_ONLY
                  else "successor-scaffold-manager" if module_id == MANAGER
                  else "qualified-interpreted")
         if (info.get("artifact_id") != module_id
                 or info.get("kind") != ("scaffold-manager" if module_id == MANAGER else "module")
                 or info.get("release_eligible") is not True
                 or info.get("packaging_stage") != stage
-                or (module_id != BACKUP_RESTORE and info.get("git_sha") != core_source_sha)
-                or (module_id == BACKUP_RESTORE and (
+                or (module_id not in APP_ONLY and info.get("git_sha") != core_source_sha)
+                or (module_id in APP_ONLY and (
                     not isinstance(info.get("module_runtime"), dict)
                     or info["module_runtime"].get("module_id") != module_id
                     or info["module_runtime"].get("version") != info.get("version")
@@ -185,7 +187,7 @@ def stage_unsigned_dev_delta(
             if info.get("platform") != previous_record.get("platform"):
                 raise DevReleaseRefused("Supervisor manager platform changed")
         name = (f"{module_id}-{info['version']}-build{info['build']}.zip"
-                if module_id == BACKUP_RESTORE else
+                if module_id in APP_ONLY else
                 f"{module_id}-{info['version']}-build{info['build']}-{arch}.zip")
         if name in actual_names or name in staged:
             raise DevReleaseRefused("new version reuses existing package filename")
