@@ -144,21 +144,3 @@ def test_protected_signer_and_regular_module_channel_workflow_still_exist():
         "successor-signed-feed-stable-pointer-seq9.yml",
     ):
         assert (ROOT / "docs/release-intent-history" / name).is_file(), name
-+feed+':'+channel+'"' not in raw
-            continue
-        if relevant:
-            assert not writes, workflow.name
-
-
-def test_protected_signer_and_regular_module_channel_workflow_still_exist():
-    # The successor signing implementation is archived for audit; the official
-    # current module-channel signing authority remains in the modules repo.
-    assert (ACTIVE / "module-channel-publish.yml").is_file()
-    assert (ROOT / "trust/official-ed25519-1.pub").is_file()
-    for name in (
-        "successor-signed-feed-publish-seq8.yml",
-        "successor-signed-feed-publish-seq9.yml",
-        "successor-signed-feed-stable-pointer-seq8.yml",
-        "successor-signed-feed-stable-pointer-seq9.yml",
-    ):
-        assert (ROOT / "docs/release-intent-history" / name).is_file(), name
