@@ -110,7 +110,10 @@ def test_no_unreviewed_successor_registry_write_path_is_active():
             continue
         if workflow.name in REVIEWED_DEV_WRITERS:
             assert relevant and writes, workflow.name
-            assert "pull_request:" not in raw and "issue_comment:" not in raw
+            assert "pull_request:" not in raw
+            assert "github.event.issue.number == 195" in raw
+            assert "github.event.comment.user.login == 'SickIcarus'" in raw
+            assert "!github.event.issue.pull_request" in raw
             assert "on:\n  workflow_dispatch:" in raw
             assert "persist-credentials: false" in raw
             assert raw.index("actions/upload-artifact@v4") < raw.index(

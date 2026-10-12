@@ -15,7 +15,8 @@ def _parsed():
 
 def test_protected_publisher_is_manual_trusted_main_and_owner_only():
     parsed = _parsed()
-    assert list(parsed["on"]) == ["workflow_dispatch"]
+    assert list(parsed["on"]) == ["workflow_dispatch", "issue_comment"]
+    assert parsed["on"]["issue_comment"]["types"] == ["created"]
     inputs = parsed["on"]["workflow_dispatch"]["inputs"]
     assert set(inputs) == {
         "confirmation", "core_source_sha", "expected_dev_full",
@@ -23,16 +24,24 @@ def test_protected_publisher_is_manual_trusted_main_and_owner_only():
     for value in inputs.values():
         assert value["required"] == "true"
     jobs = parsed["jobs"]
-    assert set(jobs) == {"unsigned", "publish"}
-    assert jobs["publish"]["needs"] == "unsigned"
-    guard = jobs["unsigned"]["if"]
+    assert set(jobs) == {"resolve", "unsigned", "publish"}
+    assert jobs["unsigned"]["needs"] == "resolve"
+    assert jobs["publish"]["needs"] == ["resolve", "unsigned"]
+    guard = jobs["resolve"]["if"]
     assert "github.ref == 'refs/heads/main'" in guard
     assert "github.actor == 'SickIcarus'" in guard
     assert "publish-v3-dev-core-manager" in guard
     assert parsed["concurrency"]["cancel-in-progress"] == "false"
     assert parsed["concurrency"]["group"] == "successor-signed-feed-publication"
     assert "pull_request" not in parsed["on"]
-    assert "issue_comment" not in parsed["on"]
+    assert "github.event.comment.user.login == 'SickIcarus'" in guard
+    assert "github.event.issue.number == 195" in guard
+    assert "!github.event.issue.pull_request" in guard
+    resolver = jobs["resolve"]["steps"][0]["run"]
+    assert 'jq -r ' + "'.comment.body // empty'" + ' "$GITHUB_EVENT_PATH"' in resolver
+    assert 'test "$action" = "/publish-v3-dev-core-manager"' in resolver
+    assert '[[ "$source_sha" =~ ^[0-9a-f]{40}$ ]]' in resolver
+    assert '[[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]' in resolver
 
 
 def test_candidate_build_receives_no_registry_auth_or_signer_secret():
@@ -46,7 +55,7 @@ def test_candidate_build_receives_no_registry_auth_or_signer_secret():
     assert "GH_TOKEN" not in unsigned.get("env", {})
     checkout = next(step for step in steps if step.get("name") == "Check out reviewed private Core source (no signing key)")
     assert checkout["with"]["persist-credentials"] == "false"
-    assert checkout["with"]["ref"] == "${{ inputs.core_source_sha }}"
+    assert checkout["with"]["ref"] == "${{ needs.resolve.outputs.core_source_sha }}"
     token_steps = [
         step for step in steps
         if "MONITORBOX_CORE_SOURCE_READ_TOKEN" in str(step)
