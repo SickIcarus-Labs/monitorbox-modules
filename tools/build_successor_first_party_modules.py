@@ -985,6 +985,8 @@ def _successor_runtime_overlays(
     elif artifact_id == UI_ID:
         _apply_ui_successor_overlay(files)
         _apply_ui_successor_asset_versions(record, files)
+        from successor_ui_backup_restore import apply_ui_backup_restore
+        apply_ui_backup_restore(files, record)
 
 
 
