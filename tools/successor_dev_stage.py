@@ -18,7 +18,7 @@ from typing import Mapping
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
-from successor_dev_release import AGENT, CORE, MANAGER, DevReleaseRefused, _records, _release_key
+from successor_dev_release import AGENT, CORE, MANAGER, BACKUP_RESTORE, DevReleaseRefused, _records, _release_key
 from verify_platform_index import _date, verify_index, verify_package
 
 SHA = re.compile(r"^[0-9a-f]{40}$")
@@ -27,6 +27,7 @@ KEY_ID = "official-ed25519-1"
 ARCHES = ("amd64", "arm64")
 CORE_MANAGER = frozenset({CORE, MANAGER})
 AGENT_ONLY = frozenset({AGENT})
+BACKUP_RESTORE_ONLY = frozenset({BACKUP_RESTORE})
 REQUIRED = frozenset((identity, arch) for identity in CORE_MANAGER for arch in ARCHES)
 
 
@@ -78,9 +79,10 @@ def stage_unsigned_dev_delta(
     """
     if not SHA.fullmatch(core_source_sha):
         raise DevReleaseRefused("exact Core source commit is required")
-    if changed_ids not in (CORE_MANAGER, AGENT_ONLY):
-        raise DevReleaseRefused("Dev delta must change exactly Core/Manager or Agent")
-    required = frozenset((identity, arch) for identity in changed_ids for arch in ARCHES)
+    if changed_ids not in (CORE_MANAGER, AGENT_ONLY, BACKUP_RESTORE_ONLY):
+        raise DevReleaseRefused("Dev delta must change exactly Core/Manager, Agent or Backup/Restore")
+    required = (frozenset({(BACKUP_RESTORE, "any")}) if changed_ids == BACKUP_RESTORE_ONLY
+                else frozenset((identity, arch) for identity in changed_ids for arch in ARCHES))
     if set(replacements) != required:
         raise DevReleaseRefused("exact two-architecture Dev change set required")
     if output.exists() or output.is_symlink():
@@ -146,13 +148,20 @@ def stage_unsigned_dev_delta(
         )
         if previous_record is None:
             raise DevReleaseRefused("changed signed package identity is absent")
+        stage = ("successor-module-requalification" if module_id == BACKUP_RESTORE
+                 else "successor-scaffold-manager" if module_id == MANAGER
+                 else "qualified-interpreted")
         if (info.get("artifact_id") != module_id
                 or info.get("kind") != ("scaffold-manager" if module_id == MANAGER else "module")
                 or info.get("release_eligible") is not True
-                or info.get("git_sha") != core_source_sha
-                or info.get("packaging_stage") != (
-                    "successor-scaffold-manager" if module_id == MANAGER else "qualified-interpreted"
-                )):
+                or info.get("packaging_stage") != stage
+                or (module_id != BACKUP_RESTORE and info.get("git_sha") != core_source_sha)
+                or (module_id == BACKUP_RESTORE and (
+                    not isinstance(info.get("module_runtime"), dict)
+                    or info["module_runtime"].get("module_id") != module_id
+                    or info["module_runtime"].get("version") != info.get("version")
+                    or info["module_runtime"].get("build") != info.get("build")
+                ))):
             raise DevReleaseRefused("changed package provenance/stage is invalid")
         new_identity = {
             "version": info.get("version"), "build": info.get("build"),
@@ -172,10 +181,12 @@ def stage_unsigned_dev_delta(
             old_info = _manifest(previous_packages / old_name)
             if info.get("runtime") != old_info.get("runtime") or info.get("wheelhouse") != old_info.get("wheelhouse"):
                 raise DevReleaseRefused("Core/Agent changed protected runtime dependencies")
-        else:
+        elif module_id == MANAGER:
             if info.get("platform") != previous_record.get("platform"):
                 raise DevReleaseRefused("Supervisor manager platform changed")
-        name = f"{module_id}-{info['version']}-build{info['build']}-{arch}.zip"
+        name = (f"{module_id}-{info['version']}-build{info['build']}.zip"
+                if module_id == BACKUP_RESTORE else
+                f"{module_id}-{info['version']}-build{info['build']}-{arch}.zip")
         if name in actual_names or name in staged:
             raise DevReleaseRefused("new version reuses existing package filename")
         staged[name] = (new_file, (module_id, arch), new_identity)
