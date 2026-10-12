@@ -60,10 +60,10 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
 
     def test_successor_ui_advances_for_scaffold_lifecycle_operator_contract(self) -> None:
         ui = self.records[subject.UI_ID]
-        self.assertEqual("1.18.3", ui["version"])
-        self.assertEqual(61, ui["build"])
-        self.assertEqual("1.18.3", ui["module_runtime"]["version"])
-        self.assertEqual(61, ui["module_runtime"]["build"])
+        self.assertEqual("1.18.4", ui["version"])
+        self.assertEqual(62, ui["build"])
+        self.assertEqual("1.18.4", ui["module_runtime"]["version"])
+        self.assertEqual(62, ui["module_runtime"]["build"])
 
     def test_scaffold_distribution_copy_does_not_inherit_false_legacy_failure(self) -> None:
         ui = self.records[subject.UI_ID]
@@ -89,9 +89,9 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
                 js = archive.read("monitorbox_ui_b54/assets/modules.js").decode()
         # These are the URL fragments used by the actual /modules HTTP adapter.
         self.assertIn('"modules.js": "text/javascript"', adapter)
-        self.assertIn("?v=1.18.3-61", adapter)
+        self.assertIn("?v=1.18.4-62", adapter)
         self.assertNotIn("?v=1.17.1-54", adapter)
-        self.assertIn("?v=1.18.3-61", dashboard)
+        self.assertIn("?v=1.18.4-62", dashboard)
         self.assertNotIn("?v=1.17.1-54", dashboard)
         self.assertIn("const distributionReady = scaffoldLifecycle", js)
         self.assertIn("platform_update_count", js)
@@ -110,7 +110,7 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
         self.assertIn('"/settings/restore-json"', adapter)
         self.assertIn("<!-- CORE_JSON_ACTIONS -->", adapter)
         self.assertIn('app.middlewares.append(native_json_backup_restore_ui)', adapter)
-        self.assertIn("1.18.3-61", html)
+        self.assertIn("1.18.4-62", html)
         self.assertNotIn("1.17.1-54", html)
         self.assertIn("Download configuration JSON", html)
         self.assertIn("Restore configuration (clear history)", html)
