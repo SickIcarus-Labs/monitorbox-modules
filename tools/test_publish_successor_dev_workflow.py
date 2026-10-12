@@ -231,7 +231,7 @@ def test_owner_gated_exact_backup_restore_app_release_uses_existing_signed_dev_f
     assert "needs.resolve.outputs.release_kind == 'ui'" in app["if"]
     assert 'test "$(git rev-parse HEAD)" = "$CORE_SOURCE_SHA"' in app["run"]
     assert '("1.0.6", 8)' in app["run"]
-    assert '("1.18.2", 60)' in app["run"]
+    assert '("1.18.3", 61)' in app["run"]
     assert 'UI_ID if kind == "ui" else BACKUP_RESTORE_ID' in app["run"]
     assert 'build_package(record, root, release_eligible=True)' in app["run"]
     assert '"sha256:" + digest == os.environ["UNSIGNED_DIGEST"]' in app["run"]
