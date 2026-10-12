@@ -60,10 +60,10 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
 
     def test_successor_ui_advances_for_scaffold_lifecycle_operator_contract(self) -> None:
         ui = self.records[subject.UI_ID]
-        self.assertEqual("1.18.3", ui["version"])
-        self.assertEqual(61, ui["build"])
-        self.assertEqual("1.18.3", ui["module_runtime"]["version"])
-        self.assertEqual(61, ui["module_runtime"]["build"])
+        self.assertEqual("1.18.4", ui["version"])
+        self.assertEqual(62, ui["build"])
+        self.assertEqual("1.18.4", ui["module_runtime"]["version"])
+        self.assertEqual(62, ui["module_runtime"]["build"])
 
     def test_scaffold_distribution_copy_does_not_inherit_false_legacy_failure(self) -> None:
         ui = self.records[subject.UI_ID]
@@ -89,9 +89,9 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
                 js = archive.read("monitorbox_ui_b54/assets/modules.js").decode()
         # These are the URL fragments used by the actual /modules HTTP adapter.
         self.assertIn('"modules.js": "text/javascript"', adapter)
-        self.assertIn("?v=1.18.3-61", adapter)
+        self.assertIn("?v=1.18.4-62", adapter)
         self.assertNotIn("?v=1.17.1-54", adapter)
-        self.assertIn("?v=1.18.3-61", dashboard)
+        self.assertIn("?v=1.18.4-62", dashboard)
         self.assertNotIn("?v=1.17.1-54", dashboard)
         self.assertIn("const distributionReady = scaffoldLifecycle", js)
         self.assertIn("platform_update_count", js)
@@ -110,7 +110,7 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
         self.assertIn('"/settings/restore-json"', adapter)
         self.assertIn("<!-- CORE_JSON_ACTIONS -->", adapter)
         self.assertIn('app.middlewares.append(native_json_backup_restore_ui)', adapter)
-        self.assertIn("1.18.3-61", html)
+        self.assertIn("1.18.4-62", html)
         self.assertNotIn("1.17.1-54", html)
         self.assertIn("Download configuration JSON", html)
         self.assertIn("Restore configuration (clear history)", html)
@@ -123,6 +123,32 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
         self.assertIn(".mb-br-page", css)
         self.assertNotIn("application/zip", html + css + js)
         self.assertNotIn("Appliance backups", html)
+
+    def test_ui62_normal_page_reuses_shared_dark_document_canvas(self) -> None:
+        """Regression: UI61 cards were dark but bare HTML body was white in Safari."""
+        ui = self.records[subject.UI_ID]
+        with tempfile.TemporaryDirectory(prefix="ui62-canvas-regression-") as root:
+            pkg = subject.build_package(ui, Path(root), release_eligible=True)
+            with zipfile.ZipFile(pkg) as archive:
+                html = archive.read("monitorbox_ui_b54/assets/backup-restore.html").decode()
+                css = archive.read("monitorbox_ui_b54/assets/backup-restore.css").decode()
+
+        # Generic MonitorBox app/settings shell CSS paints its own header,
+        # not the document. Every independently packaged normal HTML surface
+        # must explicitly reset body margins and use the same dark canvas.
+        self.assertIn('<body class="mb-br-surface">', html)
+        self.assertIn('backup-restore.css?v=1.18.4-62', html)
+        self.assertIn('--mb-br-bg:var(--mb-shell-bg,#07111f)', css)
+        self.assertIn('--mb-br-text:var(--mb-shell-text,#edf4ff)', css)
+        self.assertIn('body.mb-br-surface {', css)
+        body_rule = css.split('body.mb-br-surface {', 1)[1].split('}', 1)[0]
+        for required in ('margin:0;', 'background:var(--mb-br-bg);',
+                         'color:var(--mb-br-text);', 'min-height:100vh;'):
+            self.assertIn(required, body_rule)
+        self.assertIn('html {', css)
+        self.assertIn('width:min(100%,1120px)', css)
+        self.assertIn('background:var(--mb-br-panel)', css)
+        self.assertNotIn('background:white', css)
 
     def test_ui_normal_backup_page_delegates_to_core_and_preserves_fallback(self) -> None:
         import asyncio
