@@ -101,7 +101,8 @@ jobs:
       EXPECTED_DEV_FULL: ${{ needs.resolve.outputs.expected_dev_full }}
       UNSIGNED_DIGEST: ${{ needs.resolve.outputs.unsigned_digest }}
       RELEASE_KIND: ${{ needs.resolve.outputs.release_kind }}
-      STAGING: ${{ needs.resolve.outputs.release_kind == 'agent' && 'ghcr.io/sickicarus-labs/monitorbox-dev-unsigned-agent' || 'ghcr.io/sickicarus-labs/monitorbox-dev-unsigned-core-manager' }}
+      # Reuse the already-authorized unsigned package, with immutable digest-pinned tags.
+      STAGING: ghcr.io/sickicarus-labs/monitorbox-dev-unsigned-core-manager
       FULL: ghcr.io/sickicarus-labs/monitorbox-successor-signed-feed
     steps:
       - uses: docker/login-action@v4
