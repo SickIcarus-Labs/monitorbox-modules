@@ -90,6 +90,11 @@ jobs:
           [[ "$source_sha" =~ ^[0-9a-f]{40}$ ]]
           [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
           [[ "$unsigned_digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          if [[ "$EVENT_NAME" == issue_comment ]]; then
+            issue="$(jq -r '.issue.number' "$GITHUB_EVENT_PATH")"
+            if [[ "$kind" == backup-restore ]]; then test "$issue" = 792
+            else test "$issue" = 195; fi
+          fi
           echo "release_kind=$kind" >> "$GITHUB_OUTPUT"
           echo "unsigned_digest=$unsigned_digest" >> "$GITHUB_OUTPUT"
           echo "core_source_sha=$source_sha" >> "$GITHUB_OUTPUT"
@@ -263,20 +268,32 @@ jobs:
           python - <<'PY'
           import hashlib,json,os,re
           from pathlib import Path
-          from successor_dev_release import AGENT,CORE,MANAGER
+          from successor_dev_release import AGENT,CORE,MANAGER,BACKUP_RESTORE
           from successor_dev_stage import stage_unsigned_dev_delta
+          from build_successor_first_party_modules import _parse_authority, build_package
           root=Path(os.environ["RUNNER_TEMP"])
           manifest=json.loads((root/"new-packages/manifest.json").read_text())
           assert manifest["core_source_sha"]==os.environ["CORE_SOURCE_SHA"]
-          expected={"com.sickicarus.monitorbox.agent"} if os.environ["RELEASE_KIND"]=="agent" else {
-              "com.sickicarus.monitorbox.core", "com.sickicarus.monitorbox.scaffold-manager"
-          }
-          assert len(manifest["packages"])==len(expected)*2
+          kind=os.environ["RELEASE_KIND"]
+          expected=({BACKUP_RESTORE} if kind=="backup-restore" else
+                    {AGENT} if kind=="agent" else {CORE,MANAGER})
+          arches=("any",) if kind=="backup-restore" else ("amd64","arm64")
+          assert len(manifest["packages"])==len(expected)*len(arches)
+          if kind=="backup-restore":
+            # Independently reproduce the exact package from protected main.
+            assert __import__("subprocess").check_output(
+              ["git","rev-parse","HEAD"],text=True).strip()==os.environ["CORE_SOURCE_SHA"]
+            record=_parse_authority()[BACKUP_RESTORE]
+            assert (record["version"],record["build"])==("1.0.6",8)
+            rebuilt=build_package(record,root/"rebuilt",release_eligible=True)
+            submitted=root/"new-packages"/rebuilt.name
+            assert rebuilt.read_bytes()==submitted.read_bytes()
+
           replacements={}
           for item in manifest["packages"]:
             mid,arch=item["artifact_id"],item["arch"]
             filename=item["name"]
-            assert mid in expected and arch in ("amd64","arm64")
+            assert mid in expected and arch in arches
             assert Path(filename).name==filename and re.fullmatch(r"[0-9a-f]{64}",item["sha256"])
             source=root/"new-packages"/filename
             assert hashlib.sha256(source.read_bytes()).hexdigest()==item["sha256"]
@@ -314,6 +331,8 @@ jobs:
           intent=json.loads((root/"release-intent.json").read_text())
           assert intent["outer_channels_to_publish"]==["dev"]
           assert intent["artifact_count"]==22
+          if os.environ["RELEASE_KIND"]=="backup-restore":
+            assert intent["changed_module_ids"]==["com.sickicarus.monitorbox.backup-restore"]
           assert intent["changed_module_ids"]==(\
               ["com.sickicarus.monitorbox.agent"] if os.environ["RELEASE_KIND"]=="agent" else [
               "com.sickicarus.monitorbox.core", "com.sickicarus.monitorbox.scaffold-manager",
