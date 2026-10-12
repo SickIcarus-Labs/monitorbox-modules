@@ -120,9 +120,16 @@ def test_no_unreviewed_successor_registry_write_path_is_active():
             for sentinel in REVIEWED_DEV_WRITERS[workflow.name]:
                 assert sentinel in raw, (workflow.name, sentinel)
             # Stable and Beta pointers are read-only guardrails, not targets.
-            for channel in ("stable", "beta"):
-                for feed in ("FULL", "SUP"):
-                    assert 'imagetools create --tag "
+            for forbidden in (
+                'imagetools create --tag "$FULL:stable"',
+                'imagetools create --tag "$FULL:beta"',
+                'imagetools create --tag "$SUP:stable"',
+                'imagetools create --tag "$SUP:beta"',
+            ):
+                assert forbidden not in raw
+            continue
+        if relevant:
+            assert not writes, workflow.name
 
 
 def test_protected_signer_and_regular_module_channel_workflow_still_exist():
