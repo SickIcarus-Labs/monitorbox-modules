@@ -357,6 +357,14 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
                             self.assertEqual(count, after.count(selected), name)
                             self.assertNotIn(original, after)
                             self.assertEqual(before.replace(original, selected), after)
+                        elif (
+                            artifact_id == subject.UI_ID
+                            and b"1.17.1-54" in old.read(name)
+                        ):
+                            expected = old.read(name).replace(
+                                b"1.17.1-54", f"{record['version']}-{record['build']}".encode()
+                            )
+                            self.assertEqual(expected, new.read(name), name)
                         else:
                             self.assertEqual(old.read(name), new.read(name), name)
 
