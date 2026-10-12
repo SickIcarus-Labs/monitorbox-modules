@@ -124,6 +124,67 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
         self.assertNotIn("application/zip", html + css + js)
         self.assertNotIn("Appliance backups", html)
 
+    def test_ui_normal_backup_page_delegates_to_core_and_preserves_fallback(self) -> None:
+        import asyncio
+        import types
+
+        ui = self.records[subject.UI_ID]
+        with tempfile.TemporaryDirectory(prefix="ui61-native-render-") as raw:
+            pkg = subject.build_package(ui, Path(raw), release_eligible=False)
+            with zipfile.ZipFile(pkg) as archive:
+                source = archive.read("monitorbox_ui_b54/__init__.py").decode()
+                html = archive.read("monitorbox_ui_b54/assets/backup-restore.html").decode()
+        start = source.index("@web.middleware\\nasync def native_json_backup_restore_ui")
+        end = source.index("\\ndef install(app: web.Application) -> None:", start)
+        code = source[start:end]
+
+        class Response:
+            status = 200
+            content_type = "text/html"
+            def __init__(self, text):
+                self.text = text
+                self.headers = {}
+            @property
+            def body(self):
+                return self.text.encode()
+
+        ns = {
+            "web": types.SimpleNamespace(
+                middleware=lambda fn: fn, Request=object, Response=Response),
+            "_resource": lambda path: types.SimpleNamespace(
+                read_text=lambda encoding: html if path == "backup-restore.html" else None),
+        }
+        exec(compile(code, "<ui61-backup-presentation>", "exec"), ns)
+        render = ns["native_json_backup_restore_ui"]
+        core = ('<title>MonitorBox Restore JSON</title><script>'
+                'fetch("/api/v2/config/restore-json");'
+                'fetch("/api/v2/config/portable-json");'
+                "el('saveButton').onclick=()=>{};"
+                '</script>')
+        async def serve(request):
+            return Response(core)
+
+        native = asyncio.run(render(types.SimpleNamespace(
+            path="/settings/restore-json", method="GET"), serve))
+        self.assertIn("Download configuration JSON", native.text)
+        self.assertIn('id="restoreButton"', native.text)
+        self.assertIn('id="saveButton"', native.text)
+        self.assertIn('id="jsonEditor"', native.text)
+        self.assertIn("el('saveButton').onclick", native.text)
+        self.assertNotIn("CORE_JSON_ACTIONS", native.text)
+        self.assertEqual("no-store", native.headers["Cache-Control"])
+
+        for path in ("/settings/recovery", "/settings", "/"):
+            fallback = asyncio.run(render(types.SimpleNamespace(
+                path=path, method="GET"), serve))
+            self.assertEqual(core, fallback.text)
+        changed = "<title>Unreviewed Core UI</title><script>unknown()</script>"
+        async def changed_core(request):
+            return Response(changed)
+        result = asyncio.run(render(types.SimpleNamespace(
+            path="/settings/restore-json", method="GET"), changed_core))
+        self.assertEqual(changed, result.text)
+
     def test_successor_portainer_advances_for_bounded_parallel_inventory(self) -> None:
         portainer = self.records[subject.PORTAINER_ID]
         self.assertEqual(11, portainer["build"])
