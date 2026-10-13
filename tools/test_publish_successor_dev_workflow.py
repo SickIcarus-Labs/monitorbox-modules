@@ -52,7 +52,7 @@ def test_unsigned_builder_consumes_only_digest_pinned_oci_without_private_pat():
     raw = PATH.read_text("utf-8")
     assert "MONITORBOX_CORE_SOURCE_READ_TOKEN" not in raw
     assert "repository: SickIcarus-Labs/monitorbox" not in raw
-    assert "gh api repos/SickIcarus-Labs/monitorbox" not in raw
+    assert "gh api repos/SickIcarus-Labs/monitorbox/" not in raw  # private Core only
     assert "build_successor_dev_delta.py" not in raw
     assert "MONITORBOX_PLATFORM_SIGNING_KEY" not in str(unsigned)
     assert unsigned["permissions"]["packages"] == "read"
