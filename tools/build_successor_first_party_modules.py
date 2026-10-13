@@ -907,7 +907,8 @@ def _apply_backup_restore_native_json_overlay(
     if (platform.root / "portable").is_dir():
         import asyncio as _json_asyncio
         import json as _json
-        from monitorbox_backup_restore_b9_json import JsonBackupVault, JsonBackupError, JsonBackupScheduler, checked_json_policy
+        from datetime import datetime as _json_datetime
+        from monitorbox_backup_restore_b9_json import JsonBackupVault, JsonBackupError, JsonBackupScheduler, checked_json_policy, appliance_now
         vault = JsonBackupVault(platform.root)
         scheduler = JsonBackupScheduler(platform, vault)
 
@@ -924,7 +925,13 @@ def _apply_backup_restore_native_json_overlay(
             platform.auth.require(request)
             try:
                 backups = await _json_asyncio.to_thread(vault.list)
-            except JsonBackupError:
+                timezone = appliance_now().tzinfo
+                for item in backups:
+                    # Metadata stays UTC and immutable; local time is only a
+                    # display projection, never part of the saved filename.
+                    item["created_local"] = _json_datetime.fromisoformat(
+                        item["created_at_utc"]).astimezone(timezone).strftime("%Y-%m-%d %H:%M:%S")
+            except (JsonBackupError, ValueError, KeyError):
                 raise web.HTTPConflict(text="Saved JSON vault is unavailable") from None
             return web.json_response({"backups": backups}, headers={"Cache-Control": "no-store"})
 
