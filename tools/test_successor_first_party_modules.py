@@ -241,6 +241,144 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
                 with self.assertRaises(json_vault.JsonBackupError):
                     scheduler.check_destination(str(Path(root) / "backups"))
 
+    def test_signed_native_json_routes_use_auth_and_core_verified_export(self) -> None:
+        """Execute the packaged native route branch, not only string assertions."""
+        import asyncio
+        import sys
+        import types
+        from unittest.mock import patch
+
+        backup = self.records[subject.BACKUP_RESTORE_ID]
+        with tempfile.TemporaryDirectory(prefix="mb-native-json-route-") as directory:
+            package = subject.build_package(backup, Path(directory), release_eligible=False)
+            with zipfile.ZipFile(package) as archive:
+                source = archive.read(subject.BACKUP_RESTORE_ENTRYPOINT_MEMBER).decode()
+            start = source.index('    if (platform.root / "portable").is_dir():')
+            end = source.index('    management = BackupRestoreManagement(platform)', start)
+            code = "def mount_native(app, platform):\n" + source[start:end]
+
+            class HttpError(Exception):
+                def __init__(self, text=None, location=None, **_kw):
+                    self.text = text
+                    self.location = location
+
+            class Response:
+                def __init__(self, body=b"", content_type=None, headers=None,
+                             status=200, payload=None):
+                    self.body = body
+                    self.content_type = content_type
+                    self.headers = headers or {}
+                    self.status = status
+                    self.payload = payload
+
+            class Web:
+                Request = object
+                HTTPFound = HttpError
+                HTTPConflict = HttpError
+                HTTPNotFound = HttpError
+                HTTPBadRequest = HttpError
+                HTTPRequestEntityTooLarge = HttpError
+                @staticmethod
+                def middleware(fn):
+                    return fn
+                @staticmethod
+                def json_response(data, status=200, headers=None):
+                    return Response(status=status, payload=data, headers=headers)
+
+            Web.Response = Response
+
+            class Router:
+                def __init__(self):
+                    self.routes = {}
+                def add_get(self, path, fn):
+                    self.routes["GET", path] = fn
+                def add_post(self, path, fn):
+                    self.routes["POST", path] = fn
+                def add_put(self, path, fn):
+                    self.routes["PUT", path] = fn
+                def add_delete(self, path, fn):
+                    self.routes["DELETE", path] = fn
+
+            class App:
+                def __init__(self):
+                    self.router = Router()
+                    self.middlewares = []
+                    self.on_startup = []
+                    self.on_cleanup = []
+
+            class Request:
+                def __init__(self, *, csrf=True, body=b"", backup_id=None):
+                    self.csrf = csrf
+                    self.match_info = {"backup_id": backup_id}
+                    self.content_length = len(body)
+                    self._body = body
+                async def read(self):
+                    return self._body
+
+            class Auth:
+                def require(self, request, *, csrf=False):
+                    if csrf and not request.csrf:
+                        raise HttpError("administrator CSRF required")
+
+            original = {
+                "schemaVersion": "monitorbox.portable/v1",
+                "modules": [{"id": json_vault.MODULE_ID, "settings": {}}],
+                "credentials": {"provider": {"value": "private-signed-credential"}},
+            }
+            filename = "monitorbox-config_3.0.0_20261012-210000.json"
+            class Platform:
+                def __init__(self, root):
+                    self.root = root
+                    self.auth = Auth()
+                    self.applied = None
+                async def portable_json(self, request):
+                    self.auth.require(request)
+                    return self.export_verified_portable_json()
+                def export_verified_portable_json(self):
+                    return Response(
+                        body=(json.dumps(original) + "\n").encode(),
+                        headers={"Content-Disposition": 'attachment; filename="' + filename + '"'},
+                    )
+                async def _apply_native_portable(self, doc, *, detail):
+                    self.applied = doc
+                    return Response(payload={"accepted": True, **detail}, status=202)
+
+            root = Path(directory) / "config"
+            (root / "portable").mkdir(parents=True)
+            app = App()
+            platform = Platform(root)
+            ns = {"web": Web}
+            with patch.dict(sys.modules, {"monitorbox_backup_restore_b9_json": json_vault}):
+                exec(compile(code, "<signed-native-br>", "exec"), ns)
+                ns["mount_native"](app, platform)
+            base = "/api/v2/config/backup-restore/json"
+            routes = app.router.routes
+            self.assertIn(("POST", base + "/saved"), routes)
+            self.assertIn(("GET", base + "/saved"), routes)
+            self.assertIn(("PUT", base + "/policy"), routes)
+            self.assertIn(("POST", base + "/run"), routes)
+            with self.assertRaises(HttpError):
+                asyncio.run(routes["POST", base + "/saved"](Request(csrf=False)))
+            created = asyncio.run(routes["POST", base + "/saved"](Request()))
+            self.assertEqual(201, created.status)
+            entry_id = created.payload["id"]
+            self.assertIn(filename, created.payload["filename"])
+            listed = asyncio.run(routes["GET", base + "/saved"](Request()))
+            self.assertEqual(1, len(listed.payload["backups"]))
+            downloaded = asyncio.run(routes["GET", base + "/saved/{backup_id}"](Request(backup_id=entry_id)))
+            self.assertIn(b"private-signed-credential", downloaded.body)
+            self.assertEqual(0, json.loads(downloaded.body).get("adminIdentity", 0))
+            policy = {"enabled": True, "time": "03:00", "retention_count": 3, "destination_path": ""}
+            outcome = asyncio.run(routes["PUT", base + "/policy"](
+                Request(body=json.dumps(policy).encode())))
+            self.assertEqual(202, outcome.status)
+            module = next(row for row in platform.applied["modules"] if row["id"] == json_vault.MODULE_ID)
+            self.assertEqual(policy, module["settings"]["jsonBackups"])
+            deleted = asyncio.run(routes["DELETE", base + "/saved/{backup_id}"](Request(backup_id=entry_id)))
+            self.assertEqual(True, deleted.payload["deleted"])
+            self.assertEqual([], asyncio.run(routes["GET", base + "/saved"](Request())).payload["backups"])
+
+
     def test_successor_ui_advances_for_scaffold_lifecycle_operator_contract(self) -> None:
         ui = self.records[subject.UI_ID]
         self.assertEqual("1.18.6", ui["version"])
