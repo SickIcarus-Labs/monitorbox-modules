@@ -20,7 +20,7 @@ from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 from build_platform_index import sign_candidate
 from sign_successor_dev_stage import (
-    ARCHES, CHANNELS, KEY_ID, _source_from_signed,
+    CHANNELS, KEY_ID, _source_from_signed,
 )
 from verify_platform_index import _date, verify_index, verify_package
 
@@ -55,10 +55,10 @@ def validate_cohort(previous: dict) -> None:
     roles = {item["artifact_id"] for item in dev}
     # Supervisor's actual signed artifact name is platform-specific; its
     # identity must be confirmed independently before publication.
-    if len(roles) != 13:
-        raise BetaPromotionRefused("expected exactly 13 signed functional roles")
+    if roles != REQUIRED_ROLES:
+        raise BetaPromotionRefused("expected exactly the 13 approved signed functional roles")
     def keyed(items):
-        return {(a["artifact_id"], a["platform"]["arch"]): a for a in items}
+        return {(a["artifact_id"], a["platform"]["os"], a["platform"]["arch"], a["platform"]["abi"]): a for a in items}
     d, b = keyed(dev), keyed(beta)
     if len(d) != 22 or len(b) != 22 or set(d) != set(b):
         raise BetaPromotionRefused("Dev/Beta architecture inventory mismatch")
