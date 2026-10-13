@@ -365,6 +365,7 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
             self.assertIn(filename, created.payload["filename"])
             listed = asyncio.run(routes["GET", base + "/saved"](Request()))
             self.assertEqual(1, len(listed.payload["backups"]))
+            self.assertRegex(listed.payload["backups"][0]["created_local"], r"^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}$")
             downloaded = asyncio.run(routes["GET", base + "/saved/{backup_id}"](Request(backup_id=entry_id)))
             self.assertIn(b"private-signed-credential", downloaded.body)
             self.assertEqual(0, json.loads(downloaded.body).get("adminIdentity", 0))
