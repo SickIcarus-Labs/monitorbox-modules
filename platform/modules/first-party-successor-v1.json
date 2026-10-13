@@ -5,8 +5,8 @@
   "modules": [
     {
       "artifact_id": "com.sickicarus.monitorbox.backup-restore",
-      "version": "1.0.6",
-      "build": 8,
+      "version": "1.0.7",
+      "build": 9,
       "predecessor": {
         "filename": "com.sickicarus.monitorbox.backup-restore-1.0.5-build6.zip",
         "sha256": "428ae54efcabf62674987fee83ece8a1c4b576cfcce5bab9d7bfe511e3816c2c"
@@ -14,8 +14,8 @@
       "module_runtime": {
         "module_id": "com.sickicarus.monitorbox.backup-restore",
         "display_name": "Backup / Restore",
-        "version": "1.0.6",
-        "build": 8,
+        "version": "1.0.7",
+        "build": 9,
         "schema": 1,
         "state_schema": 1,
         "module_type": "recovery",

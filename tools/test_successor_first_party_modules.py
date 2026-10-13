@@ -13,6 +13,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import build_successor_first_party_modules as subject
+import native_json_backup_vault as json_vault
 from portable_contracts import parse_json, verify_embedded_contract
 
 
@@ -36,9 +37,9 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
 
     def test_native_json_backup_restore_has_new_independent_module_version(self) -> None:
         backup = self.records[subject.BACKUP_RESTORE_ID]
-        self.assertEqual("1.0.6", backup["version"])
-        self.assertEqual(8, backup["build"])
-        self.assertEqual(8, backup["module_runtime"]["build"])
+        self.assertEqual("1.0.7", backup["version"])
+        self.assertEqual(9, backup["build"])
+        self.assertEqual(9, backup["module_runtime"]["build"])
 
     def test_native_json_backup_module_never_starts_zip_scheduler_or_routes(self) -> None:
         backup = self.records[subject.BACKUP_RESTORE_ID]
@@ -49,6 +50,12 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
                 self.assertIn('if (platform.root / "portable").is_dir():', source)
                 self.assertIn('raise web.HTTPFound(location="/settings/restore-json")', source)
                 self.assertIn('app.router.add_get("/backup-restore", native_json_page)', source)
+                self.assertIn('native_saved_create', source)
+                self.assertIn('platform.portable_json(request)', source)
+                self.assertIn('csrf=True', source)
+                self.assertIn('/api/v2/config/backup-restore/json/saved', source)
+                runtime = archive.read("monitorbox_backup_restore_b9_json.py")
+                self.assertEqual(runtime, (subject.ROOT / "tools" / "native_json_backup_vault.py").read_bytes())
                 before = source.index('if (platform.root / "portable").is_dir():')
                 native_return = source.index('        return\n', before)
                 legacy = source.index('    management = BackupRestoreManagement(platform)', before)
@@ -57,6 +64,59 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
                 self.assertNotIn("_install_admin_routes(", source[before:native_return])
                 self.assertNotIn("management.scheduler.install(", source[before:native_return])
                 self.assertIn("_install_admin_routes(app, application, management)", source[legacy:])
+
+
+    def test_json_vault_retains_exact_verified_payload_and_private_modes(self) -> None:
+        import stat
+        data = {
+            "schemaVersion": "monitorbox.portable/v1",
+            "modules": [{"id": "com.sickicarus.monitorbox.backup-restore"}],
+            "credentials": {"provider": {"value": "secret-must-not-be-logged"}},
+        }
+        payload = (json.dumps(data, indent=2) + "\n").encode()
+        filename = "monitorbox-config_3.0.0_20261012-210201.json"
+        with tempfile.TemporaryDirectory(prefix="mb-json-vault-") as directory:
+            vault = json_vault.JsonBackupVault(Path(directory))
+            self.assertEqual([], vault.list())
+            record = vault.create(payload, filename)
+            saved, content = vault.read(record["id"])
+            self.assertEqual(payload, content)
+            self.assertEqual(filename, saved["filename"])
+            self.assertEqual("manual", saved["kind"])
+            self.assertEqual([record], vault.list())
+            vault_path = Path(directory) / "backups" / "portable-json"
+            self.assertEqual(0o700, stat.S_IMODE(vault_path.stat().st_mode))
+            self.assertEqual(0o600, stat.S_IMODE((vault_path / (record["id"] + ".json")).stat().st_mode))
+            self.assertNotIn("secret-must-not-be-logged", json.dumps(record))
+            vault.delete(record["id"])
+            self.assertEqual([], vault.list())
+            with self.assertRaises(json_vault.JsonBackupError):
+                vault.read(record["id"])
+
+    def test_json_vault_ignores_orphan_and_rejects_tamper_and_traversal(self) -> None:
+        payload = b'{"schemaVersion":"monitorbox.portable/v1","modules":[],"credentials":{"x":{"value":"s"}}}'
+        filename = "monitorbox-config_3.0.0_20261012-210201.json"
+        with tempfile.TemporaryDirectory(prefix="mb-json-integrity-") as directory:
+            vault = json_vault.JsonBackupVault(Path(directory))
+            for invalid in ("../secret", "a", "20261012T210201000000Z-abcdef1234567890/../foo"):
+                with self.assertRaises(json_vault.JsonBackupError):
+                    vault.read(invalid)
+            with self.assertRaises(json_vault.JsonBackupError):
+                vault.create(payload, filename + "+0000")
+            with self.assertRaises(json_vault.JsonBackupError):
+                vault.create(payload.replace(b'"credentials"', b'"adminIdentity"'), filename)
+            first = vault.create(payload, filename)
+            store = Path(directory) / "backups" / "portable-json"
+            data = store / (first["id"] + ".json")
+            data.write_bytes(payload + b" ")
+            self.assertEqual([], vault.list())
+            with self.assertRaises(json_vault.JsonBackupError):
+                vault.read(first["id"])
+            data.write_bytes(payload)
+            self.assertEqual([first], vault.list())
+            orphan = store / "20261012T210201000000Z-abcdef1234567890.json"
+            orphan.write_bytes(payload)
+            self.assertEqual([first], vault.list())
 
     def test_successor_ui_advances_for_scaffold_lifecycle_operator_contract(self) -> None:
         ui = self.records[subject.UI_ID]
@@ -346,7 +406,10 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
                         ] if artifact_id == subject.UI_ID else []
                     )
                     self.assertEqual(
-                        sorted(old_names + ["package.json", "portable-config.json"] + extra_ui_assets),
+                        sorted(old_names + ["package.json", "portable-config.json"]
+                               + extra_ui_assets
+                               + (["monitorbox_backup_restore_b9_json.py"]
+                                  if artifact_id == subject.BACKUP_RESTORE_ID else [])),
                         sorted(new_names),
                     )
                     for name in old_names:
