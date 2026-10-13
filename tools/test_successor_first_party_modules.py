@@ -54,6 +54,9 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
                 self.assertIn('platform.portable_json(request)', source)
                 self.assertIn('csrf=True', source)
                 self.assertIn('/api/v2/config/backup-restore/json/saved', source)
+                self.assertIn('native_schedule_save', source)
+                self.assertIn('native_schedule_run', source)
+                self.assertIn('JsonBackupScheduler(platform, vault)', source)
                 runtime = archive.read("monitorbox_backup_restore_b9_json.py")
                 self.assertEqual(runtime, (subject.ROOT / "tools" / "native_json_backup_vault.py").read_bytes())
                 before = source.index('if (platform.root / "portable").is_dir():')
@@ -117,6 +120,79 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
             orphan = store / "20261012T210201000000Z-abcdef1234567890.json"
             orphan.write_bytes(payload)
             self.assertEqual([first], vault.list())
+
+
+    def test_json_scheduler_policy_validation_and_daily_retention(self) -> None:
+        import asyncio
+        from datetime import datetime
+        from unittest.mock import patch
+        from zoneinfo import ZoneInfo
+
+        policy = {"enabled": True, "time": "02:00", "retention_count": 1}
+        doc = {
+            "schemaVersion": "monitorbox.portable/v1",
+            "modules": [{"id": json_vault.MODULE_ID, "settings": {"jsonBackups": policy}}],
+            "credentials": {"provider": {"value": "private"}},
+        }
+        class Export:
+            def __init__(self):
+                self.body = (json.dumps(doc) + "\n").encode()
+                self.headers = {"Content-Disposition": 'attachment; filename="monitorbox-config_3.0.0_20261012-030000.json"'}
+        class Platform:
+            def export_verified_portable_json(self):
+                return Export()
+        with tempfile.TemporaryDirectory(prefix="mb-json-schedule-") as path:
+            vault = json_vault.JsonBackupVault(Path(path))
+            scheduler = json_vault.JsonBackupScheduler(Platform(), vault)
+            tz = ZoneInfo("America/Chicago")
+            with patch.object(json_vault, "appliance_now", return_value=datetime(2026, 10, 12, 3, 1, tzinfo=tz)):
+                first = asyncio.run(scheduler.run_due())
+                self.assertTrue(first["created"])
+                self.assertEqual("2026-10-12", first["backup"]["local_day"])
+                second = asyncio.run(scheduler.run_due())
+                self.assertFalse(second["created"])
+                self.assertEqual("already_created_today", second["reason"])
+            with patch.object(json_vault, "appliance_now", return_value=datetime(2026, 10, 13, 3, 1, tzinfo=tz)):
+                third = asyncio.run(scheduler.run_due())
+                self.assertTrue(third["created"])
+            records = vault.list()
+            self.assertEqual(1, len(records))
+            self.assertEqual("2026-10-13", records[0]["local_day"])
+        for bad in (
+            {"enabled": "true", "time": "02:00", "retention_count": 7},
+            {"enabled": True, "time": "25:00", "retention_count": 7},
+            {"enabled": True, "time": "02:00", "retention_count": 0},
+            {"enabled": True, "time": "02:00", "retention_count": 7, "secret": "x"},
+        ):
+            with self.assertRaises(json_vault.JsonBackupError):
+                json_vault.checked_json_policy(bad)
+
+    def test_json_scheduler_run_now_preserves_manual_backups(self) -> None:
+        import asyncio
+        from datetime import datetime, timezone
+        from unittest.mock import patch
+        doc = {
+            "schemaVersion": "monitorbox.portable/v1",
+            "modules": [{"id": json_vault.MODULE_ID, "settings": {}}],
+            "credentials": {},
+        }
+        class Export:
+            def __init__(self):
+                self.body = json.dumps(doc).encode()
+                self.headers = {"Content-Disposition": 'attachment; filename="monitorbox-config_3.0.0_20261012-050100.json"'}
+        class Platform:
+            def export_verified_portable_json(self):
+                return Export()
+        with tempfile.TemporaryDirectory(prefix="mb-json-run-now-") as path:
+            vault = json_vault.JsonBackupVault(Path(path))
+            manual = vault.create(Export().body, "monitorbox-config_3.0.0_20261012-050100.json")
+            scheduler = json_vault.JsonBackupScheduler(Platform(), vault)
+            with patch.object(json_vault, "appliance_now", return_value=datetime(2026, 10, 12, 5, 1, tzinfo=timezone.utc)):
+                self.assertEqual("disabled", asyncio.run(scheduler.run_due())["reason"])
+                result = asyncio.run(scheduler.run_due(force=True))
+                self.assertTrue(result["created"])
+            self.assertEqual(2, len(vault.list()))
+            self.assertEqual("manual", vault.read(manual["id"])[0]["kind"])
 
     def test_successor_ui_advances_for_scaffold_lifecycle_operator_contract(self) -> None:
         ui = self.records[subject.UI_ID]
