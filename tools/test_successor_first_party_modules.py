@@ -128,7 +128,7 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
         from unittest.mock import patch
         from zoneinfo import ZoneInfo
 
-        policy = {"enabled": True, "time": "02:00", "retention_count": 1}
+        policy = {"enabled": True, "time": "02:00", "retention_count": 1, "destination_path": ""}
         doc = {
             "schemaVersion": "monitorbox.portable/v1",
             "modules": [{"id": json_vault.MODULE_ID, "settings": {"jsonBackups": policy}}],
@@ -159,10 +159,12 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
             self.assertEqual(1, len(records))
             self.assertEqual("2026-10-13", records[0]["local_day"])
         for bad in (
-            {"enabled": "true", "time": "02:00", "retention_count": 7},
-            {"enabled": True, "time": "25:00", "retention_count": 7},
-            {"enabled": True, "time": "02:00", "retention_count": 0},
-            {"enabled": True, "time": "02:00", "retention_count": 7, "secret": "x"},
+            {"enabled": "true", "time": "02:00", "retention_count": 7, "destination_path": ""},
+            {"enabled": True, "time": "25:00", "retention_count": 7, "destination_path": ""},
+            {"enabled": True, "time": "02:00", "retention_count": 0, "destination_path": ""},
+            {"enabled": True, "time": "02:00", "retention_count": 7, "destination_path": "/tmp", "secret": "x"},
+            {"enabled": True, "time": "02:00", "retention_count": 7, "destination_path": "relative"},
+            {"enabled": True, "time": "02:00", "retention_count": 7, "destination_path": "/tmp/../tmp"},
         ):
             with self.assertRaises(json_vault.JsonBackupError):
                 json_vault.checked_json_policy(bad)
@@ -193,6 +195,49 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
                 self.assertTrue(result["created"])
             self.assertEqual(2, len(vault.list()))
             self.assertEqual("manual", vault.read(manual["id"])[0]["kind"])
+
+
+    def test_json_scheduler_external_copy_does_not_overwrite_and_excludes_appliance_root(self) -> None:
+        import asyncio
+        from datetime import datetime, timezone
+        from unittest.mock import patch
+        import stat
+        with tempfile.TemporaryDirectory(prefix="mb-json-root-") as root:
+            with tempfile.TemporaryDirectory(prefix="mb-json-mounted-") as destination:
+                policy = {
+                    "enabled": True, "time": "02:00", "retention_count": 2,
+                    "destination_path": destination,
+                }
+                document = {
+                    "schemaVersion": "monitorbox.portable/v1",
+                    "modules": [{"id": json_vault.MODULE_ID, "settings": {"jsonBackups": policy}}],
+                    "credentials": {"provider": {"value": "sensitive"}},
+                }
+                raw = json.dumps(document).encode()
+                filename = "monitorbox-config_3.0.0_20261012-050100.json"
+                class Response:
+                    body = raw
+                    headers = {"Content-Disposition": 'attachment; filename="' + filename + '"'}
+                class Platform:
+                    def export_verified_portable_json(self):
+                        return Response()
+                vault = json_vault.JsonBackupVault(Path(root))
+                scheduler = json_vault.JsonBackupScheduler(Platform(), vault)
+                with patch.object(json_vault, "appliance_now", return_value=datetime(2026, 10, 12, 5, 1, tzinfo=timezone.utc)):
+                    result = asyncio.run(scheduler.run_due())
+                self.assertTrue(result["created"])
+                self.assertIsNone(result["destination_error"])
+                copied = Path(destination) / filename
+                self.assertEqual(raw, copied.read_bytes())
+                self.assertEqual(0o600, stat.S_IMODE(copied.stat().st_mode))
+                self.assertEqual(1, len(vault.list()))
+                with patch.object(json_vault, "appliance_now", return_value=datetime(2026, 10, 12, 5, 2, tzinfo=timezone.utc)):
+                    repeat = asyncio.run(scheduler.run_due(force=True))
+                self.assertTrue(repeat["created"])
+                self.assertIn("external copy failed", repeat["destination_error"])
+                self.assertEqual(raw, copied.read_bytes())
+                with self.assertRaises(json_vault.JsonBackupError):
+                    scheduler.check_destination(str(Path(root) / "backups"))
 
     def test_successor_ui_advances_for_scaffold_lifecycle_operator_contract(self) -> None:
         ui = self.records[subject.UI_ID]
