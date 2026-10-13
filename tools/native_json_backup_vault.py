@@ -298,11 +298,30 @@ class JsonBackupScheduler:
         return destination
 
     def _publish_destination(self, directory: Path, record: dict[str, Any], content: bytes) -> None:
-        # Filenames remain the approved JSON form. Never replace existing copies.
+        # An exclusive hard-link publish, not a check-then-replace: two exports
+        # with the same appliance-local basename must NEVER overwrite a NAS file,
+        # including across fall-back DST and concurrent writers.
         target = directory / record["filename"]
-        if target.exists() or target.is_symlink():
-            raise JsonBackupError("destination already contains this JSON backup")
-        JsonBackupVault._atomic(target, content)
+        temporary = directory / ("." + record["id"] + ".tmp")
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+        try:
+            fd = os.open(temporary, flags, 0o600)
+            with os.fdopen(fd, "wb") as handle:
+                handle.write(content)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.link(temporary, target, follow_symlinks=False)
+            folder_fd = os.open(directory, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+            try:
+                os.fsync(folder_fd)
+            finally:
+                os.close(folder_fd)
+        except FileExistsError:
+            raise JsonBackupError("destination already contains this JSON backup") from None
+        except OSError:
+            raise JsonBackupError("external backup copy could not be published") from None
+        finally:
+            temporary.unlink(missing_ok=True)
 
     async def start(self, _app: Any) -> None:
         if self._task is None or self._task.done():
