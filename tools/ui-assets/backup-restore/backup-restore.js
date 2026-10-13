@@ -223,6 +223,7 @@
         name.textContent = entry.filename;
         const detail = document.createElement("small");
         detail.textContent = (entry.kind === "scheduled" ? "Scheduled" : "Manual") +
+          " · " + (entry.created_local || "Time unavailable") +
           " · " + Math.ceil((Number(entry.bytes) || 0) / 1024) + " KiB";
         description.append(name, detail);
         const actions = document.createElement("div");
