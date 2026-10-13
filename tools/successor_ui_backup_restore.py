@@ -120,8 +120,8 @@ async def native_json_backup_restore_ui(request: web.Request, handler):
     if not isinstance(shell_blob, bytes):
         raise ValueError("UI app-shell route table missing")
     shell_source = shell_blob.decode("utf-8")
-    old_route = r"/^\\/settings\\/recovery(?:\\/|$)/"
-    new_route = r"/^\\/settings\\/(?:recovery|restore-json)(?:\\/|$)/"
+    old_route = r"/^\/settings\/recovery(?:\/|$)/"
+    new_route = r"/^\/settings\/(?:recovery|restore-json)(?:\/|$)/"
     if shell_source.count(old_route) != 1:
         raise ValueError("UI app-shell native Backup route changed")
     files[shell_path] = shell_source.replace(old_route, new_route, 1).encode("utf-8")
@@ -141,4 +141,4 @@ async def native_json_backup_restore_ui(request: web.Request, handler):
 """
     if b"#796: fixed normal application chrome" in css_blob:
         raise ValueError("UI shared header rule already present")
-    files[css_path] = css_blob.rstrip() + b"\\n" + header_css.encode("utf-8")
+    files[css_path] = css_blob.rstrip() + b"\n" + header_css.encode("utf-8")
