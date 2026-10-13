@@ -1,8 +1,8 @@
 """Normal UI ownership of the native JSON Backup/Restore presentation.
 
 The accepted Core JSON page remains a standalone emergency fallback.
-The UI module replaces only its HTML on native /settings/restore-json, reuses
-Core's authenticated JSON action script, and adds no other backup mechanism.
+The UI module replaces only its HTML on native /settings/restore-json, calls
+Core's existing protected endpoints, and adds no other backup mechanism.
 """
 
 from __future__ import annotations
@@ -51,22 +51,12 @@ async def native_json_backup_restore_ui(request: web.Request, handler):
     core_html = response.text
     if "<title>MonitorBox Restore JSON</title>" not in core_html:
         return response
-    start = core_html.find("<script>")
-    end = core_html.find("</script>", start)
-    if (
-        start < 0 or end < 0 or core_html.count("<script>") != 1
-        or core_html.count("</script>") != 1
-        or "/api/v2/config/restore-json" not in core_html
-        or "/api/v2/config/portable-json" not in core_html
-        or "el('saveButton').onclick" not in core_html
-    ):
-        # A changed Core contract never removes the usable Core fallback.
+    # A verified Core native-JSON page is required; the UI intentionally owns
+    # its own minimal restore-only controller, not Core's old JSON editor script.
+    if "/api/v2/config/restore-json" not in core_html:
         return response
     page = _resource("backup-restore.html").read_text(encoding="utf-8")
-    token = "<!-- CORE_JSON_ACTIONS -->"
-    if page.count(token) != 1:
-        return response
-    response.text = page.replace(token, core_html[start:end + len("</script>")], 1)
+    response.text = page
     response.headers["Cache-Control"] = "no-store"
     return response
 
@@ -98,9 +88,57 @@ async def native_json_backup_restore_ui(request: web.Request, handler):
         blob = (_ASSETS / basename).read_bytes()
         if basename == "backup-restore.html":
             tag = b"__MONITORBOX_UI_GENERATION__"
-            if blob.count(tag) != 2 or blob.count(b"<!-- CORE_JSON_ACTIONS -->") != 1:
+            if blob.count(tag) != 2 or b'<!-- CORE_JSON_ACTIONS -->' in blob:
                 raise ValueError("UI backup HTML insertion contract changed")
             blob = blob.replace(tag, version)
         if len(blob) < 100 or len(blob) > 32768:
             raise ValueError("UI backup asset size outside reviewed range")
         files[key] = blob
+
+    # Package the reviewed Configuration peer-nav change as part of the
+    # independently versioned UI module; do not rewrite immutable 2.x assets.
+    peer_path = _UI_PREFIX + "assets/configuration-peer-navigation.js"
+    peer_bytes = files.get(peer_path)
+    if not isinstance(peer_bytes, bytes):
+        raise ValueError("UI Configuration peer navigation asset missing")
+    peer = peer_bytes.decode("utf-8")
+    patches = (
+        ("['recovery', 'Recovery', '/settings/recovery'],",
+         "['recovery', 'Backup', '/settings/recovery'],"),
+        ("if (pathname.startsWith('/settings/recovery')) return 'recovery';",
+         "if (pathname.startsWith('/settings/recovery') || pathname.startsWith('/settings/restore-json')) return 'recovery';"),
+    )
+    for old, new in patches:
+        if peer.count(old) != 1:
+            raise ValueError("UI Backup peer navigation source boundary changed")
+        peer = peer.replace(old, new, 1)
+    files[peer_path] = peer.encode("utf-8")
+
+    # Identify redirected native JSON Backup in the persistent shared shell.
+    shell_path = _UI_PREFIX + "assets/app-shell.js"
+    shell_blob = files.get(shell_path)
+    if not isinstance(shell_blob, bytes):
+        raise ValueError("UI app-shell route table missing")
+    shell_source = shell_blob.decode("utf-8")
+    old_route = r"/^\/settings\/recovery(?:\/|$)/"
+    new_route = r"/^\/settings\/(?:recovery|restore-json)(?:\/|$)/"
+    if shell_source.count(old_route) != 1:
+        raise ValueError("UI app-shell native Backup route changed")
+    files[shell_path] = shell_source.replace(old_route, new_route, 1).encode("utf-8")
+
+    # Keep identical horizontal shared-header geometry whether the page has
+    # a hierarchical Up link (Configuration/Backup) or not (Modules/Dashboard).
+    css_path = _UI_PREFIX + "assets/app-shell.css"
+    css_blob = files.get(css_path)
+    if not isinstance(css_blob, bytes):
+        raise ValueError("UI shared shell CSS missing")
+    header_css = """
+/* #796: fixed normal application chrome independent of optional Up link. */
+@media (min-width:761px) {
+  .mb-app-shell {box-sizing:border-box; height:64px; min-height:64px; align-content:center}
+  .mb-shell-hierarchy {min-height:36px; align-content:center}
+}
+"""
+    if b"#796: fixed normal application chrome" in css_blob:
+        raise ValueError("UI shared header rule already present")
+    files[css_path] = css_blob.rstrip() + b"\n" + header_css.encode("utf-8")

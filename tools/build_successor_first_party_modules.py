@@ -903,10 +903,15 @@ def _apply_backup_restore_native_json_overlay(
     anchor = "    management = BackupRestoreManagement(platform)\n"
     if source.count(anchor) != 1:
         raise SuccessorModuleError("B/R signed install seam changed unexpectedly")
-    safe_native = '''    # Portable-v1 JSON is the native appliance's only restore authority.
-    # Core already owns its authenticated JSON editor/export and activation.
-    # Do not start the legacy ZIP scheduler or publish ZIP/mutation APIs.
+    safe_native = '''    # Native portable-v1 authority: JSON only, never launch the ZIP scheduler.
     if (platform.root / "portable").is_dir():
+        import asyncio as _json_asyncio
+        import json as _json
+        from datetime import datetime as _json_datetime
+        from monitorbox_backup_restore_b9_json import JsonBackupVault, JsonBackupError, JsonBackupScheduler, checked_json_policy, appliance_now
+        vault = JsonBackupVault(platform.root)
+        scheduler = JsonBackupScheduler(platform, vault)
+
         @web.middleware
         async def native_json_recovery(request: web.Request, handler):
             if request.method == "GET" and request.path == "/settings/recovery":
@@ -916,14 +921,128 @@ def _apply_backup_restore_native_json_overlay(
         async def native_json_page(request: web.Request) -> web.Response:
             raise web.HTTPFound(location="/settings/restore-json")
 
+        async def native_saved_list(request: web.Request) -> web.Response:
+            platform.auth.require(request)
+            try:
+                backups = await _json_asyncio.to_thread(vault.list)
+                timezone = appliance_now().tzinfo
+                for item in backups:
+                    # Metadata stays UTC and immutable; local time is only a
+                    # display projection, never part of the saved filename.
+                    item["created_local"] = _json_datetime.fromisoformat(
+                        item["created_at_utc"]).astimezone(timezone).strftime("%Y-%m-%d %H:%M:%S")
+            except (JsonBackupError, ValueError, KeyError):
+                raise web.HTTPConflict(text="Saved JSON vault is unavailable") from None
+            return web.json_response({"backups": backups}, headers={"Cache-Control": "no-store"})
+
+        async def native_saved_create(request: web.Request) -> web.Response:
+            # Never trust browser-provided JSON as a backup of current authority.
+            platform.auth.require(request, csrf=True)
+            export = await platform.portable_json(request)
+            disposition = export.headers.get("Content-Disposition", "")
+            prefix = 'attachment; filename="'
+            if not disposition.startswith(prefix) or not disposition.endswith('"'):
+                raise web.HTTPConflict(text="Verified JSON exporter did not supply a filename")
+            filename = disposition[len(prefix):-1]
+            try:
+                record = await _json_asyncio.to_thread(vault.create, export.body, filename)
+            except JsonBackupError:
+                raise web.HTTPConflict(text="Unable to save verified portable JSON") from None
+            return web.json_response(record, status=201, headers={"Cache-Control": "no-store"})
+
+        async def native_saved_download(request: web.Request) -> web.Response:
+            platform.auth.require(request)
+            try:
+                record, content = await _json_asyncio.to_thread(
+                    vault.read, request.match_info["backup_id"])
+            except JsonBackupError:
+                raise web.HTTPNotFound(text="Saved JSON backup not found or invalid") from None
+            return web.Response(body=content, content_type="application/json",
+                                headers={"Cache-Control": "no-store",
+                                         "X-Content-Type-Options": "nosniff",
+                                         "Content-Disposition": 'attachment; filename="' + record["filename"] + '"'})
+
+        async def native_saved_delete(request: web.Request) -> web.Response:
+            platform.auth.require(request, csrf=True)
+            try:
+                await _json_asyncio.to_thread(vault.delete, request.match_info["backup_id"])
+            except JsonBackupError:
+                raise web.HTTPNotFound(text="Saved JSON backup not found or invalid") from None
+            return web.json_response({"deleted": True}, headers={"Cache-Control": "no-store"})
+
+        async def native_schedule_policy(request: web.Request) -> web.Response:
+            platform.auth.require(request)
+            try:
+                policy = await _json_asyncio.to_thread(scheduler.policy)
+            except JsonBackupError:
+                raise web.HTTPConflict(text="Verified JSON schedule policy unavailable") from None
+            return web.json_response({"policy": policy, "status": scheduler.status},
+                                     headers={"Cache-Control": "no-store"})
+
+        async def native_schedule_save(request: web.Request) -> web.Response:
+            platform.auth.require(request, csrf=True)
+            if request.content_length is not None and request.content_length > 8192:
+                raise web.HTTPRequestEntityTooLarge(max_size=8192, actual_size=request.content_length)
+            try:
+                raw = await request.read()
+                if len(raw) > 8192:
+                    raise ValueError("too-large")
+                policy = checked_json_policy(_json.loads(raw))
+                if policy["destination_path"]:
+                    scheduler.check_destination(policy["destination_path"])
+                doc = (await _json_asyncio.to_thread(scheduler._export))[0]
+                candidates = [row for row in doc["modules"]
+                              if row.get("id") == "com.sickicarus.monitorbox.backup-restore"]
+                if len(candidates) != 1:
+                    raise ValueError("module")
+                settings = candidates[0].setdefault("settings", {})
+                if not isinstance(settings, dict):
+                    raise ValueError("settings")
+                settings["jsonBackups"] = policy
+            except (ValueError, KeyError, TypeError, JsonBackupError):
+                raise web.HTTPBadRequest(text="Invalid JSON backup scheduling policy") from None
+            # Portable operator intent goes through the protected signed
+            # Core/Supervisor lifecycle, not a second policy sidecar.
+            return await platform._apply_native_portable(
+                doc, detail={"policy": policy, "module_id": "com.sickicarus.monitorbox.backup-restore"})
+
+        async def native_schedule_run(request: web.Request) -> web.Response:
+            platform.auth.require(request, csrf=True)
+            try:
+                result = await scheduler.run_due(force=True)
+            except JsonBackupError:
+                raise web.HTTPConflict(text="Verified scheduled JSON backup unavailable") from None
+            return web.json_response(result, status=201, headers={"Cache-Control": "no-store"})
+
+        app.on_startup.append(scheduler.start)
+        app.on_cleanup.append(scheduler.stop)
+
         app.middlewares.append(native_json_recovery)
         app.router.add_get("/backup-restore", native_json_page)
+        app.router.add_get("/api/v2/config/backup-restore/json/saved", native_saved_list)
+        app.router.add_post("/api/v2/config/backup-restore/json/saved", native_saved_create)
+        app.router.add_get("/api/v2/config/backup-restore/json/saved/{backup_id}", native_saved_download)
+        app.router.add_delete("/api/v2/config/backup-restore/json/saved/{backup_id}", native_saved_delete)
+        app.router.add_get("/api/v2/config/backup-restore/json/policy", native_schedule_policy)
+        app.router.add_put("/api/v2/config/backup-restore/json/policy", native_schedule_save)
+        app.router.add_post("/api/v2/config/backup-restore/json/run", native_schedule_run)
         return
 
 '''
     source = source.replace(anchor, safe_native + anchor, 1)
     compile(source, BACKUP_RESTORE_ENTRYPOINT_MEMBER, "exec")
     files[BACKUP_RESTORE_ENTRYPOINT_MEMBER] = source.encode("utf-8")
+
+    # The only new runtime member: a small, reviewed, standard-library JSON
+    # vault. Its bytes ship inside the signed B/R artifact and are not loaded
+    # from the mutable host filesystem at runtime.
+    runtime_name = "monitorbox_backup_restore_b9_json.py"
+    runtime = (ROOT / "tools" / "native_json_backup_vault.py").read_bytes()
+    if runtime_name in files:
+        raise SuccessorModuleError("JSON vault runtime collides with predecessor")
+    compile(runtime, runtime_name, "exec")
+    files[runtime_name] = runtime
+
 
 
 def _apply_ui_successor_asset_versions(

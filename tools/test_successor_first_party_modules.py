@@ -5,6 +5,8 @@ import hashlib
 import io
 import json
 import os
+import shutil
+import subprocess
 import socket
 import tempfile
 import unittest
@@ -13,6 +15,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import build_successor_first_party_modules as subject
+import native_json_backup_vault as json_vault
 from portable_contracts import parse_json, verify_embedded_contract
 
 
@@ -36,9 +39,9 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
 
     def test_native_json_backup_restore_has_new_independent_module_version(self) -> None:
         backup = self.records[subject.BACKUP_RESTORE_ID]
-        self.assertEqual("1.0.6", backup["version"])
-        self.assertEqual(8, backup["build"])
-        self.assertEqual(8, backup["module_runtime"]["build"])
+        self.assertEqual("1.0.7", backup["version"])
+        self.assertEqual(9, backup["build"])
+        self.assertEqual(9, backup["module_runtime"]["build"])
 
     def test_native_json_backup_module_never_starts_zip_scheduler_or_routes(self) -> None:
         backup = self.records[subject.BACKUP_RESTORE_ID]
@@ -49,6 +52,15 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
                 self.assertIn('if (platform.root / "portable").is_dir():', source)
                 self.assertIn('raise web.HTTPFound(location="/settings/restore-json")', source)
                 self.assertIn('app.router.add_get("/backup-restore", native_json_page)', source)
+                self.assertIn('native_saved_create', source)
+                self.assertIn('platform.portable_json(request)', source)
+                self.assertIn('csrf=True', source)
+                self.assertIn('/api/v2/config/backup-restore/json/saved', source)
+                self.assertIn('native_schedule_save', source)
+                self.assertIn('native_schedule_run', source)
+                self.assertIn('JsonBackupScheduler(platform, vault)', source)
+                runtime = archive.read("monitorbox_backup_restore_b9_json.py")
+                self.assertEqual(runtime, (subject.ROOT / "tools" / "native_json_backup_vault.py").read_bytes())
                 before = source.index('if (platform.root / "portable").is_dir():')
                 native_return = source.index('        return\n', before)
                 legacy = source.index('    management = BackupRestoreManagement(platform)', before)
@@ -58,12 +70,322 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
                 self.assertNotIn("management.scheduler.install(", source[before:native_return])
                 self.assertIn("_install_admin_routes(app, application, management)", source[legacy:])
 
+
+    def test_json_vault_retains_exact_verified_payload_and_private_modes(self) -> None:
+        import stat
+        data = {
+            "schemaVersion": "monitorbox.portable/v1",
+            "modules": [{"id": "com.sickicarus.monitorbox.backup-restore"}],
+            "credentials": {"provider": {"value": "secret-must-not-be-logged"}},
+        }
+        payload = (json.dumps(data, indent=2) + "\n").encode()
+        filename = "monitorbox-config_3.0.0_20261012-210201.json"
+        with tempfile.TemporaryDirectory(prefix="mb-json-vault-") as directory:
+            vault = json_vault.JsonBackupVault(Path(directory))
+            self.assertEqual([], vault.list())
+            record = vault.create(payload, filename)
+            saved, content = vault.read(record["id"])
+            self.assertEqual(payload, content)
+            self.assertEqual(filename, saved["filename"])
+            self.assertEqual("manual", saved["kind"])
+            self.assertEqual([record], vault.list())
+            vault_path = Path(directory) / "backups" / "portable-json"
+            self.assertEqual(0o700, stat.S_IMODE(vault_path.stat().st_mode))
+            self.assertEqual(0o600, stat.S_IMODE((vault_path / (record["id"] + ".json")).stat().st_mode))
+            self.assertNotIn("secret-must-not-be-logged", json.dumps(record))
+            vault.delete(record["id"])
+            self.assertEqual([], vault.list())
+            with self.assertRaises(json_vault.JsonBackupError):
+                vault.read(record["id"])
+
+    def test_json_vault_ignores_orphan_and_rejects_tamper_and_traversal(self) -> None:
+        payload = b'{"schemaVersion":"monitorbox.portable/v1","modules":[],"credentials":{"x":{"value":"s"}}}'
+        filename = "monitorbox-config_3.0.0_20261012-210201.json"
+        with tempfile.TemporaryDirectory(prefix="mb-json-integrity-") as directory:
+            vault = json_vault.JsonBackupVault(Path(directory))
+            for invalid in ("../secret", "a", "20261012T210201000000Z-abcdef1234567890/../foo"):
+                with self.assertRaises(json_vault.JsonBackupError):
+                    vault.read(invalid)
+            with self.assertRaises(json_vault.JsonBackupError):
+                vault.create(payload, filename + "+0000")
+            with self.assertRaises(json_vault.JsonBackupError):
+                vault.create(payload.replace(b'"credentials"', b'"adminIdentity"'), filename)
+            first = vault.create(payload, filename)
+            store = Path(directory) / "backups" / "portable-json"
+            data = store / (first["id"] + ".json")
+            data.write_bytes(payload + b" ")
+            self.assertEqual([], vault.list())
+            with self.assertRaises(json_vault.JsonBackupError):
+                vault.read(first["id"])
+            data.write_bytes(payload)
+            self.assertEqual([first], vault.list())
+            orphan = store / "20261012T210201000000Z-abcdef1234567890.json"
+            orphan.write_bytes(payload)
+            self.assertEqual([first], vault.list())
+
+
+    def test_json_scheduler_policy_validation_and_daily_retention(self) -> None:
+        import asyncio
+        from datetime import datetime
+        from unittest.mock import patch
+        from zoneinfo import ZoneInfo
+
+        policy = {"enabled": True, "time": "02:00", "retention_count": 1, "destination_path": ""}
+        doc = {
+            "schemaVersion": "monitorbox.portable/v1",
+            "modules": [{"id": json_vault.MODULE_ID, "settings": {"jsonBackups": policy}}],
+            "credentials": {"provider": {"value": "private"}},
+        }
+        class Export:
+            def __init__(self):
+                self.body = (json.dumps(doc) + "\n").encode()
+                self.headers = {"Content-Disposition": 'attachment; filename="monitorbox-config_3.0.0_20261012-030000.json"'}
+        class Platform:
+            def export_verified_portable_json(self):
+                return Export()
+        with tempfile.TemporaryDirectory(prefix="mb-json-schedule-") as path:
+            vault = json_vault.JsonBackupVault(Path(path))
+            scheduler = json_vault.JsonBackupScheduler(Platform(), vault)
+            tz = ZoneInfo("America/Chicago")
+            with patch.object(json_vault, "appliance_now", return_value=datetime(2026, 10, 12, 3, 1, tzinfo=tz)):
+                first = asyncio.run(scheduler.run_due())
+                self.assertTrue(first["created"])
+                self.assertEqual("2026-10-12", first["backup"]["local_day"])
+                second = asyncio.run(scheduler.run_due())
+                self.assertFalse(second["created"])
+                self.assertEqual("already_created_today", second["reason"])
+            with patch.object(json_vault, "appliance_now", return_value=datetime(2026, 10, 13, 3, 1, tzinfo=tz)):
+                third = asyncio.run(scheduler.run_due())
+                self.assertTrue(third["created"])
+            records = vault.list()
+            self.assertEqual(1, len(records))
+            self.assertEqual("2026-10-13", records[0]["local_day"])
+        for bad in (
+            {"enabled": "true", "time": "02:00", "retention_count": 7, "destination_path": ""},
+            {"enabled": True, "time": "25:00", "retention_count": 7, "destination_path": ""},
+            {"enabled": True, "time": "02:00", "retention_count": 0, "destination_path": ""},
+            {"enabled": True, "time": "02:00", "retention_count": 7, "destination_path": "/tmp", "secret": "x"},
+            {"enabled": True, "time": "02:00", "retention_count": 7, "destination_path": "relative"},
+            {"enabled": True, "time": "02:00", "retention_count": 7, "destination_path": "/tmp/../tmp"},
+        ):
+            with self.assertRaises(json_vault.JsonBackupError):
+                json_vault.checked_json_policy(bad)
+
+    def test_json_scheduler_run_now_preserves_manual_backups(self) -> None:
+        import asyncio
+        from datetime import datetime, timezone
+        from unittest.mock import patch
+        doc = {
+            "schemaVersion": "monitorbox.portable/v1",
+            "modules": [{"id": json_vault.MODULE_ID, "settings": {}}],
+            "credentials": {},
+        }
+        class Export:
+            def __init__(self):
+                self.body = json.dumps(doc).encode()
+                self.headers = {"Content-Disposition": 'attachment; filename="monitorbox-config_3.0.0_20261012-050100.json"'}
+        class Platform:
+            def export_verified_portable_json(self):
+                return Export()
+        with tempfile.TemporaryDirectory(prefix="mb-json-run-now-") as path:
+            vault = json_vault.JsonBackupVault(Path(path))
+            manual = vault.create(Export().body, "monitorbox-config_3.0.0_20261012-050100.json")
+            scheduler = json_vault.JsonBackupScheduler(Platform(), vault)
+            with patch.object(json_vault, "appliance_now", return_value=datetime(2026, 10, 12, 5, 1, tzinfo=timezone.utc)):
+                self.assertEqual("disabled", asyncio.run(scheduler.run_due())["reason"])
+                result = asyncio.run(scheduler.run_due(force=True))
+                self.assertTrue(result["created"])
+            self.assertEqual(2, len(vault.list()))
+            self.assertEqual("manual", vault.read(manual["id"])[0]["kind"])
+
+
+    def test_json_scheduler_external_copy_does_not_overwrite_and_excludes_appliance_root(self) -> None:
+        import asyncio
+        from datetime import datetime, timezone
+        from unittest.mock import patch
+        import stat
+        with tempfile.TemporaryDirectory(prefix="mb-json-root-") as root:
+            with tempfile.TemporaryDirectory(prefix="mb-json-mounted-") as destination:
+                policy = {
+                    "enabled": True, "time": "02:00", "retention_count": 2,
+                    "destination_path": destination,
+                }
+                document = {
+                    "schemaVersion": "monitorbox.portable/v1",
+                    "modules": [{"id": json_vault.MODULE_ID, "settings": {"jsonBackups": policy}}],
+                    "credentials": {"provider": {"value": "sensitive"}},
+                }
+                raw = json.dumps(document).encode()
+                filename = "monitorbox-config_3.0.0_20261012-050100.json"
+                class Response:
+                    body = raw
+                    headers = {"Content-Disposition": 'attachment; filename="' + filename + '"'}
+                class Platform:
+                    def export_verified_portable_json(self):
+                        return Response()
+                vault = json_vault.JsonBackupVault(Path(root))
+                scheduler = json_vault.JsonBackupScheduler(Platform(), vault)
+                with patch.object(json_vault, "appliance_now", return_value=datetime(2026, 10, 12, 5, 1, tzinfo=timezone.utc)):
+                    result = asyncio.run(scheduler.run_due())
+                self.assertTrue(result["created"])
+                self.assertIsNone(result["destination_error"])
+                copied = Path(destination) / filename
+                self.assertEqual(raw, copied.read_bytes())
+                self.assertEqual(0o600, stat.S_IMODE(copied.stat().st_mode))
+                self.assertEqual(1, len(vault.list()))
+                with patch.object(json_vault, "appliance_now", return_value=datetime(2026, 10, 12, 5, 2, tzinfo=timezone.utc)):
+                    repeat = asyncio.run(scheduler.run_due(force=True))
+                self.assertTrue(repeat["created"])
+                self.assertIn("external copy failed", repeat["destination_error"])
+                self.assertEqual(raw, copied.read_bytes())
+                with self.assertRaises(json_vault.JsonBackupError):
+                    scheduler.check_destination(str(Path(root) / "backups"))
+
+    def test_signed_native_json_routes_use_auth_and_core_verified_export(self) -> None:
+        """Execute the packaged native route branch, not only string assertions."""
+        import asyncio
+        import sys
+        import types
+        from unittest.mock import patch
+
+        backup = self.records[subject.BACKUP_RESTORE_ID]
+        with tempfile.TemporaryDirectory(prefix="mb-native-json-route-") as directory:
+            package = subject.build_package(backup, Path(directory), release_eligible=False)
+            with zipfile.ZipFile(package) as archive:
+                source = archive.read(subject.BACKUP_RESTORE_ENTRYPOINT_MEMBER).decode()
+            start = source.index('    if (platform.root / "portable").is_dir():')
+            end = source.index('    management = BackupRestoreManagement(platform)', start)
+            code = "def mount_native(app, platform):\n" + source[start:end]
+
+            class HttpError(Exception):
+                def __init__(self, text=None, location=None, **_kw):
+                    self.text = text
+                    self.location = location
+
+            class Response:
+                def __init__(self, body=b"", content_type=None, headers=None,
+                             status=200, payload=None):
+                    self.body = body
+                    self.content_type = content_type
+                    self.headers = headers or {}
+                    self.status = status
+                    self.payload = payload
+
+            class Web:
+                Request = object
+                HTTPFound = HttpError
+                HTTPConflict = HttpError
+                HTTPNotFound = HttpError
+                HTTPBadRequest = HttpError
+                HTTPRequestEntityTooLarge = HttpError
+                @staticmethod
+                def middleware(fn):
+                    return fn
+                @staticmethod
+                def json_response(data, status=200, headers=None):
+                    return Response(status=status, payload=data, headers=headers)
+
+            Web.Response = Response
+
+            class Router:
+                def __init__(self):
+                    self.routes = {}
+                def add_get(self, path, fn):
+                    self.routes["GET", path] = fn
+                def add_post(self, path, fn):
+                    self.routes["POST", path] = fn
+                def add_put(self, path, fn):
+                    self.routes["PUT", path] = fn
+                def add_delete(self, path, fn):
+                    self.routes["DELETE", path] = fn
+
+            class App:
+                def __init__(self):
+                    self.router = Router()
+                    self.middlewares = []
+                    self.on_startup = []
+                    self.on_cleanup = []
+
+            class Request:
+                def __init__(self, *, csrf=True, body=b"", backup_id=None):
+                    self.csrf = csrf
+                    self.match_info = {"backup_id": backup_id}
+                    self.content_length = len(body)
+                    self._body = body
+                async def read(self):
+                    return self._body
+
+            class Auth:
+                def require(self, request, *, csrf=False):
+                    if csrf and not request.csrf:
+                        raise HttpError("administrator CSRF required")
+
+            original = {
+                "schemaVersion": "monitorbox.portable/v1",
+                "modules": [{"id": json_vault.MODULE_ID, "settings": {}}],
+                "credentials": {"provider": {"value": "private-signed-credential"}},
+            }
+            filename = "monitorbox-config_3.0.0_20261012-210000.json"
+            class Platform:
+                def __init__(self, root):
+                    self.root = root
+                    self.auth = Auth()
+                    self.applied = None
+                async def portable_json(self, request):
+                    self.auth.require(request)
+                    return self.export_verified_portable_json()
+                def export_verified_portable_json(self):
+                    return Response(
+                        body=(json.dumps(original) + "\n").encode(),
+                        headers={"Content-Disposition": 'attachment; filename="' + filename + '"'},
+                    )
+                async def _apply_native_portable(self, doc, *, detail):
+                    self.applied = doc
+                    return Response(payload={"accepted": True, **detail}, status=202)
+
+            root = Path(directory) / "config"
+            (root / "portable").mkdir(parents=True)
+            app = App()
+            platform = Platform(root)
+            ns = {"web": Web}
+            with patch.dict(sys.modules, {"monitorbox_backup_restore_b9_json": json_vault}):
+                exec(compile(code, "<signed-native-br>", "exec"), ns)
+                ns["mount_native"](app, platform)
+            base = "/api/v2/config/backup-restore/json"
+            routes = app.router.routes
+            self.assertIn(("POST", base + "/saved"), routes)
+            self.assertIn(("GET", base + "/saved"), routes)
+            self.assertIn(("PUT", base + "/policy"), routes)
+            self.assertIn(("POST", base + "/run"), routes)
+            with self.assertRaises(HttpError):
+                asyncio.run(routes["POST", base + "/saved"](Request(csrf=False)))
+            created = asyncio.run(routes["POST", base + "/saved"](Request()))
+            self.assertEqual(201, created.status)
+            entry_id = created.payload["id"]
+            self.assertIn(filename, created.payload["filename"])
+            listed = asyncio.run(routes["GET", base + "/saved"](Request()))
+            self.assertEqual(1, len(listed.payload["backups"]))
+            self.assertRegex(listed.payload["backups"][0]["created_local"], r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$")
+            downloaded = asyncio.run(routes["GET", base + "/saved/{backup_id}"](Request(backup_id=entry_id)))
+            self.assertIn(b"private-signed-credential", downloaded.body)
+            self.assertEqual(0, json.loads(downloaded.body).get("adminIdentity", 0))
+            policy = {"enabled": True, "time": "03:00", "retention_count": 3, "destination_path": ""}
+            outcome = asyncio.run(routes["PUT", base + "/policy"](
+                Request(body=json.dumps(policy).encode())))
+            self.assertEqual(202, outcome.status)
+            module = next(row for row in platform.applied["modules"] if row["id"] == json_vault.MODULE_ID)
+            self.assertEqual(policy, module["settings"]["jsonBackups"])
+            deleted = asyncio.run(routes["DELETE", base + "/saved/{backup_id}"](Request(backup_id=entry_id)))
+            self.assertEqual(True, deleted.payload["deleted"])
+            self.assertEqual([], asyncio.run(routes["GET", base + "/saved"](Request())).payload["backups"])
+
+
     def test_successor_ui_advances_for_scaffold_lifecycle_operator_contract(self) -> None:
         ui = self.records[subject.UI_ID]
-        self.assertEqual("1.18.4", ui["version"])
-        self.assertEqual(62, ui["build"])
-        self.assertEqual("1.18.4", ui["module_runtime"]["version"])
-        self.assertEqual(62, ui["module_runtime"]["build"])
+        self.assertEqual("1.18.6", ui["version"])
+        self.assertEqual(64, ui["build"])
+        self.assertEqual("1.18.6", ui["module_runtime"]["version"])
+        self.assertEqual(64, ui["module_runtime"]["build"])
 
     def test_scaffold_distribution_copy_does_not_inherit_false_legacy_failure(self) -> None:
         ui = self.records[subject.UI_ID]
@@ -89,9 +411,9 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
                 js = archive.read("monitorbox_ui_b54/assets/modules.js").decode()
         # These are the URL fragments used by the actual /modules HTTP adapter.
         self.assertIn('"modules.js": "text/javascript"', adapter)
-        self.assertIn("?v=1.18.4-62", adapter)
+        self.assertIn("?v=1.18.6-64", adapter)
         self.assertNotIn("?v=1.17.1-54", adapter)
-        self.assertIn("?v=1.18.4-62", dashboard)
+        self.assertIn("?v=1.18.6-64", dashboard)
         self.assertNotIn("?v=1.17.1-54", dashboard)
         self.assertIn("const distributionReady = scaffoldLifecycle", js)
         self.assertIn("platform_update_count", js)
@@ -108,21 +430,44 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
         self.assertIn("native_json_backup_restore_ui", adapter)
         self.assertIn('<title>MonitorBox Restore JSON</title>', adapter)
         self.assertIn('"/settings/restore-json"', adapter)
-        self.assertIn("<!-- CORE_JSON_ACTIONS -->", adapter)
+        self.assertIn("response.text = page", adapter)
+        self.assertNotIn("start = core_html.find", adapter)
         self.assertIn('app.middlewares.append(native_json_backup_restore_ui)', adapter)
-        self.assertIn("1.18.4-62", html)
+        self.assertIn("1.18.6-64", html)
         self.assertNotIn("1.17.1-54", html)
         self.assertIn("Download configuration JSON", html)
+        self.assertIn('id="saveLocalJson"', html)
+        self.assertIn('id="savedRecords"', html)
+        self.assertIn('id="scheduleTime"', html)
+        self.assertIn('id="scheduleRetention"', html)
+        self.assertIn('id="scheduleDestination"', html)
+        self.assertIn('destination_path: el("scheduleDestination").value.trim()', js)
+        self.assertIn('id="runScheduleNow"', html)
+        self.assertIn('/api/v2/config/backup-restore/json/saved', js)
+        self.assertIn('scheduleApi + "/policy"', js)
+        self.assertIn('selectRestoreDocument', js)
         self.assertIn("Restore configuration (clear history)", html)
-        self.assertIn("Save JSON (retain history)", html)
-        self.assertIn('id="jsonEditor"', html)
+        self.assertNotIn("Save JSON (retain history)", html)
+        self.assertNotIn('id="jsonEditor"', html)
         self.assertIn('id="restoreButton"', html)
         self.assertIn('id="status"', html)
         self.assertIn("/api/v2/config/portable-json", js)
-        self.assertNotIn("/api/v2/config/backup-restore", js)
+        self.assertNotIn("/api/v2/config/backup-restore/backups", js)  # old ZIP API forbidden
         self.assertIn(".mb-br-page", css)
         self.assertNotIn("application/zip", html + css + js)
         self.assertNotIn("Appliance backups", html)
+        node = shutil.which("node")
+        if node:
+            with tempfile.TemporaryDirectory(prefix="ui64-javascript-") as raw:
+                script = Path(raw) / "backup-restore.js"
+                script.write_text(js, encoding="utf-8")
+                syntax = subprocess.run([node, "--check", str(script)], capture_output=True, text=True)
+                self.assertEqual(0, syntax.returncode, syntax.stderr)
+        self.assertNotIn('id="loadCurrent"', html)
+        self.assertNotIn('id="reviewButton"', html)
+        self.assertNotIn("<textarea", html)
+        self.assertIn("X-MonitorBox-CSRF", js)
+        self.assertIn("restore-status", js)
 
     def test_ui62_normal_page_reuses_shared_dark_document_canvas(self) -> None:
         """Regression: UI61 cards were dark but bare HTML body was white in Safari."""
@@ -137,7 +482,7 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
         # not the document. Every independently packaged normal HTML surface
         # must explicitly reset body margins and use the same dark canvas.
         self.assertIn('<body class="mb-br-surface">', html)
-        self.assertIn('backup-restore.css?v=1.18.4-62', html)
+        self.assertIn('backup-restore.css?v=1.18.6-64', html)
         self.assertIn('--mb-br-bg:var(--mb-shell-bg,#07111f)', css)
         self.assertIn('--mb-br-text:var(--mb-shell-text,#edf4ff)', css)
         self.assertIn('body.mb-br-surface {', css)
@@ -194,9 +539,9 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
             path="/settings/restore-json", method="GET"), serve))
         self.assertIn("Download configuration JSON", native.text)
         self.assertIn('id="restoreButton"', native.text)
-        self.assertIn('id="saveButton"', native.text)
-        self.assertIn('id="jsonEditor"', native.text)
-        self.assertIn("el('saveButton').onclick", native.text)
+        self.assertNotIn('id="saveButton"', native.text)
+        self.assertNotIn('id="jsonEditor"', native.text)
+        self.assertNotIn("el('saveButton').onclick", native.text)
         self.assertNotIn("CORE_JSON_ACTIONS", native.text)
         self.assertEqual("no-store", native.headers["Cache-Control"])
 
@@ -346,7 +691,10 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
                         ] if artifact_id == subject.UI_ID else []
                     )
                     self.assertEqual(
-                        sorted(old_names + ["package.json", "portable-config.json"] + extra_ui_assets),
+                        sorted(old_names + ["package.json", "portable-config.json"]
+                               + extra_ui_assets
+                               + (["monitorbox_backup_restore_b9_json.py"]
+                                  if artifact_id == subject.BACKUP_RESTORE_ID else [])),
                         sorted(new_names),
                     )
                     for name in old_names:
@@ -443,6 +791,16 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
                             self.assertNotIn('capabilities.append(releaseControl)', decoded)
                         elif (
                             artifact_id == subject.UI_ID
+                            and name.endswith("/assets/configuration-peer-navigation.js")
+                        ):
+                            before = old.read(name).decode("utf-8")
+                            after = new.read(name).decode("utf-8")
+                            self.assertNotEqual(before, after)
+                            self.assertIn("['recovery', 'Backup', '/settings/recovery'],", after)
+                            self.assertIn("pathname.startsWith('/settings/restore-json')", after)
+                            self.assertNotIn("['recovery', 'Recovery', '/settings/recovery'],", after)
+                        elif (
+                            artifact_id == subject.UI_ID
                             and name.endswith("/assets/app-shell.js")
                         ):
                             predecessor_shell = old.read(name)
@@ -452,7 +810,17 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
                             self.assertIn("channelResult", decoded)
                             self.assertIn("release.preferred_channel", decoded)
                             self.assertIn("monitorbox:channel-committed", decoded)
+                            self.assertIn("restore-json", decoded)
                             self.assertIn("identity.channel = ''", decoded)
+                        elif (
+                            artifact_id == subject.UI_ID
+                            and name.endswith("/assets/app-shell.css")
+                        ):
+                            before = old.read(name).decode("utf-8")
+                            after = new.read(name).decode("utf-8")
+                            self.assertNotEqual(before, after)
+                            self.assertIn("#796: fixed normal application chrome", after)
+                            self.assertIn("height:64px; min-height:64px", after)
                         elif (
                             artifact_id == subject.UI_ID
                             and name.endswith(subject.UI_MODULES_CSS_MEMBER_SUFFIX)

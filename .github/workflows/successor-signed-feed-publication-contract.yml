@@ -107,7 +107,7 @@ jobs:
           tools/test_successor_stable_witness.py
           tools/test_successor_existing_stable_readonly.py
           tools/test_successor_active_release_surface.py
-      - name: Attest deterministic B/R build8 release ZIP digest (unsigned)
+      - name: Attest deterministic B/R build9 release ZIP digest (unsigned)
         run: |
           PYTHONPATH=tools python - <<'PY'
           import hashlib
@@ -117,13 +117,13 @@ jobs:
               BACKUP_RESTORE_ID, _parse_authority, build_package,
           )
           record = _parse_authority()[BACKUP_RESTORE_ID]
-          assert (record["version"], record["build"]) == ("1.0.6", 8)
+          assert (record["version"], record["build"]) == ("1.0.7", 9)
           with TemporaryDirectory() as tmp:
               package = build_package(record, Path(tmp), release_eligible=True)
               print("REVIEWED_BACKUP_RESTORE_SHA256=sha256:" +
                     hashlib.sha256(package.read_bytes()).hexdigest(), flush=True)
           PY
-      - name: Emit qualified release-eligible UI62 ZIP digest for exact source
+      - name: Emit qualified release-eligible UI64 ZIP digest for exact source
         run: |
           PYTHONPATH=tools python - <<'PY'
           from pathlib import Path
@@ -131,10 +131,10 @@ jobs:
           import hashlib
           from build_successor_first_party_modules import UI_ID, _parse_authority, build_package
           authority = _parse_authority()[UI_ID]
-          assert (authority["version"], authority["build"]) == ("1.18.4", 62)
+          assert (authority["version"], authority["build"]) == ("1.18.6", 64)
           with TemporaryDirectory() as tmp:
               z = build_package(authority, Path(tmp), release_eligible=True)
-              print("REVIEWED_UI62_SHA256=sha256:" + hashlib.sha256(z.read_bytes()).hexdigest(), flush=True)
+              print("REVIEWED_UI64_SHA256=sha256:" + hashlib.sha256(z.read_bytes()).hexdigest(), flush=True)
           PY
       - name: Build loopback feed server
         run: CGO_ENABLED=0 go build -trimpath -o "$RUNNER_TEMP/feed-server" tools/successor_feed_server.go

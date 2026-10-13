@@ -33,8 +33,15 @@
         <h2 id="mb-br-backup-title">Download configuration</h2>
         <p>Export the current appliance settings, signed module selections, dashboard preferences and provider credentials as a single JSON file.</p>
         <p class="mb-br-warning"><strong>Contains plaintext provider credentials.</strong> Store this file securely. It does not contain historical telemetry or the administrator password.</p>
-        <button id="downloadJson" type="button" class="mb-br-button mb-br-primary">Download configuration JSON</button>
+        <div class="mb-br-row">
+          <button id="downloadJson" type="button" class="mb-br-button mb-br-primary">Download configuration JSON</button>
+          <button id="saveLocalJson" type="button" class="mb-br-button">Save to MonitorBox</button>
+        </div>
         <p id="downloadState" class="mb-br-feedback" role="status" aria-live="polite"></p>
+        <h3>Saved on MonitorBox</h3>
+        <div id="savedRecords" class="mb-br-saved-list" aria-live="polite">
+          No local JSON backups loaded yet.
+        </div>
       </section>
       <section class="mb-br-card" aria-labelledby="mb-br-restore-title">
         <div class="mb-br-eyebrow">Restore</div>
@@ -48,21 +55,32 @@
         <button id="restoreButton" class="mb-br-button mb-br-danger" type="button" disabled>Restore configuration (clear history)</button>
         <p class="mb-br-hint">Restore discards historical telemetry and rebuilds the selected signed modules. It does not merge settings.</p>
       </section>
-      <details class="mb-br-card mb-br-advanced" id="mb-br-json-editor">
-      <summary>Advanced: edit or save configuration JSON</summary>
-      <p>For controlled configuration edits. Save preserves history; Restore replaces configuration and discards history.</p>
-      <button id="loadCurrent" class="mb-br-button" type="button">Edit current JSON</button>
-      <label for="jsonEditor">JSON configuration editor (contains provider credentials)</label>
-      <textarea id="jsonEditor" spellcheck="false" placeholder="Select a JSON file or load the current configuration"></textarea>
-      <div class="mb-br-row">
-        <button id="reviewButton" class="mb-br-button" type="button">Review edited JSON</button>
-        <button id="saveButton" class="mb-br-button mb-br-primary" type="button" disabled>Save JSON (retain history)</button>
-      </div>
-      </details>
+      <section class="mb-br-card mb-br-schedule" aria-labelledby="mb-br-schedule-title">
+        <div class="mb-br-eyebrow">Automatic backup</div>
+        <h2 id="mb-br-schedule-title">Scheduled configuration JSON</h2>
+        <p>Save a daily verified JSON backup to MonitorBox. Scheduled copies follow the retention count; manual copies are never automatically deleted. Times use the configured appliance timezone.</p>
+        <div class="mb-br-schedule-controls">
+          <label class="mb-br-check"><input id="scheduleEnabled" type="checkbox"> Enable daily backups</label>
+          <label for="scheduleTime">Daily local time
+            <input id="scheduleTime" type="time" value="02:00">
+          </label>
+          <label for="scheduleRetention">Keep local scheduled copies
+            <input id="scheduleRetention" type="number" min="1" max="100" step="1" value="7">
+          </label>
+          <label class="mb-br-schedule-destination" for="scheduleDestination">Optional mounted filesystem/NAS destination
+            <input id="scheduleDestination" type="text" placeholder="/Backups/MonitorBox" autocomplete="off">
+          </label>
+        </div>
+        <div class="mb-br-row">
+          <button id="saveSchedule" type="button" class="mb-br-button mb-br-primary">Save schedule</button>
+          <button id="runScheduleNow" type="button" class="mb-br-button">Back up now</button>
+        </div>
+        <p class="mb-br-hint">Additional destination copies use the same JSON filename. Local retention does not delete NAS copies; manage their retention separately.</p>
+        <p id="scheduleStatus" class="mb-br-feedback" role="status" aria-live="polite"></p>
+      </section>
     </div>
     <div id="status" class="mb-br-status" role="status" aria-live="polite">Checking administrator session…</div>
   </main>
-  <!-- Reuse Core's existing protected JSON operations. The UI owns only presentation. -->
-  <!-- CORE_JSON_ACTIONS -->
+  <!-- UI presentation calls protected Core JSON export and restore endpoints directly. -->
 </body>
 </html>
