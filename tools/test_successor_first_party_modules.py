@@ -108,7 +108,8 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
         self.assertIn("native_json_backup_restore_ui", adapter)
         self.assertIn('<title>MonitorBox Restore JSON</title>', adapter)
         self.assertIn('"/settings/restore-json"', adapter)
-        self.assertIn("<!-- CORE_JSON_ACTIONS -->", adapter)
+        self.assertIn("response.text = page", adapter)
+        self.assertNotIn("start = core_html.find", adapter)
         self.assertIn('app.middlewares.append(native_json_backup_restore_ui)', adapter)
         self.assertIn("1.18.4-62", html)
         self.assertNotIn("1.17.1-54", html)
@@ -123,6 +124,11 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
         self.assertIn(".mb-br-page", css)
         self.assertNotIn("application/zip", html + css + js)
         self.assertNotIn("Appliance backups", html)
+        self.assertNotIn('id="loadCurrent"', html)
+        self.assertNotIn('id="reviewButton"', html)
+        self.assertNotIn("<textarea", html)
+        self.assertIn("X-MonitorBox-CSRF", js)
+        self.assertIn("restore-status", js)
 
     def test_ui62_normal_page_reuses_shared_dark_document_canvas(self) -> None:
         """Regression: UI61 cards were dark but bare HTML body was white in Safari."""
@@ -441,6 +447,16 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
                             self.assertIn("channelAuthority.preferred_channel", decoded)
                             self.assertIn('option.disabled = !allowed.includes(channel)', decoded)
                             self.assertNotIn('capabilities.append(releaseControl)', decoded)
+                        elif (
+                            artifact_id == subject.UI_ID
+                            and name.endswith("/assets/configuration-peer-navigation.js")
+                        ):
+                            before = old.read(name).decode("utf-8")
+                            after = new.read(name).decode("utf-8")
+                            self.assertNotEqual(before, after)
+                            self.assertIn("['recovery', 'Backup', '/settings/recovery'],", after)
+                            self.assertIn("pathname.startsWith('/settings/restore-json')", after)
+                            self.assertNotIn("['recovery', 'Recovery', '/settings/recovery'],", after)
                         elif (
                             artifact_id == subject.UI_ID
                             and name.endswith("/assets/app-shell.js")

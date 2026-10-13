@@ -148,7 +148,7 @@
         throw new Error("Unexpected backup content type.");
       }
       const disposition = response.headers.get("Content-Disposition") || "";
-      const match = disposition.match(/filename="([^"\\/]{1,180}\.json)"/i);
+      const match = disposition.match(/filename="([^"]+\.json)"/i);
       if (!match) throw new Error("Backup filename header missing or invalid.");
       const filename = match[1];
       if (!/^monitorbox-config_[A-Za-z0-9.+-]+_[0-9]{8}-[0-9]{6}\.json$/.test(filename)) {
