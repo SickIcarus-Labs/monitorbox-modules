@@ -427,7 +427,19 @@ jobs:
           # Classic Docker image stores cannot safely reuse a single OCI index
           # digest as two different locally selected platform images.
           # Bind each readback to the architecture-specific immutable manifest.
-          docker buildx imagetools inspect "$FULL@$full" --raw > "$RUNNER_TEMP/full-oci-index.json"
+          # GHCR may expose the immutable tag before its digest index is
+          # readable on all registry replicas. Retry bounded readback, never
+          # accept an unverified index or advance the Dev pointer on failure.
+          index_ready=false
+          for attempt in 1 2 3 4 5; do
+            if docker buildx imagetools inspect "$FULL@$full" --raw > "$RUNNER_TEMP/full-oci-index.json"; then
+              index_ready=true
+              break
+            fi
+            echo "::warning::immutable GHCR index not yet readable; retry $attempt/5"
+            sleep "$((attempt * 2))"
+          done
+          test "$index_ready" = true
           for arch in amd64 arm64; do
             platform_digest="$(jq -er --arg arch "$arch" '
               [.manifests[] | select(.platform.os == "linux" and
@@ -435,7 +447,18 @@ jobs:
               | if length == 1 then .[0] else error("missing/duplicate platform") end
             ' "$RUNNER_TEMP/full-oci-index.json")"
             [[ "$platform_digest" =~ ^sha256:[0-9a-f]{64}$ ]]
-            docker pull --quiet --platform "linux/$arch" "$FULL@$platform_digest" >/dev/null
+            # The architecture-specific manifest can be briefly unavailable
+            # even after the OCI index itself resolves. Fail closed after 5.
+            platform_ready=false
+            for attempt in 1 2 3 4 5; do
+              if docker pull --quiet --platform "linux/$arch" "$FULL@$platform_digest" >/dev/null; then
+                platform_ready=true
+                break
+              fi
+              echo "::warning::immutable $arch manifest not yet readable; retry $attempt/5"
+              sleep "$((attempt * 2))"
+            done
+            test "$platform_ready" = true
             cid="$(docker create --platform "linux/$arch" "$FULL@$platform_digest")"
             mkdir -p "$RUNNER_TEMP/readback"
             docker cp "$cid:/feed/platform/." "$RUNNER_TEMP/readback/"
