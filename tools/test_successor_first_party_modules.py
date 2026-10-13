@@ -120,6 +120,8 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
         self.assertIn('id="savedRecords"', html)
         self.assertIn('id="scheduleTime"', html)
         self.assertIn('id="scheduleRetention"', html)
+        self.assertIn('id="scheduleDestination"', html)
+        self.assertIn('destination_path: el("scheduleDestination").value.trim()', js)
         self.assertIn('id="runScheduleNow"', html)
         self.assertIn('/api/v2/config/backup-restore/json/saved', js)
         self.assertIn('scheduleApi + "/policy"', js)

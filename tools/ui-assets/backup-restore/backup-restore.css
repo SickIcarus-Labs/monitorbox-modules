@@ -75,3 +75,6 @@ body.mb-br-surface .mb-br-page {
 .mb-br-schedule-controls input:not([type=checkbox]){display:block;margin-top:6px}
 .mb-br-schedule-controls .mb-br-check{display:flex;align-items:center;gap:8px}
 .mb-br-page .mb-br-check input[type=checkbox]{width:18px;height:18px;accent-color:#7da6ff}
+
+.mb-br-schedule-controls .mb-br-schedule-destination{flex:1 1 100%;min-width:0}
+.mb-br-schedule-controls .mb-br-schedule-destination input{width:100%}

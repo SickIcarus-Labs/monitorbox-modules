@@ -64,14 +64,18 @@
           <label for="scheduleTime">Daily local time
             <input id="scheduleTime" type="time" value="02:00">
           </label>
-          <label for="scheduleRetention">Keep scheduled copies
+          <label for="scheduleRetention">Keep local scheduled copies
             <input id="scheduleRetention" type="number" min="1" max="100" step="1" value="7">
+          </label>
+          <label class="mb-br-schedule-destination" for="scheduleDestination">Optional mounted filesystem/NAS destination
+            <input id="scheduleDestination" type="text" placeholder="/Backups/MonitorBox" autocomplete="off">
           </label>
         </div>
         <div class="mb-br-row">
           <button id="saveSchedule" type="button" class="mb-br-button mb-br-primary">Save schedule</button>
           <button id="runScheduleNow" type="button" class="mb-br-button">Back up now</button>
         </div>
+        <p class="mb-br-hint">Additional destination copies use the same JSON filename. Local retention does not delete NAS copies; manage their retention separately.</p>
         <p id="scheduleStatus" class="mb-br-feedback" role="status" aria-live="polite"></p>
       </section>
     </div>

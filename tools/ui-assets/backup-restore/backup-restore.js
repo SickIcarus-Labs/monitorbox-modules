@@ -285,6 +285,7 @@
       el("scheduleEnabled").checked = Boolean(policy.enabled);
       el("scheduleTime").value = policy.time || "02:00";
       el("scheduleRetention").value = policy.retention_count || 7;
+      el("scheduleDestination").value = policy.destination_path || "";
       const status = data.status || {};
       output.textContent = status.last_error ||
         (status.last_success ? ("Last scheduled JSON backup: " + status.last_success) :
@@ -303,6 +304,7 @@
         enabled: Boolean(el("scheduleEnabled").checked),
         time: el("scheduleTime").value,
         retention_count: Number(el("scheduleRetention").value),
+        destination_path: el("scheduleDestination").value.trim(),
       };
       if (!/^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/.test(policy.time) ||
           !Number.isInteger(policy.retention_count) ||
@@ -334,7 +336,8 @@
       });
       const result = await reply.json();
       if (!result.created) throw new Error("No JSON backup was created.");
-      el("scheduleStatus").textContent = "Saved JSON backup: " + result.backup.filename;
+      el("scheduleStatus").textContent = "Saved JSON backup: " + result.backup.filename +
+        (result.destination_error ? " (external copy failed; local backup retained)" : "");
       await refreshSaved();
     } catch (error) {
       el("scheduleStatus").textContent = "Backup failed: " + (error.message || String(error));
