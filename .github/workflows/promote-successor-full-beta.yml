@@ -88,6 +88,25 @@ jobs:
             test -s "$RUNNER_TEMP/prior/platform/channels/$channel/index.json"
           done
           test -d "$RUNNER_TEMP/prior/platform/packages"
+      - name: Prevent promotion from a stale embedded Beta baseline
+        env:
+          FULL: ghcr.io/sickicarus-labs/monitorbox-successor-signed-feed
+          BETA_DIGEST: ${{ steps.baseline.outputs.beta }}
+        run: |
+          docker pull --quiet --platform linux/amd64 "$FULL@$BETA_DIGEST"
+          cid="$(docker create --platform linux/amd64 "$FULL@$BETA_DIGEST")"
+          docker cp "$cid:/feed/platform/channels/beta/index.json" "$RUNNER_TEMP/live-beta.json"
+          docker rm -f "$cid"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          root=Path(os.environ["RUNNER_TEMP"])
+          current=json.loads((root/"live-beta.json").read_text())["signed"]
+          embedded=json.loads((root/"prior/platform/channels/beta/index.json").read_text())["signed"]
+          assert current["sequence"]==embedded["sequence"], "embedded Beta sequence is stale"
+          assert current["artifacts"]==embedded["artifacts"], "embedded Beta package closure differs from live Beta"
+          print("Verified Dev image contains current signed Beta baseline")
+          PY
       - name: Independently verify all signed ZIPs and sign exact Beta
         env:
           MONITORBOX_PLATFORM_SIGNING_KEY: ${{ secrets.MONITORBOX_MODULE_SIGNING_KEY }}
