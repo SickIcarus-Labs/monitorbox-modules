@@ -906,6 +906,7 @@ def _apply_backup_restore_native_json_overlay(
     safe_native = '''    # Native portable-v1 authority: JSON only, never launch the ZIP scheduler.
     if (platform.root / "portable").is_dir():
         import asyncio as _json_asyncio
+        import json as _json
         from monitorbox_backup_restore_b9_json import JsonBackupVault, JsonBackupError, JsonBackupScheduler, checked_json_policy
         vault = JsonBackupVault(platform.root)
         scheduler = JsonBackupScheduler(platform, vault)
@@ -979,7 +980,7 @@ def _apply_backup_restore_native_json_overlay(
                 raw = await request.read()
                 if len(raw) > 8192:
                     raise ValueError("too-large")
-                policy = checked_json_policy(json.loads(raw))
+                policy = checked_json_policy(_json.loads(raw))
                 if policy["destination_path"]:
                     scheduler.check_destination(policy["destination_path"])
                 doc = (await _json_asyncio.to_thread(scheduler._export))[0]
