@@ -7,6 +7,7 @@ There are no ZIP archives, historical data, new credentials or module binaries.
 """
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import os
@@ -14,6 +15,7 @@ import re
 import secrets
 import stat
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from pathlib import Path
 from typing import Any
 
@@ -188,3 +190,137 @@ class JsonBackupVault:
             data.unlink(missing_ok=True)
         except OSError:
             raise JsonBackupError("unable to delete saved backup") from None
+
+
+MODULE_ID = "com.sickicarus.monitorbox.backup-restore"
+_DAILY_TIME = re.compile(r"^(?:[01][0-9]|2[0-3]):[0-5][0-9]$")
+_DEFAULT_POLICY = {"enabled": False, "time": "02:00", "retention_count": 7}
+
+
+def checked_json_policy(raw: Any) -> dict[str, Any]:
+    """A bounded, portable module-owned operator setting; no sidecar policy."""
+    if raw is None:
+        return dict(_DEFAULT_POLICY)
+    if not isinstance(raw, dict) or set(raw) != set(_DEFAULT_POLICY):
+        raise JsonBackupError("saved JSON schedule policy is invalid")
+    if type(raw["enabled"]) is not bool:
+        raise JsonBackupError("schedule enabled must be a boolean")
+    if not isinstance(raw["time"], str) or not _DAILY_TIME.fullmatch(raw["time"]):
+        raise JsonBackupError("schedule time must be HH:MM in appliance local time")
+    if type(raw["retention_count"]) is not int or not 1 <= raw["retention_count"] <= 100:
+        raise JsonBackupError("schedule retention must be 1 to 100")
+    return dict(raw)
+
+
+def policy_from_portable(doc: dict[str, Any]) -> dict[str, Any]:
+    modules = doc.get("modules")
+    if not isinstance(modules, list):
+        raise JsonBackupError("portable module inventory is invalid")
+    matches = [row for row in modules if isinstance(row, dict) and row.get("id") == MODULE_ID]
+    if len(matches) != 1 or not isinstance(matches[0].get("settings", {}), dict):
+        raise JsonBackupError("Backup/Restore portable module setting is unavailable")
+    return checked_json_policy(matches[0].get("settings", {}).get("jsonBackups"))
+
+
+def appliance_now() -> datetime:
+    name = os.environ.get("TZ")
+    try:
+        return datetime.now(ZoneInfo(name)) if name else datetime.now().astimezone()
+    except (ZoneInfoNotFoundError, ValueError):
+        raise JsonBackupError("configured appliance timezone is invalid") from None
+
+
+class JsonBackupScheduler:
+    """One daily JSON backup using Core's exact credential-verified exporter.
+
+    Uses the same validated JSON snapshot as Download and Save on MonitorBox.
+    The policy lives in the portable configuration and survives a JSON restore.
+    A local calendar date may be backed up only once (even on a DST fold).
+    On spring-forward gaps, the next due minute is used.
+    """
+
+    def __init__(self, platform: Any, vault: JsonBackupVault, *, poll_seconds: float = 60) -> None:
+        self.platform = platform
+        self.vault = vault
+        self.poll_seconds = max(1.0, float(poll_seconds))
+        self._task: asyncio.Task[None] | None = None
+        self._lock = asyncio.Lock()
+        self.status: dict[str, Any] = {
+            "last_success": None, "last_error": None, "last_id": None,
+            "last_check": None,
+        }
+
+    def _export(self) -> tuple[dict[str, Any], bytes, str]:
+        exporter = getattr(self.platform, "export_verified_portable_json", None)
+        if not callable(exporter):
+            raise JsonBackupError("Core's signed portable exporter is not available")
+        response = exporter()
+        content = response.body
+        try:
+            doc = json.loads(content)
+        except (ValueError, UnicodeError):
+            raise JsonBackupError("Core returned invalid portable JSON") from None
+        if not isinstance(doc, dict):
+            raise JsonBackupError("Core returned invalid portable JSON")
+        disposition = response.headers.get("Content-Disposition", "")
+        prefix = 'attachment; filename="'
+        if not disposition.startswith(prefix) or not disposition.endswith('"'):
+            raise JsonBackupError("Core portable filename unavailable")
+        filename = disposition[len(prefix):-1]
+        self.vault._checked_source(content, filename)
+        return doc, content, filename
+
+    def policy(self) -> dict[str, Any]:
+        document, _, _ = self._export()
+        return policy_from_portable(document)
+
+    async def start(self, _app: Any) -> None:
+        if self._task is None or self._task.done():
+            self._task = asyncio.create_task(self._loop(), name="monitorbox-json-backup-scheduler")
+
+    async def stop(self, _app: Any) -> None:
+        task = self._task
+        self._task = None
+        if task is not None:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+
+    async def _loop(self) -> None:
+        while True:
+            try:
+                await self.run_due()
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                # Never include credential-bearing exception strings in logs.
+                self.status["last_error"] = type(exc).__name__ + ": scheduled JSON backup failed"
+            await asyncio.sleep(self.poll_seconds)
+
+    async def run_due(self, *, force: bool = False) -> dict[str, Any]:
+        async with self._lock:
+            local = appliance_now()
+            self.status["last_check"] = local.isoformat()
+            try:
+                policy = self.policy()
+                if not force and not policy["enabled"]:
+                    return {"created": False, "reason": "disabled"}
+                if not force and local.strftime("%H:%M") < policy["time"]:
+                    return {"created": False, "reason": "not_due"}
+                today = local.strftime("%Y-%m-%d")
+                if not force and any(
+                    item["kind"] == "scheduled" and item.get("local_day") == today
+                    for item in self.vault.list()
+                ):
+                    return {"created": False, "reason": "already_created_today"}
+                _doc, content, filename = self._export()
+                record = self.vault.create(content, filename, kind="scheduled", local_day=today)
+                self.status["last_success"] = datetime.now(timezone.utc).isoformat()
+                self.status["last_id"] = record["id"]
+                self.status["last_error"] = None
+                scheduled = [item for item in self.vault.list() if item["kind"] == "scheduled"]
+                for item in scheduled[policy["retention_count"]:]:
+                    self.vault.delete(item["id"])
+                return {"created": True, "backup": record}
+            except Exception as exc:
+                self.status["last_error"] = type(exc).__name__ + ": JSON backup failed"
+                raise
