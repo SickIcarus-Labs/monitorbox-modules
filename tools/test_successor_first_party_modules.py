@@ -43,6 +43,23 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
         self.assertEqual(9, backup["build"])
         self.assertEqual(9, backup["module_runtime"]["build"])
 
+    def test_native_json_restore_copy_is_concise_without_changing_reset_behavior(self) -> None:
+        assets = subject.ROOT / "tools" / "ui-assets" / "backup-restore"
+        html = (assets / "backup-restore.html").read_text("utf-8")
+        js = (assets / "backup-restore.js").read_text("utf-8")
+        self.assertIn('id="restoreButton"', html)
+        self.assertIn('>Restore configuration</button>', html)
+        self.assertNotIn("Restore configuration (clear history)", html)
+        self.assertNotIn("Restore discards historical telemetry", html)
+        self.assertIn(
+            "Replace this appliance's configuration with the selected JSON?", js
+        )
+        self.assertNotIn("DISCARD historical telemetry", js)
+        self.assertNotIn("clears telemetry history", js)
+        # This is strictly a copy change. Restore still replaces settings
+        # and directs Supervisor to reset historical observations.
+        self.assertIn("reset_history: true", js)
+
     def test_native_json_backup_module_never_starts_zip_scheduler_or_routes(self) -> None:
         backup = self.records[subject.BACKUP_RESTORE_ID]
         with tempfile.TemporaryDirectory(prefix="successor-native-json-br-") as folder:
@@ -446,7 +463,8 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
         self.assertIn('/api/v2/config/backup-restore/json/saved', js)
         self.assertIn('scheduleApi + "/policy"', js)
         self.assertIn('selectRestoreDocument', js)
-        self.assertIn("Restore configuration (clear history)", html)
+        self.assertIn(">Restore configuration</button>", html)
+        self.assertNotIn("Restore configuration (clear history)", html)
         self.assertNotIn("Save JSON (retain history)", html)
         self.assertNotIn('id="jsonEditor"', html)
         self.assertIn('id="restoreButton"', html)

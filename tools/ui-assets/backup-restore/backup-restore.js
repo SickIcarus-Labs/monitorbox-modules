@@ -60,7 +60,7 @@
     }
     el("restoreButton").disabled = !csrf || busy;
     report("Ready to validate and restore " + document.modules.length +
-           " module selections. This replaces configuration and clears telemetry history.");
+           " module selections. Existing configuration will be replaced.");
   }
 
   el("file").addEventListener("change", async () => {
@@ -81,7 +81,7 @@
 
   el("restoreButton").addEventListener("click", async () => {
     if (!candidate || !csrf || busy) return;
-    if (!window.confirm("REPLACE MonitorBox configuration and DISCARD historical telemetry?")) return;
+    if (!window.confirm("Replace this appliance's configuration with the selected JSON?")) return;
     busy = true;
     el("restoreButton").disabled = true;
     report("Checking signed module availability and preparing configuration replacement…");
