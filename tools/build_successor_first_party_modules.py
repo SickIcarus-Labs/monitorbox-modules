@@ -980,6 +980,8 @@ def _apply_backup_restore_native_json_overlay(
                 if len(raw) > 8192:
                     raise ValueError("too-large")
                 policy = checked_json_policy(json.loads(raw))
+                if policy["destination_path"]:
+                    scheduler.check_destination(policy["destination_path"])
                 doc = (await _json_asyncio.to_thread(scheduler._export))[0]
                 candidates = [row for row in doc["modules"]
                               if row.get("id") == "com.sickicarus.monitorbox.backup-restore"]
