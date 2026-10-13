@@ -194,7 +194,7 @@ class JsonBackupVault:
 
 MODULE_ID = "com.sickicarus.monitorbox.backup-restore"
 _DAILY_TIME = re.compile(r"^(?:[01][0-9]|2[0-3]):[0-5][0-9]$")
-_DEFAULT_POLICY = {"enabled": False, "time": "02:00", "retention_count": 7}
+_DEFAULT_POLICY = {"enabled": False, "time": "02:00", "retention_count": 7, "destination_path": ""}
 
 
 def checked_json_policy(raw: Any) -> dict[str, Any]:
@@ -209,6 +209,14 @@ def checked_json_policy(raw: Any) -> dict[str, Any]:
         raise JsonBackupError("schedule time must be HH:MM in appliance local time")
     if type(raw["retention_count"]) is not int or not 1 <= raw["retention_count"] <= 100:
         raise JsonBackupError("schedule retention must be 1 to 100")
+    destination = raw["destination_path"]
+    if (
+        not isinstance(destination, str) or len(destination) > 512
+        or any(ord(char) < 32 for char in destination)
+        or (destination and not Path(destination).is_absolute())
+        or ".." in Path(destination).parts
+    ):
+        raise JsonBackupError("scheduled backup destination must be an absolute mounted path")
     return dict(raw)
 
 
@@ -247,7 +255,7 @@ class JsonBackupScheduler:
         self._lock = asyncio.Lock()
         self.status: dict[str, Any] = {
             "last_success": None, "last_error": None, "last_id": None,
-            "last_check": None,
+            "last_check": None, "last_destination": None,
         }
 
     def _export(self) -> tuple[dict[str, Any], bytes, str]:
@@ -273,6 +281,28 @@ class JsonBackupScheduler:
     def policy(self) -> dict[str, Any]:
         document, _, _ = self._export()
         return policy_from_portable(document)
+
+    def check_destination(self, path_text: str) -> Path | None:
+        if not path_text:
+            return None
+        path = Path(path_text)
+        try:
+            if path.is_symlink() or not path.is_dir():
+                raise JsonBackupError("backup destination is not a directory")
+            destination = path.resolve(strict=True)
+            root = self.vault.root.resolve(strict=True)
+            if destination == root or root in destination.parents:
+                raise JsonBackupError("external destination cannot be inside appliance root")
+        except OSError:
+            raise JsonBackupError("backup destination is not available") from None
+        return destination
+
+    def _publish_destination(self, directory: Path, record: dict[str, Any], content: bytes) -> None:
+        # Filenames remain the approved JSON form. Never replace existing copies.
+        target = directory / record["filename"]
+        if target.exists() or target.is_symlink():
+            raise JsonBackupError("destination already contains this JSON backup")
+        JsonBackupVault._atomic(target, content)
 
     async def start(self, _app: Any) -> None:
         if self._task is None or self._task.done():
@@ -314,13 +344,24 @@ class JsonBackupScheduler:
                     return {"created": False, "reason": "already_created_today"}
                 _doc, content, filename = self._export()
                 record = self.vault.create(content, filename, kind="scheduled", local_day=today)
-                self.status["last_success"] = datetime.now(timezone.utc).isoformat()
+                self.status["last_success"] = local.strftime("%Y-%m-%d %H:%M:%S")
                 self.status["last_id"] = record["id"]
+                self.status["last_destination"] = None
                 self.status["last_error"] = None
+                destination_error = None
+                if policy["destination_path"]:
+                    try:
+                        directory = self.check_destination(policy["destination_path"])
+                        if directory is not None:
+                            await asyncio.to_thread(self._publish_destination, directory, record, content)
+                            self.status["last_destination"] = str(directory)
+                    except (JsonBackupError, OSError) as exc:
+                        destination_error = type(exc).__name__ + ": external copy failed"
+                        self.status["last_error"] = destination_error
                 scheduled = [item for item in self.vault.list() if item["kind"] == "scheduled"]
                 for item in scheduled[policy["retention_count"]:]:
                     self.vault.delete(item["id"])
-                return {"created": True, "backup": record}
+                return {"created": True, "backup": record, "destination_error": destination_error}
             except Exception as exc:
                 self.status["last_error"] = type(exc).__name__ + ": JSON backup failed"
                 raise
