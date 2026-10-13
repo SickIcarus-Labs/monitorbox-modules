@@ -21,6 +21,9 @@ on:
       - "tools/build_successor_dev_delta.py"
       - "tools/test_build_successor_dev_delta.py"
       - ".github/workflows/publish-successor-dev-core-manager.yml"
+      - ".github/workflows/promote-successor-full-beta.yml"
+      - "tools/promote_successor_beta.py"
+      - "tools/test_promote_successor_beta.py"
       - "tools/test_publish_successor_dev_workflow.py"
       - "tools/test_successor_active_release_surface.py"
       - "tools/successor_release_manifest.py"
@@ -80,7 +83,7 @@ jobs:
         run: python tools/verify_trusted_successor_signer_snapshot.py
       - name: Compile trusted successor signer tools
         run: |
-          python -m py_compile             tools/build_platform_index.py             tools/verify_platform_index.py             tools/portable_contracts.py             tools/verify_trusted_successor_signer_snapshot.py
+          python -m py_compile             tools/build_platform_index.py             tools/verify_platform_index.py             tools/portable_contracts.py             tools/verify_trusted_successor_signer_snapshot.py             tools/promote_successor_beta.py
       - name: Install test dependency
         run: python -m pip install --disable-pip-version-check pytest "cryptography>=45,<49" "jsonschema>=4,<5" "PyYAML>=6,<7"
       - name: Run publication-control tests
@@ -97,6 +100,7 @@ jobs:
           tools/test_sign_successor_dev_stage.py
           tools/test_build_successor_dev_delta.py
           tools/test_publish_successor_dev_workflow.py
+          tools/test_promote_successor_beta.py
           tools/test_successor_promotion_recovery_model.py
           tools/test_successor_release_manifest.py
           tools/test_successor_oci_evidence.py
