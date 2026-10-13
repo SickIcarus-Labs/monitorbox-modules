@@ -52,7 +52,7 @@ def test_unsigned_builder_consumes_only_digest_pinned_oci_without_private_pat():
     raw = PATH.read_text("utf-8")
     assert "MONITORBOX_CORE_SOURCE_READ_TOKEN" not in raw
     assert "repository: SickIcarus-Labs/monitorbox" not in raw
-    assert "gh api repos/SickIcarus-Labs/monitorbox" not in raw
+    assert "gh api repos/SickIcarus-Labs/monitorbox/" not in raw  # private Core only
     assert "build_successor_dev_delta.py" not in raw
     assert "MONITORBOX_PLATFORM_SIGNING_KEY" not in str(unsigned)
     assert unsigned["permissions"]["packages"] == "read"
@@ -138,7 +138,9 @@ def test_source_ci_and_auth_are_delegated_to_private_core():
     """Private source never crosses the public repository checkout boundary."""
     raw = PATH.read_text("utf-8")
     assert "MONITORBOX_CORE_SOURCE_READ_TOKEN" not in raw
-    assert "gh api" not in raw
+    # Qualified public application PRs are checked by the trusted resolver.
+    # Never grant the release runner private Core access.
+    assert "gh api repos/SickIcarus-Labs/monitorbox/pulls/" not in raw
     assert "SickIcarus-Labs/monitorbox/pulls/782" not in raw
     assert "unsigned_candidate_digest" in raw
 
@@ -271,3 +273,58 @@ def test_protected_dev_ui59_only_publication_is_isolated():
     assert "MONITORBOX_MODULE_SIGNING_KEY" not in str(jobs["unsigned"])
     assert 'docker buildx imagetools create --tag "$FULL:stable"' not in source
     assert 'docker buildx imagetools create --tag "$FULL:beta"' not in source
+
+def test_reviewed_application_pr_may_be_signed_without_merging_candidate_source():
+    jobs = _parsed()["jobs"]
+    resolver = jobs["resolve"]
+    assert resolver["permissions"]["actions"] == "read"
+    assert resolver["permissions"]["pull-requests"] == "read"
+    assert resolver["permissions"]["contents"] == "read"
+    assert resolver["outputs"]["candidate_source"] == "${{ steps.intent.outputs.candidate_source }}"
+    intent = resolver["steps"][0]
+    assert intent["env"]["GH_TOKEN"] == "${{ github.token }}"
+    gate = intent["run"]
+    assert 'github.actor == ' not in gate  # protected job-level guard
+    assert 'gh api repos/SickIcarus-Labs/monitorbox-modules/pulls/210' in gate
+    assert '.head.sha == $sha' in gate
+    assert '.head.repo.full_name == "SickIcarus-Labs/monitorbox-modules"' in gate
+    assert '.state == "open"' in gate and '.base.ref == "main"' in gate
+    assert 'select(.head_sha == $sha and .status == "completed" and .conclusion == "success")' in gate
+    for name in (
+        "Successor first-party module packaging",
+        "Successor UI-only release delta contract",
+        "Successor signed platform contract",
+        "Successor integrated source and signer contract",
+        "Successor signed-feed publication contract",
+    ):
+        assert f'"{name}"' in gate
+    assert 'candidate_source=false' in gate
+    assert 'candidate_source=true' in gate
+    assert 'echo "candidate_source=$candidate_source"' in gate
+
+    unsigned = jobs["unsigned"]
+    app_checkout = next(step for step in unsigned["steps"] if step.get("uses") == "actions/checkout@v7")
+    assert app_checkout["with"]["ref"] == "${{ needs.resolve.outputs.core_source_sha }}"
+    assert app_checkout["with"]["persist-credentials"] == "false"
+    assert unsigned["permissions"]["packages"] == "read"
+    assert "MONITORBOX_MODULE_SIGNING_KEY" not in str(unsigned)
+    builder = next(x for x in unsigned["steps"] if x.get("name", "").startswith("Build exact app"))
+    assert builder["env"]["CANDIDATE_SOURCE"] == "${{ needs.resolve.outputs.candidate_source }}"
+    assert '("1.18.6", 64)' in builder["run"]
+    assert '("1.0.7", 9)' in builder["run"]
+    assert '"sha256:" + digest == os.environ["UNSIGNED_DIGEST"]' in builder["run"]
+
+    signer = jobs["publish"]
+    assert signer["env"]["CANDIDATE_SOURCE"] == "${{ needs.resolve.outputs.candidate_source }}"
+    signed_checkout = next(x for x in signer["steps"] if x.get("uses") == "actions/checkout@v7")
+    assert "ref" not in signed_checkout.get("with", {})  # trusted main only
+    admit = next(x["run"] for x in signer["steps"] if x.get("name") ==
+                 "Admit exact native ZIPs and stage unsigned complete Dev closure")
+    assert 'os.environ["CANDIDATE_SOURCE"]=="true"' in admit
+    assert "z.testzip() is None" in admit
+    assert "meta[\"artifact_id\"]==artifact_id" in admit
+    assert 'expected_version,expected_build=(("1.18.6",64)' in admit
+    assert "rebuilt.read_bytes()==submitted.read_bytes()" in admit  # normal main path unchanged
+    assert "stage_unsigned_dev_delta(" in admit
+    assert "MONITORBOX_PLATFORM_SIGNING_KEY" not in str(unsigned)
+

@@ -52,7 +52,10 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      actions: read
+      pull-requests: read
     outputs:
+      candidate_source: ${{ steps.intent.outputs.candidate_source }}
       core_source_sha: ${{ steps.intent.outputs.core_source_sha }}
       expected_dev_full: ${{ steps.intent.outputs.expected_dev_full }}
       unsigned_digest: ${{ steps.intent.outputs.unsigned_digest }}
@@ -67,6 +70,7 @@ jobs:
           MANUAL_DIGEST: ${{ inputs.expected_dev_full }}
           MANUAL_UNSIGNED: ${{ inputs.unsigned_candidate_digest }}
           CONFIRMATION: ${{ inputs.confirmation }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           if [[ "$EVENT_NAME" == "issue_comment" ]]; then
@@ -94,6 +98,36 @@ jobs:
             issue="$(jq -r '.issue.number' "$GITHUB_EVENT_PATH")"
             test "$issue" = 195
           fi
+          # #691: the owner may explicitly Dev-stage the reviewed, exact
+          # same-repository PR head BEFORE merging application code to main.
+          # Keep PR-scoped execution out of the protected signing job.
+          candidate_source=false
+          if [[ "$kind" == "backup-restore" || "$kind" == "ui" ]] && \
+             [[ "$source_sha" != "$GITHUB_SHA" ]]; then
+            # This is a one-candidate exception, not an arbitrary branch/tag
+            # release mechanism. The workflow on main remains trusted.
+            review="$(gh api repos/SickIcarus-Labs/monitorbox-modules/pulls/210)"
+            jq -e --arg sha "$source_sha" '
+              .state == "open" and .base.ref == "main" and
+              .head.sha == $sha and
+              .head.repo.full_name == "SickIcarus-Labs/monitorbox-modules"
+            ' <<< "$review" >/dev/null
+            gh api "repos/SickIcarus-Labs/monitorbox-modules/actions/runs?head_sha=$source_sha&per_page=100" |
+              jq -e --arg sha "$source_sha" '
+                [.workflow_runs[]
+                 | select(.head_sha == $sha and .status == "completed" and .conclusion == "success")
+                 | .name] as $ok |
+                ([
+                  "Successor first-party module packaging",
+                  "Successor UI-only release delta contract",
+                  "Successor signed platform contract",
+                  "Successor integrated source and signer contract",
+                  "Successor signed-feed publication contract"
+                ] - $ok | length) == 0
+              ' >/dev/null
+            candidate_source=true
+          fi
+          echo "candidate_source=$candidate_source" >> "$GITHUB_OUTPUT"
           echo "release_kind=$kind" >> "$GITHUB_OUTPUT"
           echo "unsigned_digest=$unsigned_digest" >> "$GITHUB_OUTPUT"
           echo "core_source_sha=$source_sha" >> "$GITHUB_OUTPUT"
@@ -118,6 +152,7 @@ jobs:
       - uses: actions/checkout@v7
         if: (needs.resolve.outputs.release_kind == 'backup-restore' || needs.resolve.outputs.release_kind == 'ui')
         with:
+          ref: ${{ needs.resolve.outputs.core_source_sha }}
           persist-credentials: false
       - uses: actions/setup-python@v6
         if: (needs.resolve.outputs.release_kind == 'backup-restore' || needs.resolve.outputs.release_kind == 'ui')
@@ -178,6 +213,7 @@ jobs:
         if: (needs.resolve.outputs.release_kind == 'backup-restore' || needs.resolve.outputs.release_kind == 'ui')
         env:
           PYTHONPATH: tools
+          CANDIDATE_SOURCE: ${{ needs.resolve.outputs.candidate_source }}
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$CORE_SOURCE_SHA"
@@ -189,7 +225,12 @@ jobs:
           )
           kind = os.environ["RELEASE_KIND"]
           artifact_id = UI_ID if kind == "ui" else BACKUP_RESTORE_ID
-          expected = ("1.18.4", 62) if kind == "ui" else ("1.0.6", 8)
+          candidate = os.environ["CANDIDATE_SOURCE"] == "true"
+          expected = (
+              ("1.18.6", 64) if kind == "ui" else ("1.0.7", 9)
+          ) if candidate else (
+              ("1.18.4", 62) if kind == "ui" else ("1.0.6", 8)
+          )
           record = _parse_authority()[artifact_id]
           assert (record["version"], record["build"]) == expected
           root = Path(os.environ["RUNNER_TEMP"]) / "new-packages"
@@ -228,6 +269,7 @@ jobs:
       CORE_SOURCE_SHA: ${{ needs.resolve.outputs.core_source_sha }}
       EXPECTED_DEV_FULL: ${{ needs.resolve.outputs.expected_dev_full }}
       RELEASE_KIND: ${{ needs.resolve.outputs.release_kind }}
+      CANDIDATE_SOURCE: ${{ needs.resolve.outputs.candidate_source }}
       FULL: ghcr.io/sickicarus-labs/monitorbox-successor-signed-feed
     steps:
       - uses: actions/checkout@v7
@@ -282,15 +324,35 @@ jobs:
           arches=("any",) if kind in ("backup-restore","ui") else ("amd64","arm64")
           assert len(manifest["packages"])==len(expected)*len(arches)
           if kind in ("backup-restore","ui"):
-            # Independently reproduce the exact package from protected main.
-            assert __import__("subprocess").check_output(
-              ["git","rev-parse","HEAD"],text=True).strip()==os.environ["CORE_SOURCE_SHA"]
             artifact_id=UI if kind=="ui" else BACKUP_RESTORE
-            record=_parse_authority()[artifact_id]
-            assert (record["version"],record["build"])==( ("1.18.4",62) if kind=="ui" else ("1.0.6",8) )
-            rebuilt=build_package(record,root/"rebuilt",release_eligible=True)
-            submitted=root/"new-packages"/rebuilt.name
-            assert rebuilt.read_bytes()==submitted.read_bytes()
+            if os.environ["CANDIDATE_SOURCE"]=="true":
+              # The protected signer NEVER checks out or executes candidate
+              # Python. The unsigned no-secret job built that exact qualified
+              # PR HEAD. Verify identity/version/integrity of its ZIP here;
+              # sign only the package admitted by owner-pinned SHA and digest.
+              import zipfile
+              expected_version,expected_build=(("1.18.6",64) if kind=="ui" else ("1.0.7",9))
+              assert len(manifest["packages"])==1
+              entry=manifest["packages"][0]
+              path=root/"new-packages"/entry["name"]
+              with zipfile.ZipFile(path) as z:
+                assert z.testzip() is None
+                names=z.namelist()
+                assert len(names)==len(set(names)) and "package.json" in names
+                assert all(not n.startswith("/") and ".." not in n.split("/") for n in names)
+                meta=json.loads(z.read("package.json"))
+                assert meta["artifact_id"]==artifact_id
+                assert (meta["version"],meta["build"])==(expected_version,expected_build)
+            else:
+              # Main-source releases retain full deterministic reconstruction
+              # inside the protected runner.
+              assert __import__("subprocess").check_output(
+                ["git","rev-parse","HEAD"],text=True).strip()==os.environ["CORE_SOURCE_SHA"]
+              record=_parse_authority()[artifact_id]
+              assert (record["version"],record["build"])==( ("1.18.4",62) if kind=="ui" else ("1.0.6",8) )
+              rebuilt=build_package(record,root/"rebuilt",release_eligible=True)
+              submitted=root/"new-packages"/rebuilt.name
+              assert rebuilt.read_bytes()==submitted.read_bytes()
 
           replacements={}
           for item in manifest["packages"]:
