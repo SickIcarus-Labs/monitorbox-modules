@@ -28,7 +28,8 @@
     csrf = data.csrf_token;
     el("login").hidden = true;
     el("restore").hidden = false;
-    report("Download the current configuration or select a JSON file to restore.");
+    report("Download, save or restore portable configuration JSON.");
+    await Promise.all([refreshSaved(), refreshSchedule()]);
   }
 
   el("loginButton").addEventListener("click", async () => {
@@ -45,6 +46,23 @@
     } catch (error) { report(error.message || String(error)); }
   });
 
+  function selectRestoreDocument(document) {
+    if (!document || document.schemaVersion !== "monitorbox.portable/v1" ||
+        !Array.isArray(document.modules)) {
+      throw new Error("Not a MonitorBox portable configuration JSON.");
+    }
+    candidate = document;
+    const channel = el("channel");
+    channel.replaceChildren(new Option("Stable (default)", "stable"));
+    const saved = document.release && document.release.preferredChannel;
+    if (saved === "beta" || saved === "dev") {
+      channel.add(new Option("Use saved " + saved.toUpperCase() + " channel", saved));
+    }
+    el("restoreButton").disabled = !csrf || busy;
+    report("Ready to validate and restore " + document.modules.length +
+           " module selections. This replaces configuration and clears telemetry history.");
+  }
+
   el("file").addEventListener("change", async () => {
     candidate = null;
     el("restoreButton").disabled = true;
@@ -55,21 +73,7 @@
       return;
     }
     try {
-      const document = JSON.parse(await file.text());
-      if (!document || document.schemaVersion !== "monitorbox.portable/v1" ||
-          !Array.isArray(document.modules)) {
-        throw new Error("Not a MonitorBox portable configuration JSON.");
-      }
-      candidate = document;
-      const channel = el("channel");
-      channel.replaceChildren(new Option("Stable (default)", "stable"));
-      const saved = document.release && document.release.preferredChannel;
-      if (saved === "beta" || saved === "dev") {
-        channel.add(new Option("Use saved " + saved.toUpperCase() + " channel", saved));
-      }
-      el("restoreButton").disabled = !csrf || busy;
-      report("Ready to validate and restore " + document.modules.length +
-             " module selections. This replaces configuration and clears telemetry history.");
+      selectRestoreDocument(JSON.parse(await file.text()));
     } catch (error) {
       report("Restore file rejected: " + (error.message || String(error)));
     }
@@ -170,6 +174,171 @@
     } catch (error) {
       downloadStatus.textContent = "Download failed: " + (error.message || String(error));
     } finally { download.disabled = false; }
+  });
+
+  // Saved backups contain provider credentials; never render their contents.
+  // Restoring a saved record uses Core's existing signed restore endpoint.
+  const savedApi = "/api/v2/config/backup-restore/json/saved";
+  const scheduleApi = "/api/v2/config/backup-restore/json";
+
+  async function protectedRequest(url, options = {}) {
+    const response = await fetch(url, {
+      credentials: "same-origin", cache: "no-store",
+      ...options
+    });
+    if (!response.ok) {
+      const message = (await response.text()).trim();
+      throw new Error(message || ("HTTP " + response.status));
+    }
+    return response;
+  }
+
+  function savedAction(label, callback) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "mb-br-button";
+    button.textContent = label;
+    button.addEventListener("click", callback);
+    return button;
+  }
+
+  async function refreshSaved() {
+    const root = el("savedRecords");
+    try {
+      const response = await protectedRequest(savedApi);
+      const result = await response.json();
+      const backups = Array.isArray(result.backups) ? result.backups : [];
+      root.replaceChildren();
+      if (!backups.length) {
+        root.textContent = "No saved configuration JSON backups.";
+        return;
+      }
+      for (const entry of backups) {
+        if (!entry || typeof entry.id !== "string" || typeof entry.filename !== "string") continue;
+        const row = document.createElement("div");
+        row.className = "mb-br-saved-row";
+        const description = document.createElement("div");
+        description.className = "mb-br-saved-label";
+        const name = document.createElement("strong");
+        name.textContent = entry.filename;
+        const detail = document.createElement("small");
+        detail.textContent = (entry.kind === "scheduled" ? "Scheduled" : "Manual") +
+          " · " + Math.ceil((Number(entry.bytes) || 0) / 1024) + " KiB";
+        description.append(name, detail);
+        const actions = document.createElement("div");
+        actions.className = "mb-br-row";
+        const resource = savedApi + "/" + encodeURIComponent(entry.id);
+        actions.append(savedAction("Download", () => window.location.assign(resource)));
+        actions.append(savedAction("Restore", async () => {
+          try {
+            const response = await protectedRequest(resource);
+            const bytes = await response.blob();
+            if (!bytes.size || bytes.size > sizeLimit + 8192) {
+              throw new Error("Saved JSON size is invalid.");
+            }
+            el("file").value = "";
+            selectRestoreDocument(JSON.parse(await bytes.text()));
+            el("restoreButton").focus();
+          } catch (error) { report("Saved restore unavailable: " + (error.message || String(error))); }
+        }));
+        actions.append(savedAction("Delete", async () => {
+          if (!window.confirm("Delete saved configuration backup " + entry.filename + "?")) return;
+          try {
+            await protectedRequest(resource, {
+              method: "DELETE", headers: {"X-MonitorBox-CSRF": csrf}
+            });
+            await refreshSaved();
+          } catch (error) { report("Delete failed: " + (error.message || String(error))); }
+        }));
+        row.append(description, actions);
+        root.append(row);
+      }
+    } catch (error) {
+      root.textContent = "Saved JSON backups unavailable: " + (error.message || String(error));
+    }
+  }
+
+  el("saveLocalJson").addEventListener("click", async () => {
+    const button = el("saveLocalJson");
+    if (!csrf || button.disabled) return;
+    button.disabled = true;
+    const output = el("downloadState");
+    output.textContent = "Saving verified configuration JSON to MonitorBox…";
+    try {
+      const response = await protectedRequest(savedApi, {
+        method: "POST", headers: {"X-MonitorBox-CSRF": csrf}
+      });
+      const record = await response.json();
+      output.textContent = "Saved to MonitorBox: " + record.filename;
+      await refreshSaved();
+    } catch (error) {
+      output.textContent = "Save failed: " + (error.message || String(error));
+    } finally { button.disabled = false; }
+  });
+
+  async function refreshSchedule() {
+    const output = el("scheduleStatus");
+    try {
+      const response = await protectedRequest(scheduleApi + "/policy");
+      const data = await response.json();
+      const policy = data.policy || {};
+      el("scheduleEnabled").checked = Boolean(policy.enabled);
+      el("scheduleTime").value = policy.time || "02:00";
+      el("scheduleRetention").value = policy.retention_count || 7;
+      const status = data.status || {};
+      output.textContent = status.last_error ||
+        (status.last_success ? ("Last scheduled JSON backup: " + status.last_success) :
+          "Schedule ready. Times follow MonitorBox TZ.");
+    } catch (error) {
+      output.textContent = "Schedule unavailable: " + (error.message || String(error));
+    }
+  }
+
+  el("saveSchedule").addEventListener("click", async () => {
+    if (!csrf) return;
+    const btn = el("saveSchedule");
+    btn.disabled = true;
+    try {
+      const policy = {
+        enabled: Boolean(el("scheduleEnabled").checked),
+        time: el("scheduleTime").value,
+        retention_count: Number(el("scheduleRetention").value),
+      };
+      if (!/^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/.test(policy.time) ||
+          !Number.isInteger(policy.retention_count) ||
+          policy.retention_count < 1 || policy.retention_count > 100) {
+        throw new Error("Enter a valid local time and retention count (1–100).");
+      }
+      const reply = await protectedRequest(scheduleApi + "/policy", {
+        method: "PUT",
+        headers: {"Content-Type": "application/json", "X-MonitorBox-CSRF": csrf},
+        body: JSON.stringify(policy)
+      });
+      const outcome = await reply.json();
+      el("scheduleStatus").textContent = outcome.accepted
+        ? "Schedule change accepted; awaiting signed generation activation. Refresh after MonitorBox restarts."
+        : "Schedule change was not accepted. No change confirmed.";
+    } catch (error) {
+      el("scheduleStatus").textContent = "Schedule save failed: " + (error.message || String(error));
+    } finally { btn.disabled = false; }
+  });
+
+  el("runScheduleNow").addEventListener("click", async () => {
+    if (!csrf) return;
+    const button = el("runScheduleNow");
+    button.disabled = true;
+    el("scheduleStatus").textContent = "Creating a verified JSON backup…";
+    try {
+      const reply = await protectedRequest(scheduleApi + "/run", {
+        method: "POST", headers: {"X-MonitorBox-CSRF": csrf}
+      });
+      const result = await reply.json();
+      if (!result.created) throw new Error("No JSON backup was created.");
+      el("scheduleStatus").textContent = "Saved JSON backup: " + result.backup.filename;
+      await refreshSaved();
+    } catch (error) {
+      el("scheduleStatus").textContent = "Backup failed: " + (error.message || String(error));
+    } finally { button.disabled = false; }
   });
 
   session().catch((error) => report(error.message || String(error)));

@@ -61,3 +61,17 @@ body.mb-br-surface .mb-br-page {
 .mb-br-status{border:1px solid #38536e;border-radius:9px;padding:13px 15px;margin-top:18px;white-space:pre-wrap;background:#0c1d30;color:#d4e3f5;overflow-wrap:anywhere}
 .mb-br-page [hidden]{display:none!important}
 @media(max-width:800px){.mb-br-grid{grid-template-columns:minmax(0,1fr)}
+/* #797: portable JSON vault controls and local-only daily scheduling. */
+.mb-br-page h3{font-size:15px;margin:22px 0 10px}
+.mb-br-saved-list{display:flex;flex-direction:column;gap:8px;color:var(--mb-br-muted)}
+.mb-br-saved-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid var(--mb-br-line);padding:8px 0}
+.mb-br-saved-row strong{display:block;font-size:13px;color:var(--mb-br-text);overflow-wrap:anywhere}
+.mb-br-saved-row .mb-br-row{gap:6px}
+.mb-br-saved-row .mb-br-button{min-height:36px;padding:6px 9px;font-size:12px}
+.mb-br-saved-label{min-width:170px;flex:1}
+.mb-br-schedule{grid-column:1/-1}
+.mb-br-schedule-controls{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin:14px 0}
+.mb-br-schedule-controls label{margin:0;min-width:165px}
+.mb-br-schedule-controls input:not([type=checkbox]){display:block;margin-top:6px}
+.mb-br-schedule-controls .mb-br-check{display:flex;align-items:center;gap:8px}
+.mb-br-page .mb-br-check input[type=checkbox]{width:18px;height:18px;accent-color:#7da6ff}
