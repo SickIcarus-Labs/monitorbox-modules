@@ -1,0 +1,172 @@
+name: Protected successor FULL Dev to Beta promotion
+
+# Owner-authorized explicit snapshot of the entire 13-role, signed v3 Dev
+# closure. No package builds or source branches. Re-sign Beta metadata with
+# the existing official key; preserve Dev/Stable pointers and their inventories.
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: successor-full-feed-beta-publication
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    name: Verify and sign entire Dev closure as Beta
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.actor == 'SickIcarus' &&
+      github.event.comment.user.login == 'SickIcarus' &&
+      github.event.issue.number == 195 &&
+      !github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '/promote-v3-beta ')
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Install trusted verification dependencies
+        run: python -m pip install --disable-pip-version-check "cryptography>=45,<49" "jsonschema>=4,<5"
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: input
+        name: Require exact signed Dev digest
+        env:
+          COMMAND: ${{ github.event.comment.body }}
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import os,re
+          command=os.environ["COMMAND"]
+          matched=re.fullmatch(r"/promote-v3-beta (sha256:[0-9a-f]{64})",command)
+          if matched is None:
+              raise SystemExit("expected exact /promote-v3-beta sha256:<64>")
+          print("dev="+matched.group(1))
+          PY
+      - id: baseline
+        name: Capture exact FULL Dev Beta Stable immutable baselines
+        env:
+          FULL: ghcr.io/sickicarus-labs/monitorbox-successor-signed-feed
+          EXPECTED_DEV: ${{ steps.input.outputs.dev }}
+        run: |
+          resolve() { docker buildx imagetools inspect "$1" | awk '/^Digest:/ {print $2;exit}'; }
+          dev="$(resolve "$FULL:dev")"
+          beta="$(resolve "$FULL:beta")"
+          stable="$(resolve "$FULL:stable")"
+          test "$dev" = "$EXPECTED_DEV"
+          test -n "$beta" && test -n "$stable"
+          echo "dev=$dev" >> "$GITHUB_OUTPUT"
+          echo "beta=$beta" >> "$GITHUB_OUTPUT"
+          echo "stable=$stable" >> "$GITHUB_OUTPUT"
+          echo "Dev immutable digest: $dev"
+          echo "Beta previous immutable digest: $beta"
+      - name: Extract signed full Dev packages without executing image
+        env:
+          FULL: ghcr.io/sickicarus-labs/monitorbox-successor-signed-feed
+          DEV_DIGEST: ${{ steps.baseline.outputs.dev }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/prior/platform"
+          docker pull --quiet --platform linux/amd64 "$FULL@$DEV_DIGEST"
+          cid="$(docker create --platform linux/amd64 "$FULL@$DEV_DIGEST")"
+          trap 'docker rm -f "$cid" >/dev/null 2>&1 || true' EXIT
+          docker cp "$cid:/feed/platform/." "$RUNNER_TEMP/prior/platform/"
+          for channel in stable beta dev; do
+            test -s "$RUNNER_TEMP/prior/platform/channels/$channel/index.json"
+          done
+          test -d "$RUNNER_TEMP/prior/platform/packages"
+      - name: Independently verify all signed ZIPs and sign exact Beta
+        env:
+          MONITORBOX_PLATFORM_SIGNING_KEY: ${{ secrets.MONITORBOX_MODULE_SIGNING_KEY }}
+        run: |
+          test -n "$MONITORBOX_PLATFORM_SIGNING_KEY"
+          python tools/promote_successor_beta.py \
+            --prior-platform "$RUNNER_TEMP/prior/platform" \
+            --output "$RUNNER_TEMP/staged" \
+            --trust-root trust/official-ed25519-1.pub
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          report=json.loads((Path(os.environ["RUNNER_TEMP"])/"staged"/"receipt.json").read_text())
+          assert report["role_count"]==13 and report["signed_artifact_count"]==22
+          assert report["channels_to_publish"]==["beta"] and report["package_rebuild"] is False
+          assert report["new_beta_sequence"]==report["previous_beta_sequence"]+1
+          print("Verified new Beta signed catalog:",report)
+          PY
+      - name: Publish immutable Beta candidate only
+        id: image
+        env:
+          FULL: ghcr.io/sickicarus-labs/monitorbox-successor-signed-feed
+        run: |
+          cp platform/acceptance-feed.Dockerfile "$RUNNER_TEMP/staged/full/Dockerfile"
+          mkdir -p "$RUNNER_TEMP/staged/full/tools"
+          cp tools/successor_feed_server.go "$RUNNER_TEMP/staged/full/tools/"
+          tag="beta-freeze-$GITHUB_RUN_ID"
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 --provenance=false --push \
+            --tag "$FULL:$tag" "$RUNNER_TEMP/staged/full"
+          digest="$(docker buildx imagetools inspect "$FULL:$tag" | awk '/^Digest:/ {print $2;exit}')"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+      - name: Verify immutable image bytes on both architectures
+        env:
+          FULL: ghcr.io/sickicarus-labs/monitorbox-successor-signed-feed
+          CANDIDATE: ${{ steps.image.outputs.digest }}
+        run: |
+          for arch in amd64 arm64; do
+            docker pull --quiet --platform "linux/$arch" "$FULL@$CANDIDATE"
+            cid="$(docker create --platform "linux/$arch" "$FULL@$CANDIDATE")"
+            mkdir -p "$RUNNER_TEMP/readback-$arch"
+            docker cp "$cid:/feed/platform/." "$RUNNER_TEMP/readback-$arch/"
+            docker rm -f "$cid"
+            diff -rq "$RUNNER_TEMP/staged/full/platform" "$RUNNER_TEMP/readback-$arch"
+          done
+          echo "Exact 13-role signed feed payload verified on ARM64 and AMD64"
+      - name: Guarded Beta tag promotion; preserve Dev and Stable
+        env:
+          FULL: ghcr.io/sickicarus-labs/monitorbox-successor-signed-feed
+          EXPECTED_DEV: ${{ steps.baseline.outputs.dev }}
+          EXPECTED_BETA: ${{ steps.baseline.outputs.beta }}
+          EXPECTED_STABLE: ${{ steps.baseline.outputs.stable }}
+          NEW_BETA: ${{ steps.image.outputs.digest }}
+        run: |
+          resolve() { docker buildx imagetools inspect "$1" | awk '/^Digest:/ {print $2;exit}'; }
+          test "$(resolve "$FULL:dev")" = "$EXPECTED_DEV"
+          test "$(resolve "$FULL:beta")" = "$EXPECTED_BETA"
+          test "$(resolve "$FULL:stable")" = "$EXPECTED_STABLE"
+          recover() {
+            current="$(resolve "$FULL:beta" 2>/dev/null || true)"
+            if [ "$current" != "$NEW_BETA" ]; then
+              docker buildx imagetools create --tag "$FULL:beta" "$FULL@$EXPECTED_BETA" || true
+            fi
+          }
+          trap recover ERR
+          docker buildx imagetools create --tag "$FULL:beta" "$FULL@$NEW_BETA"
+          test "$(resolve "$FULL:beta")" = "$NEW_BETA"
+          test "$(resolve "$FULL:dev")" = "$EXPECTED_DEV"
+          test "$(resolve "$FULL:stable")" = "$EXPECTED_STABLE"
+          trap - ERR
+          {
+            echo "### Signed successor Beta snapshot published"
+            echo "- roles: **13**"
+            echo "- signed platform records: **22**"
+            echo "- no ZIP module rebuild"
+            echo "- source FULL:dev digest: `$EXPECTED_DEV`"
+            echo "- previous FULL:beta digest: `$EXPECTED_BETA`"
+            echo "- new FULL:beta digest: `$NEW_BETA`"
+            echo "- FULL:stable and FULL:dev unchanged"
+          } >> "$GITHUB_STEP_SUMMARY"
