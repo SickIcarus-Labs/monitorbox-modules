@@ -60,10 +60,10 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
 
     def test_successor_ui_advances_for_scaffold_lifecycle_operator_contract(self) -> None:
         ui = self.records[subject.UI_ID]
-        self.assertEqual("1.18.4", ui["version"])
-        self.assertEqual(62, ui["build"])
-        self.assertEqual("1.18.4", ui["module_runtime"]["version"])
-        self.assertEqual(62, ui["module_runtime"]["build"])
+        self.assertEqual("1.18.5", ui["version"])
+        self.assertEqual(63, ui["build"])
+        self.assertEqual("1.18.5", ui["module_runtime"]["version"])
+        self.assertEqual(63, ui["module_runtime"]["build"])
 
     def test_scaffold_distribution_copy_does_not_inherit_false_legacy_failure(self) -> None:
         ui = self.records[subject.UI_ID]
@@ -89,9 +89,9 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
                 js = archive.read("monitorbox_ui_b54/assets/modules.js").decode()
         # These are the URL fragments used by the actual /modules HTTP adapter.
         self.assertIn('"modules.js": "text/javascript"', adapter)
-        self.assertIn("?v=1.18.4-62", adapter)
+        self.assertIn("?v=1.18.5-63", adapter)
         self.assertNotIn("?v=1.17.1-54", adapter)
-        self.assertIn("?v=1.18.4-62", dashboard)
+        self.assertIn("?v=1.18.5-63", dashboard)
         self.assertNotIn("?v=1.17.1-54", dashboard)
         self.assertIn("const distributionReady = scaffoldLifecycle", js)
         self.assertIn("platform_update_count", js)
@@ -111,12 +111,12 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
         self.assertIn("response.text = page", adapter)
         self.assertNotIn("start = core_html.find", adapter)
         self.assertIn('app.middlewares.append(native_json_backup_restore_ui)', adapter)
-        self.assertIn("1.18.4-62", html)
+        self.assertIn("1.18.5-63", html)
         self.assertNotIn("1.17.1-54", html)
         self.assertIn("Download configuration JSON", html)
         self.assertIn("Restore configuration (clear history)", html)
-        self.assertIn("Save JSON (retain history)", html)
-        self.assertIn('id="jsonEditor"', html)
+        self.assertNotIn("Save JSON (retain history)", html)
+        self.assertNotIn('id="jsonEditor"', html)
         self.assertIn('id="restoreButton"', html)
         self.assertIn('id="status"', html)
         self.assertIn("/api/v2/config/portable-json", js)
@@ -143,7 +143,7 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
         # not the document. Every independently packaged normal HTML surface
         # must explicitly reset body margins and use the same dark canvas.
         self.assertIn('<body class="mb-br-surface">', html)
-        self.assertIn('backup-restore.css?v=1.18.4-62', html)
+        self.assertIn('backup-restore.css?v=1.18.5-63', html)
         self.assertIn('--mb-br-bg:var(--mb-shell-bg,#07111f)', css)
         self.assertIn('--mb-br-text:var(--mb-shell-text,#edf4ff)', css)
         self.assertIn('body.mb-br-surface {', css)
@@ -200,9 +200,9 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
             path="/settings/restore-json", method="GET"), serve))
         self.assertIn("Download configuration JSON", native.text)
         self.assertIn('id="restoreButton"', native.text)
-        self.assertIn('id="saveButton"', native.text)
-        self.assertIn('id="jsonEditor"', native.text)
-        self.assertIn("el('saveButton').onclick", native.text)
+        self.assertNotIn('id="saveButton"', native.text)
+        self.assertNotIn('id="jsonEditor"', native.text)
+        self.assertNotIn("el('saveButton').onclick", native.text)
         self.assertNotIn("CORE_JSON_ACTIONS", native.text)
         self.assertEqual("no-store", native.headers["Cache-Control"])
 
