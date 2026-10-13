@@ -113,3 +113,32 @@ async def native_json_backup_restore_ui(request: web.Request, handler):
             raise ValueError("UI Backup peer navigation source boundary changed")
         peer = peer.replace(old, new, 1)
     files[peer_path] = peer.encode("utf-8")
+
+    # Identify redirected native JSON Backup in the persistent shared shell.
+    shell_path = _UI_PREFIX + "assets/app-shell.js"
+    shell_blob = files.get(shell_path)
+    if not isinstance(shell_blob, bytes):
+        raise ValueError("UI app-shell route table missing")
+    shell_source = shell_blob.decode("utf-8")
+    old_route = r"/^\\/settings\\/recovery(?:\\/|$)/"
+    new_route = r"/^\\/settings\\/(?:recovery|restore-json)(?:\\/|$)/"
+    if shell_source.count(old_route) != 1:
+        raise ValueError("UI app-shell native Backup route changed")
+    files[shell_path] = shell_source.replace(old_route, new_route, 1).encode("utf-8")
+
+    # Keep identical horizontal shared-header geometry whether the page has
+    # a hierarchical Up link (Configuration/Backup) or not (Modules/Dashboard).
+    css_path = _UI_PREFIX + "assets/app-shell.css"
+    css_blob = files.get(css_path)
+    if not isinstance(css_blob, bytes):
+        raise ValueError("UI shared shell CSS missing")
+    header_css = """
+/* #796: fixed normal application chrome independent of optional Up link. */
+@media (min-width:761px) {
+  .mb-app-shell {box-sizing:border-box; height:64px; min-height:64px; align-content:center}
+  .mb-shell-hierarchy {min-height:36px; align-content:center}
+}
+"""
+    if b"#796: fixed normal application chrome" in css_blob:
+        raise ValueError("UI shared header rule already present")
+    files[css_path] = css_blob.rstrip() + b"\\n" + header_css.encode("utf-8")

@@ -468,7 +468,17 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
                             self.assertIn("channelResult", decoded)
                             self.assertIn("release.preferred_channel", decoded)
                             self.assertIn("monitorbox:channel-committed", decoded)
+                            self.assertIn("restore-json", decoded)
                             self.assertIn("identity.channel = ''", decoded)
+                        elif (
+                            artifact_id == subject.UI_ID
+                            and name.endswith("/assets/app-shell.css")
+                        ):
+                            before = old.read(name).decode("utf-8")
+                            after = new.read(name).decode("utf-8")
+                            self.assertNotEqual(before, after)
+                            self.assertIn("#796: fixed normal application chrome", after)
+                            self.assertIn("height:64px; min-height:64px", after)
                         elif (
                             artifact_id == subject.UI_ID
                             and name.endswith(subject.UI_MODULES_CSS_MEMBER_SUFFIX)
