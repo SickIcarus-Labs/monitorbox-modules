@@ -116,6 +116,11 @@ def test_multiarch_immutable_readback_uses_platform_manifest_digests():
     assert '.platform.architecture == $arch' in step
     assert 'if length == 1 then .[0] else error(' in step
     assert 'docker pull --quiet --platform "linux/$arch" "$FULL@$platform_digest"' in step
+    assert 'for attempt in 1 2 3 4 5; do' in step
+    assert 'test "$index_ready" = true' in step
+    assert 'test "$platform_ready" = true' in step
+    assert 'docker buildx imagetools inspect "$FULL@$full" --raw' in step
+    assert 'diff -rq "$RUNNER_TEMP/signed/full/platform" "$RUNNER_TEMP/readback"' in step
     assert 'docker create --platform "linux/$arch" "$FULL@$platform_digest"' in step
     assert 'docker pull --quiet --platform "linux/$arch" "$FULL@$full"' not in step
     assert 'diff -rq "$RUNNER_TEMP/signed/full/platform" "$RUNNER_TEMP/readback"' in step
