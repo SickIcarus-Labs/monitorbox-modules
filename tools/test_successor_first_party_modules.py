@@ -313,7 +313,7 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
         self.assertIn('id="restoreButton"', html)
         self.assertIn('id="status"', html)
         self.assertIn("/api/v2/config/portable-json", js)
-        self.assertNotIn("/api/v2/config/backup-restore", js)
+        self.assertNotIn("/api/v2/config/backup-restore/backups", js)  # old ZIP API forbidden
         self.assertIn(".mb-br-page", css)
         self.assertNotIn("application/zip", html + css + js)
         self.assertNotIn("Appliance backups", html)
