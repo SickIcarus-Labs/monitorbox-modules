@@ -906,8 +906,9 @@ def _apply_backup_restore_native_json_overlay(
     safe_native = '''    # Native portable-v1 authority: JSON only, never launch the ZIP scheduler.
     if (platform.root / "portable").is_dir():
         import asyncio as _json_asyncio
-        from monitorbox_backup_restore_b9_json import JsonBackupVault, JsonBackupError
+        from monitorbox_backup_restore_b9_json import JsonBackupVault, JsonBackupError, JsonBackupScheduler, checked_json_policy
         vault = JsonBackupVault(platform.root)
+        scheduler = JsonBackupScheduler(platform, vault)
 
         @web.middleware
         async def native_json_recovery(request: web.Request, handler):
@@ -961,12 +962,60 @@ def _apply_backup_restore_native_json_overlay(
                 raise web.HTTPNotFound(text="Saved JSON backup not found or invalid") from None
             return web.json_response({"deleted": True}, headers={"Cache-Control": "no-store"})
 
+        async def native_schedule_policy(request: web.Request) -> web.Response:
+            platform.auth.require(request)
+            try:
+                policy = await _json_asyncio.to_thread(scheduler.policy)
+            except JsonBackupError:
+                raise web.HTTPConflict(text="Verified JSON schedule policy unavailable") from None
+            return web.json_response({"policy": policy, "status": scheduler.status},
+                                     headers={"Cache-Control": "no-store"})
+
+        async def native_schedule_save(request: web.Request) -> web.Response:
+            platform.auth.require(request, csrf=True)
+            if request.content_length is not None and request.content_length > 8192:
+                raise web.HTTPRequestEntityTooLarge(max_size=8192, actual_size=request.content_length)
+            try:
+                raw = await request.read()
+                if len(raw) > 8192:
+                    raise ValueError("too-large")
+                policy = checked_json_policy(json.loads(raw))
+                doc = (await _json_asyncio.to_thread(scheduler._export))[0]
+                candidates = [row for row in doc["modules"]
+                              if row.get("id") == "com.sickicarus.monitorbox.backup-restore"]
+                if len(candidates) != 1:
+                    raise ValueError("module")
+                settings = candidates[0].setdefault("settings", {})
+                if not isinstance(settings, dict):
+                    raise ValueError("settings")
+                settings["jsonBackups"] = policy
+            except (ValueError, KeyError, TypeError, JsonBackupError):
+                raise web.HTTPBadRequest(text="Invalid JSON backup scheduling policy") from None
+            # Portable operator intent goes through the protected signed
+            # Core/Supervisor lifecycle, not a second policy sidecar.
+            return await platform._apply_native_portable(
+                doc, detail={"policy": policy, "module_id": "com.sickicarus.monitorbox.backup-restore"})
+
+        async def native_schedule_run(request: web.Request) -> web.Response:
+            platform.auth.require(request, csrf=True)
+            try:
+                result = await scheduler.run_due(force=True)
+            except JsonBackupError:
+                raise web.HTTPConflict(text="Verified scheduled JSON backup unavailable") from None
+            return web.json_response(result, status=201, headers={"Cache-Control": "no-store"})
+
+        app.on_startup.append(scheduler.start)
+        app.on_cleanup.append(scheduler.stop)
+
         app.middlewares.append(native_json_recovery)
         app.router.add_get("/backup-restore", native_json_page)
         app.router.add_get("/api/v2/config/backup-restore/json/saved", native_saved_list)
         app.router.add_post("/api/v2/config/backup-restore/json/saved", native_saved_create)
         app.router.add_get("/api/v2/config/backup-restore/json/saved/{backup_id}", native_saved_download)
         app.router.add_delete("/api/v2/config/backup-restore/json/saved/{backup_id}", native_saved_delete)
+        app.router.add_get("/api/v2/config/backup-restore/json/policy", native_schedule_policy)
+        app.router.add_put("/api/v2/config/backup-restore/json/policy", native_schedule_save)
+        app.router.add_post("/api/v2/config/backup-restore/json/run", native_schedule_run)
         return
 
 '''
