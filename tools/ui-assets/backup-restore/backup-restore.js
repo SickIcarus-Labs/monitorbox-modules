@@ -56,7 +56,10 @@
     channel.replaceChildren(new Option("Stable (default)", "stable"));
     const saved = document.release && document.release.preferredChannel;
     if (saved === "beta" || saved === "dev") {
-      channel.add(new Option("Use saved " + saved.toUpperCase() + " channel", saved));
+      // Restoring a downloaded Dev/Beta configuration must not silently
+      // substitute Stable, where its signed modules may not exist.
+      // The operator can still explicitly choose a different channel.
+      channel.add(new Option("Use saved " + saved.toUpperCase() + " channel", saved, true, true));
     }
     el("restoreButton").disabled = !csrf || busy;
     report("Ready to validate and restore " + document.modules.length +
