@@ -60,6 +60,20 @@ class SuccessorFirstPartyModuleTests(unittest.TestCase):
         # and directs Supervisor to reset historical observations.
         self.assertIn("reset_history: true", js)
 
+    def test_json_restore_defaults_to_saved_channel_instead_of_stable(self) -> None:
+        # A signed Dev/Beta JSON backup must remain on its saved channel
+        # unless the operator explicitly selects a different release channel.
+        js = (subject.ROOT / "tools" / "ui-assets" / "backup-restore"
+              / "backup-restore.js").read_text("utf-8")
+        self.assertIn('channel.replaceChildren(new Option("Stable (default)", "stable"))', js)
+        self.assertIn('if (saved === "beta" || saved === "dev")', js)
+        self.assertIn(
+            'channel.add(new Option("Use saved " + saved.toUpperCase() '
+            '+ " channel", saved, true, true))',
+            js,
+        )
+        self.assertIn('channel: el("channel").value, reset_history: true', js)
+
     def test_native_json_backup_module_never_starts_zip_scheduler_or_routes(self) -> None:
         backup = self.records[subject.BACKUP_RESTORE_ID]
         with tempfile.TemporaryDirectory(prefix="successor-native-json-br-") as folder:
