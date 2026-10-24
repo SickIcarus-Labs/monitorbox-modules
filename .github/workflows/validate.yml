@@ -1,0 +1,33 @@
+name: Validate pointers
+
+# Cheap by design: standard library only, runs in seconds, only when a
+# pointer or the tools that handle pointers change.
+on:
+  pull_request:
+    paths: ["catalog.json", "channels/**", "tools/**", "tests/**", ".github/workflows/validate.yml"]
+  push:
+    branches: [main]
+    paths: ["catalog.json", "channels/**", "tools/**", "tests/**", ".github/workflows/validate.yml"]
+
+concurrency:
+  group: validate-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Check the catalog and every channel file
+        run: |
+          python tools/pointer.py channels/*.json
+          python tools/catalog.py catalog.json channels/*.json
+      - name: Unit tests
+        run: python -m unittest discover -s tests -v

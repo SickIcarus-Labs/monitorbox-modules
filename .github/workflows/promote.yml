@@ -1,0 +1,69 @@
+name: Promote channel
+
+# The ONLY workflow allowed to change beta.json or stable.json.
+# Promotion copies one pointer file onto another in one commit. Nothing is rebuilt.
+#   dev -> beta, beta -> stable          (forward)
+#   X -> X with a commit in "ref"        (roll a channel back to an earlier pointer)
+on:
+  workflow_dispatch:
+    inputs:
+      source:
+        description: "Channel to copy from"
+        required: true
+        type: choice
+        options: [dev, beta, stable]
+      target:
+        description: "Channel to move"
+        required: true
+        type: choice
+        options: [beta, stable]
+      ref:
+        description: "Rollback only: commit whose pointer to restore (leave empty for a normal promotion)"
+        required: false
+        default: ""
+
+concurrency:
+  group: promote
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Re-check everything first
+        run: |
+          python tools/pointer.py channels/*.json
+          python tools/catalog.py catalog.json channels/*.json
+          python -m unittest discover -s tests
+      - name: Move the channel
+        env:
+          SOURCE: ${{ inputs.source }}
+          TARGET: ${{ inputs.target }}
+          REF: ${{ inputs.ref }}
+        run: |
+          args=(--source "$SOURCE" --target "$TARGET")
+          if [ -n "$REF" ]; then args+=(--ref "$REF"); fi
+          python tools/promote.py "${args[@]}"
+          python tools/pointer.py channels/*.json
+          python tools/catalog.py catalog.json channels/*.json
+      - name: Commit
+        env:
+          SOURCE: ${{ inputs.source }}
+          TARGET: ${{ inputs.target }}
+        run: |
+          git config user.name "monitorbox-promote"
+          git config user.email "actions@users.noreply.github.com"
+          git add channels catalog.json
+          git diff --cached --quiet && { echo "Nothing changed; nothing to commit."; exit 0; }
+          git commit -m "Promote ${SOURCE} -> ${TARGET}"
+          git push
