@@ -48,7 +48,7 @@ def validate(pointer: object, expected_channel: str | None = None) -> list[str]:
     errors: list[str] = []
     if not isinstance(pointer, dict):
         return ["pointer must be a JSON object"]
-    allowed = {"schema", "channel", "updated", "promotedFrom", "app", "modules"}
+    allowed = {"schema", "channel", "updated", "promotedFrom", "app", "modules", "launcher"}
     for key in pointer:
         if key not in allowed:
             errors.append(f"unknown top-level key {key!r}")
@@ -61,6 +61,11 @@ def validate(pointer: object, expected_channel: str | None = None) -> list[str]:
         errors.append(f"channel: file is for {expected_channel!r} but says {channel!r}")
     if not isinstance(pointer.get("updated"), str):
         errors.append("updated: must be a timestamp string")
+    # Optional: the container image (launcher) version this release was built for, so a box on an older image can say so.
+    launcher = pointer.get("launcher")
+    if launcher is not None:
+        if not isinstance(launcher, dict) or set(launcher) != {"version"} or not isinstance(launcher["version"], str) or not _SEMVER.match(launcher["version"]):
+            errors.append("launcher: must be {\"version\": \"1.2.3\"} or absent")
     # app is null until the first App release exists.
     if pointer.get("app") is not None:
         _check_artifact("app", pointer["app"], errors)

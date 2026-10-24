@@ -35,6 +35,13 @@ class ValidateTests(unittest.TestCase):
     def test_valid_pointer(self):
         self.assertEqual(pointer.validate(good(), "dev"), [])
 
+    def test_the_optional_launcher_version_is_checked(self):
+        ok = good("dev"); ok["launcher"] = {"version": "0.2.0"}
+        self.assertEqual(pointer.validate(ok), [])
+        for bad in ({"version": "two"}, {"version": "0.2.0", "extra": 1}, {}, "0.2.0", {"version": 2}):
+            p = good("dev"); p["launcher"] = bad
+            self.assertTrue(any("launcher" in e for e in pointer.validate(p)), bad)
+
     def test_empty_pointer_is_valid_before_first_release(self):
         empty = {"schema": 1, "channel": "dev", "updated": "x", "app": None, "modules": {}}
         self.assertEqual(pointer.validate(empty, "dev"), [])
