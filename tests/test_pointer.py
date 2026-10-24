@@ -94,8 +94,9 @@ class CliTests(unittest.TestCase):
         self.tmp = Path(tempfile.mkdtemp())
         shutil.copytree(ROOT / "tools", self.tmp / "tools")
         (self.tmp / "channels").mkdir()
-        for name in pointer.CHANNELS:
-            shutil.copy(ROOT / "channels" / f"{name}.json", self.tmp / "channels" / f"{name}.json")
+        for name in pointer.CHANNELS:        # fixed, empty pointers: the tests must not depend on what the real channels hold today
+            (self.tmp / "channels" / f"{name}.json").write_text(json.dumps(
+                {"schema": 1, "channel": name, "updated": "2026-10-14T00:00:00Z", "app": None, "modules": {}}))
         (self.tmp / "catalog.json").write_text(json.dumps(catalog_for_good()))
         self.git("init", "-q", "-b", "main")
         self.git("config", "user.email", "test@example.test")
