@@ -9,7 +9,8 @@
       "published": "2026-10-24T19:42:53Z",
       "channels": [
         "dev",
-        "beta"
+        "beta",
+        "stable"
       ]
     },
     {
