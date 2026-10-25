@@ -8,7 +8,8 @@
       "signature": null,
       "published": "2026-10-25T18:16:50Z",
       "channels": [
-        "dev"
+        "dev",
+        "beta"
       ]
     },
     {
