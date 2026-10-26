@@ -8,7 +8,8 @@
       "signature": null,
       "published": "2026-10-26T03:22:14Z",
       "channels": [
-        "dev"
+        "dev",
+        "beta"
       ]
     },
     {
@@ -250,7 +251,8 @@
         "signature": null,
         "published": "2026-10-26T01:45:06Z",
         "channels": [
-          "dev"
+          "dev",
+          "beta"
         ]
       },
       {
@@ -288,7 +290,8 @@
         "signature": null,
         "published": "2026-10-26T01:45:06Z",
         "channels": [
-          "dev"
+          "dev",
+          "beta"
         ]
       },
       {
@@ -312,7 +315,8 @@
         "signature": null,
         "published": "2026-10-26T01:45:06Z",
         "channels": [
-          "dev"
+          "dev",
+          "beta"
         ]
       },
       {
