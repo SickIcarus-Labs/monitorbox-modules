@@ -9,7 +9,8 @@
       "published": "2026-10-26T03:22:14Z",
       "channels": [
         "dev",
-        "beta"
+        "beta",
+        "stable"
       ]
     },
     {
@@ -252,7 +253,8 @@
         "published": "2026-10-26T01:45:06Z",
         "channels": [
           "dev",
-          "beta"
+          "beta",
+          "stable"
         ]
       },
       {
@@ -291,7 +293,8 @@
         "published": "2026-10-26T01:45:06Z",
         "channels": [
           "dev",
-          "beta"
+          "beta",
+          "stable"
         ]
       },
       {
@@ -316,7 +319,8 @@
         "published": "2026-10-26T01:45:06Z",
         "channels": [
           "dev",
-          "beta"
+          "beta",
+          "stable"
         ]
       },
       {
