@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.6.37",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.6.37/app-1.6.37.tar.gz",
+      "sha256": "7bff628bd55ded9e9b4de322c4ec299e007d81af40aa21078b26a4a4bee78c07",
+      "signature": null,
+      "published": "2026-10-28T22:59:34Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "The \"Update all sites\" button now shows only when an update is waiting at this box or at a linked site. It used to show whenever a site was linked."
+      ]
+    },
+    {
       "version": "1.6.36",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.6.36/app-1.6.36.tar.gz",
       "sha256": "05e284c663cab2d096f7a1f00da76501db15465114face104ffb729a2d665108",
