@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.6.39",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.6.39/app-1.6.39.tar.gz",
+      "sha256": "bf7fac1856fc6844271c7f742ab834ba8a860570156eae24d4d82b0a1fb1ae47",
+      "signature": null,
+      "published": "2026-10-28T23:18:20Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "Tidier Updates page. The buttons now sit together in one row at the top: \"Check now\", \"Check all sites\" (only when a site is linked; it checks this box and every linked site and names any that did not answer), \"Update\" (only when this box has an update waiting; it used to be \"Update all (N)\", and the updates listed below can still be installed one at a time) and \"Update all sites\" (only when a linked site has an update waiting). The line of text beside the old Update button is gone."
+      ]
+    },
+    {
       "version": "1.6.38",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.6.38/app-1.6.38.tar.gz",
       "sha256": "55d64648aed68ec0e9de26815366d81427af17c026d244a754e99460af575772",
