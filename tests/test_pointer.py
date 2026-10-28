@@ -77,6 +77,14 @@ class PromoteTests(unittest.TestCase):
         self.assertEqual(result["app"], good()["app"])
         self.assertEqual(result["modules"], good()["modules"])
 
+    def test_dev_only_modules_are_never_promoted(self):
+        src = good("dev")
+        src["modules"]["hello"] = {"version": "0.3.0", "url": "https://example.test/hello-0.3.0.tar.gz", "sha256": "b" * 64}
+        beta = pointer.promote(src, "beta", "2026-10-15T00:00:00Z", "dev")
+        self.assertEqual(sorted(beta["modules"]), ["snmp"], "the sample module stays on dev")
+        self.assertEqual(sorted(src["modules"]), ["hello", "snmp"], "the dev pointer itself is not changed")
+        self.assertEqual(pointer.validate(beta, "beta"), [])
+
     def test_disallowed_directions_refused(self):
         for source, target in (("beta", "dev"), ("dev", "stable"), ("stable", "beta"), ("stable", "dev")):
             with self.assertRaises(ValueError, msg=f"{source}->{target}"):

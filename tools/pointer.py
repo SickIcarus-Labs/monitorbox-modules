@@ -15,6 +15,9 @@ CHANNELS = ("dev", "beta", "stable")
 # Allowed promotions. Anything else is refused.
 PROMOTIONS = {("dev", "beta"), ("beta", "stable")}
 
+# Modules that exist only to try things out (the sample module). They are published to dev and never promoted: beta and stable never list them.
+DEV_ONLY = ("hello",)
+
 _SEMVER = re.compile(r"^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _MODULE_ID = re.compile(r"^[a-z0-9][a-z0-9._-]{1,63}$")
@@ -98,6 +101,7 @@ def promote(source: object, target_channel: str, now: str, source_channel: str) 
     if source.get("app") is None:  # type: ignore[union-attr]
         raise ValueError("source pointer has no App release yet; nothing to promote")
     result = dict(source)  # type: ignore[arg-type]
+    result["modules"] = {k: v for k, v in source["modules"].items() if k not in DEV_ONLY}  # type: ignore[index]
     result["channel"] = target_channel
     result["updated"] = now
     result["promotedFrom"] = source_channel
