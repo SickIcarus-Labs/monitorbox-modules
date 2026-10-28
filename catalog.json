@@ -2,6 +2,16 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.6.21",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.6.21/app-1.6.21.tar.gz",
+      "sha256": "f8b6c59e96856b39239c790ebf62aca09299be8680bed8dcf21b54762f3177a5",
+      "signature": null,
+      "published": "2026-10-28T15:34:46Z",
+      "channels": [
+        "dev"
+      ]
+    },
+    {
       "version": "1.6.20",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.6.20/app-1.6.20.tar.gz",
       "sha256": "857c0dd9443fbbb7edf805c324b881ebf5de310ebf6a2f37bb6dc34bda14a178",
@@ -606,6 +616,16 @@
       }
     ],
     "snmp": [
+      {
+        "version": "0.3.6",
+        "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-snmp-0.3.6/module-snmp-0.3.6.tar.gz",
+        "sha256": "d94e4049e264f6db0371c9cf41db4866bfe5b4e659d8e7707a64a744d99e26b7",
+        "signature": null,
+        "published": "2026-10-28T15:34:46Z",
+        "channels": [
+          "dev"
+        ]
+      },
       {
         "version": "0.3.5",
         "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-snmp-0.3.5/module-snmp-0.3.5.tar.gz",
