@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.6.41",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.6.41/app-1.6.41.tar.gz",
+      "sha256": "9757a2e70d1e29c6ee3808d331750e8a876059901848d84c63a6e901ef6ebbeb",
+      "signature": null,
+      "published": "2026-10-28T23:56:25Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "(#317, with UniFi Network 0.2.22) New \"Temperatures\" checks for UniFi devices. Re-detect offers one per device that reports a temperature; it shows the hottest reading and the fan speed (\"54 \u00b0C \u00b7 fan 31%\"), and reads Degraded when the device is at or above its limit (80 \u00b0C unless you change it) or says it is overheating. It uses the monitor's \"must last a while\" setting, so a brief spike stays quiet. A device with no sensor is not offered, and a controller that does not answer reads Unknown, never Failed."
+      ]
+    },
+    {
       "version": "1.6.40",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.6.40/app-1.6.40.tar.gz",
       "sha256": "b3fc38190294a761412622245c24937a25338723aea41c98bc7ce21d3b76c4ad",
@@ -932,6 +945,16 @@
       }
     ],
     "unifi-network": [
+      {
+        "version": "0.2.22",
+        "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-unifi-network-0.2.22/module-unifi-network-0.2.22.tar.gz",
+        "sha256": "b76ada6cef8bd3face4897749b70c04612e04be34bea0d2b9e8d45f88519db7a",
+        "signature": null,
+        "published": "2026-10-28T23:56:25Z",
+        "channels": [
+          "dev"
+        ]
+      },
       {
         "version": "0.2.21",
         "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-unifi-network-0.2.21/module-unifi-network-0.2.21.tar.gz",
