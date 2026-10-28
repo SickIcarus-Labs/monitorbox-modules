@@ -826,6 +826,18 @@
           "stable"
         ]
       }
+    ],
+    "hello": [
+      {
+        "version": "0.3.0",
+        "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-hello-0.3.0/module-hello-0.3.0.tar.gz",
+        "sha256": "e1412df9e2d284d0061afe6c62d1250aa86da47c8dd2c53f312ad65d7c93bdfb",
+        "signature": null,
+        "published": "2026-10-28T16:38:26Z",
+        "channels": [
+          "dev"
+        ]
+      }
     ]
   }
 }

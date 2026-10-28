@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "channel": "dev",
-  "updated": "2026-10-28T16:29:54Z",
+  "updated": "2026-10-28T16:38:26Z",
   "app": {
     "version": "1.6.25",
     "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.6.25/app-1.6.25.tar.gz",
@@ -49,6 +49,12 @@
       "version": "0.1.1",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-wol-0.1.1/module-wol-0.1.1.tar.gz",
       "sha256": "6701f8fe439125d1d85cf63a19bae70464c1c4994fb5b62999ced68973f5e2ea",
+      "signature": null
+    },
+    "hello": {
+      "version": "0.3.0",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-hello-0.3.0/module-hello-0.3.0.tar.gz",
+      "sha256": "e1412df9e2d284d0061afe6c62d1250aa86da47c8dd2c53f312ad65d7c93bdfb",
       "signature": null
     }
   },
