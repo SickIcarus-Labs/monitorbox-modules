@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.6.36",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.6.36/app-1.6.36.tar.gz",
+      "sha256": "05e284c663cab2d096f7a1f00da76501db15465114face104ffb729a2d665108",
+      "signature": null,
+      "published": "2026-10-28T22:49:02Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "History now names every port in a long Port errors stretch. A stretch used to keep only the ports named when it began, so a port that started rising later in the same stretch (like Guest Room, Port 8 at Broad Leaf) was never mentioned. Ports that join are now added to the reason, for example \"...; also Guest Room, Port 8\", up to the same length limit."
+      ]
+    },
+    {
       "version": "1.6.35",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.6.35/app-1.6.35.tar.gz",
       "sha256": "655f9aa3e4196fb1b5711b03d399df8eab634b482f98e9d9afd9b07235210295",
