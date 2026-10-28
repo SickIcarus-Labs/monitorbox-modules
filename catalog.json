@@ -407,6 +407,16 @@
     ],
     "snmp": [
       {
+        "version": "0.3.1",
+        "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-snmp-0.3.1/module-snmp-0.3.1.tar.gz",
+        "sha256": "ea510d17112d3c9d1b2de62048cc7a433e906a5f05593d1fd1f4c79bc1ee0c77",
+        "signature": null,
+        "published": "2026-10-28T01:08:48Z",
+        "channels": [
+          "dev"
+        ]
+      },
+      {
         "version": "0.3.0",
         "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-snmp-0.3.0/module-snmp-0.3.0.tar.gz",
         "sha256": "7a50303be232eed26e54e63dbbaef158aeab7c6cc47f647ef0feb3fc2e159e3c",
