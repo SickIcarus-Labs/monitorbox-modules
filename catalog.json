@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.6.35",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.6.35/app-1.6.35.tar.gz",
+      "sha256": "655f9aa3e4196fb1b5711b03d399df8eab634b482f98e9d9afd9b07235210295",
+      "signature": null,
+      "published": "2026-10-28T22:40:01Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "The Updates page now has a \"What changed\" link on the MonitorBox app: when an update is waiting it lists what changed in every version between yours and the one on offer (newest first, in plain words); when you are up to date it shows what your version brought. The notes travel inside the release itself, so MonitorBox does not need to reach any other site. Versions released before this one carry no notes. Modules have no changelog yet, so only the app has the link."
+      ]
+    },
+    {
       "version": "1.6.34",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.6.34/app-1.6.34.tar.gz",
       "sha256": "72a25bb87eccd74f95b3e7abeaf3735676e982ab69e2b725f6e2faec74806e36",
