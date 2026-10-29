@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.7.3",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.7.3/app-1.7.3.tar.gz",
+      "sha256": "66fc72ea90f58d2a961324627d3c26c37710494f4ac738139872af63be9064a0",
+      "signature": null,
+      "published": "2026-10-29T02:26:38Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "The Hello sample module is for the dev channel only. A box on beta or stable now removes it by itself (at start and when you change channel). It does not come back by itself; on dev you can install it by hand."
+      ]
+    },
+    {
       "version": "1.7.1",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.7.1/app-1.7.1.tar.gz",
       "sha256": "6c0a9511d8b3182847df138b0458055ef96be8f8612e733c16539acc9a1779cb",
