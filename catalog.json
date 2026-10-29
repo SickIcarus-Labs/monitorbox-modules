@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.7.8",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.7.8/app-1.7.8.tar.gz",
+      "sha256": "c1fe7b012343c687b8c3fe2476086de0d2bb630b3bbb17eb844cdd8e9efd8cab",
+      "signature": null,
+      "published": "2026-10-29T05:03:03Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "A settings backup now holds settings only: the history is no longer in it, only in a full backup. Restoring a settings backup keeps the history your box already has (and Undo gives back everything as it was). Full backups copy and check each file in one pass instead of two, and the last backup's step timings now show in the performance report. **This one needs the container image re-pulled** (new image 1.0.3); the bell and Updates page will say so."
+      ]
+    },
+    {
       "version": "1.7.7",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.7.7/app-1.7.7.tar.gz",
       "sha256": "99a62e2504f73a48d1caffaab1a8a5fdfd4dfabd32b908d703e5cfbff2a62938",
