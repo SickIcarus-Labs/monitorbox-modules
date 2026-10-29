@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.7.11",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.7.11/app-1.7.11.tar.gz",
+      "sha256": "68e1498de15de352e82a7e86734de6a163e4eaa939b07641ca9a9528f08f676e",
+      "signature": null,
+      "published": "2026-10-29T18:58:52Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "A real outage now shows in the history bars even when most of that hour was healthy. Before, a stretch of Unknown ranked below Healthy, so a 2-minute loss of a site link (or a 45-minute one that straddled two hours) left the bar solid green. Now an Unknown that lasted longer than the check's confirmation time (by default 2 checks / 60 seconds) shows as blue, and a shorter one is still treated as a blip, the same way a short Down is. A known Down or Degraded in the same hour still shows instead of Unknown. The \"Could not be checked\" list follows the same rule."
+      ]
+    },
+    {
       "version": "1.7.10",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.7.10/app-1.7.10.tar.gz",
       "sha256": "7928d5ec8563cb577806fb040dfd9348214db54a172e415456a060904d3936e7",
