@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.7.18",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.7.18/app-1.7.18.tar.gz",
+      "sha256": "5fd0e867c2ad2aeb7f184e095a34e1ac9b5498193358d7754ebf4c4c937e88af",
+      "signature": null,
+      "published": "2026-10-29T22:36:25Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "Wording on the other site's tab: the line reads \"Broad Leaf (managed by)\" and its rows are the same as on the main site: Internet address, Connects to, Gateway."
+      ]
+    },
+    {
       "version": "1.7.17",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.7.17/app-1.7.17.tar.gz",
       "sha256": "84351220d75216a20fb44ad188a9091449507b0cadd8dbc0a7c587edd4b8b9cc",
