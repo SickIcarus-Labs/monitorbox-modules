@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.7.1",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.7.1/app-1.7.1.tar.gz",
+      "sha256": "6c0a9511d8b3182847df138b0458055ef96be8f8612e733c16539acc9a1779cb",
+      "signature": null,
+      "published": "2026-10-29T01:36:50Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "Temperatures and drives are tidier and adjustable. On a card, three or more UniFi temperature checks fold into one line (\"UniFi temperatures \u00b7 3 temperatures \u00b7 all good\") that opens on tap, and by itself when one is hot, the same as the cameras and VPN tunnels. Protect drives fold the same way once there are three. Each device's or drive's warning limit can now be changed: open it, tap Edit monitoring, and set \"Warn when hotter than (\u00b0C)\". Empty uses the built-in limit (80 \u00b0C for a switch or gateway, 55 \u00b0C for a drive)."
+      ]
+    },
+    {
       "version": "1.7.0",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.7.0/app-1.7.0.tar.gz",
       "sha256": "6f7f9d8ff40fc7b1f5a3c5dd954f4b749df30a4c506ad284d857f4a11dade6da",
