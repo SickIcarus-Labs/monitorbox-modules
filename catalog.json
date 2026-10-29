@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.7.0",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.7.0/app-1.7.0.tar.gz",
+      "sha256": "6f7f9d8ff40fc7b1f5a3c5dd954f4b749df30a4c506ad284d857f4a11dade6da",
+      "signature": null,
+      "published": "2026-10-29T01:25:55Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "Three fixes to the main screen. The card history bars no longer go missing: the box built each card's 24 hour bar slowly (about two seconds on a Raspberry Pi when it was busy), so a request could fail and leave a card bare until the next minute or a refresh. It is now built many times faster, a bar that could not be fetched is asked for again within a few seconds, and a bar already on screen is never lost to a failed request. On the Updates page, \"Update all sites\" now appears as soon as \"Check all sites\" finds an update at a site, and goes away again when it is installed, without switching tabs."
+      ]
+    },
+    {
       "version": "1.6.44",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.6.44/app-1.6.44.tar.gz",
       "sha256": "b217ebf78cd1c3ea65167a43f26830f4b04b376ed147e6e2fb0d925617b18754",
