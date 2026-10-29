@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.6.44",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.6.44/app-1.6.44.tar.gz",
+      "sha256": "b217ebf78cd1c3ea65167a43f26830f4b04b376ed147e6e2fb0d925617b18754",
+      "signature": null,
+      "published": "2026-10-29T00:48:46Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "The bell now looks for news every 15 seconds (it was every minute), and straight away when you come back to the page. It asks nothing while the page is not in front. A site that is slow to answer is never asked twice at once. An update on another site used to take up to a minute, after its restart, to reach the bell; now a few seconds."
+      ]
+    },
+    {
       "version": "1.6.43",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.6.43/app-1.6.43.tar.gz",
       "sha256": "f16b7c60dbff8dfc75724ec502e2254d5a2931ad057df605c487c291c3c35625",
