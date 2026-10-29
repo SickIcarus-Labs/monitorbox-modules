@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.7.15",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.7.15/app-1.7.15.tar.gz",
+      "sha256": "85c4bb59734412bf8c59906cb4d8ac33af4594507abc9b2d5c9314c141d9b168",
+      "signature": null,
+      "published": "2026-10-29T20:58:18Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "(with SNMP 0.3.8, #327) One SNMP device that stops answering no longer makes other devices go Unknown. On Oct 29 a call to Goliath hung for 40 seconds and Aggregation and Switch 2 showed \"snmp did not answer check\" at the same moment: the SNMP module has 8 workers and a few hung calls to one device could take them all. Now at most 2 calls per device run at once; a third is answered straight away (Unknown, \"that device is still busy with earlier requests\") instead of waiting for a worker."
+      ]
+    },
+    {
       "version": "1.7.14",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.7.14/app-1.7.14.tar.gz",
       "sha256": "8bfe820b634a6f621b406954497d64f1b216c43ea6971659aa94045abb4ab2bc",
@@ -1104,6 +1117,16 @@
       }
     ],
     "snmp": [
+      {
+        "version": "0.3.8",
+        "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-snmp-0.3.8/module-snmp-0.3.8.tar.gz",
+        "sha256": "4f65d196e4d30dcde76ddd3e175d656803f713afbba85b05e36ffc74554df59c",
+        "signature": null,
+        "published": "2026-10-29T20:58:18Z",
+        "channels": [
+          "dev"
+        ]
+      },
       {
         "version": "0.3.7",
         "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-snmp-0.3.7/module-snmp-0.3.7.tar.gz",
