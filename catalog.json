@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.7.10",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.7.10/app-1.7.10.tar.gz",
+      "sha256": "7928d5ec8563cb577806fb040dfd9348214db54a172e415456a060904d3936e7",
+      "signature": null,
+      "published": "2026-10-29T18:48:32Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "A restart no longer makes a port start its learning again. The app now saves the port history as it stops (an update, a restart, or a container stop) instead of relying on a save that could be up to five minutes old. A network card with a 16-bit drops counter, such as Arrrrr3's eno3, goes round every 10 to 15 minutes; if that happened between the last save and the restart, the box could not tell a lap from a reset and began that port's 30 minutes of learning again."
+      ]
+    },
+    {
       "version": "1.7.9",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.7.9/app-1.7.9.tar.gz",
       "sha256": "96470482e2e6291128aeef60d3dd0a92abe7629128135c2efcd1a86ffe37cc41",
