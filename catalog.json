@@ -8,7 +8,8 @@
       "signature": null,
       "published": "2026-10-29T06:31:44Z",
       "channels": [
-        "dev"
+        "dev",
+        "beta"
       ],
       "changes": [
         "(with SNMP 0.3.7, #321) Reading a big switch is much faster. Aggregation lists 486 interfaces but only about 26 are real ports; the rest are empty stack slots, port-channels nobody watches and tunnels, and every full read (the first counters reading, the network map, Re-detect) was asking for all of them. Now a device with more than 64 interfaces is checked first, and interfaces the device itself says are not present, or are tunnels, loopbacks or VLANs, are skipped. Down ports and link aggregations are never skipped, a device that doesn't say is read in full, and Re-detect and the network map note how many were left out."
@@ -1044,7 +1045,8 @@
         "signature": null,
         "published": "2026-10-29T06:31:44Z",
         "channels": [
-          "dev"
+          "dev",
+          "beta"
         ]
       },
       {
