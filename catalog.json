@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.7.19",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.7.19/app-1.7.19.tar.gz",
+      "sha256": "454fa24f58e38a5cada322dac78a59ae74df82a7463c5c107088b296736c7f42",
+      "signature": null,
+      "published": "2026-10-29T22:57:09Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "The other site's tab now really shows its \"(managed by)\" line expanded. In 1.7.17 and 1.7.18 the page asked the other site for its pairings through the Sites screen's address, which a managed site refuses to pass on (on purpose: a main box must not manage another box's pairings), so the line stayed plain. It now uses a read-only view that holds only names, addresses and link state."
+      ]
+    },
+    {
       "version": "1.7.18",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.7.18/app-1.7.18.tar.gz",
       "sha256": "5fd0e867c2ad2aeb7f184e095a34e1ac9b5498193358d7754ebf4c4c937e88af",
