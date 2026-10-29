@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.7.6",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.7.6/app-1.7.6.tar.gz",
+      "sha256": "0b404893edd4391c72ba186fc7765675aea74bb044f4b6e3c19b4c1954964f91",
+      "signature": null,
+      "published": "2026-10-29T04:27:30Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "Making a backup is fast again. A settings backup of 51 KB took about 17 seconds on a Raspberry Pi, because making any backup also scanned every older backup from start to end to decide which to delete, and full backups are large. Each old backup is now read once (just its label) and remembered."
+      ]
+    },
+    {
       "version": "1.7.5",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.7.5/app-1.7.5.tar.gz",
       "sha256": "277bf41bc53ff56b45c8a550fce21b97739b2946f9dd53aa6bcece7e16c7c42b",
