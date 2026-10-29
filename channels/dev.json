@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "channel": "dev",
-  "updated": "2026-10-28T23:56:25Z",
+  "updated": "2026-10-29T00:25:00Z",
   "app": {
-    "version": "1.6.41",
-    "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.6.41/app-1.6.41.tar.gz",
-    "sha256": "9757a2e70d1e29c6ee3808d331750e8a876059901848d84c63a6e901ef6ebbeb",
+    "version": "1.6.42",
+    "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.6.42/app-1.6.42.tar.gz",
+    "sha256": "dbe0423f2e2b3119df479c44c2a0c88f486063d368b3083ef001d7308654e43c",
     "signature": null
   },
   "modules": {
@@ -40,9 +40,9 @@
       "signature": null
     },
     "unifi-protect": {
-      "version": "0.1.2",
-      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-unifi-protect-0.1.2/module-unifi-protect-0.1.2.tar.gz",
-      "sha256": "fcd0685e8e565e1db98051e284ea02e567705a8a5a8a3360e550c39be0b2c577",
+      "version": "0.1.3",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-unifi-protect-0.1.3/module-unifi-protect-0.1.3.tar.gz",
+      "sha256": "be87a9a8bfcc3065ddb678a89c04098bf4ef820a72bbf895241bd043d1d297ef",
       "signature": null
     },
     "wol": {

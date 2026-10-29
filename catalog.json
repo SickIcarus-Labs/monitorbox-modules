@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.6.42",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.6.42/app-1.6.42.tar.gz",
+      "sha256": "dbe0423f2e2b3119df479c44c2a0c88f486063d368b3083ef001d7308654e43c",
+      "signature": null,
+      "published": "2026-10-29T00:25:00Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "(#317, with UniFi Protect 0.1.3) New \"Drives\" checks for the recording drives in a UniFi Protect recorder. Re-detect offers one per drive; it shows the temperature (\"45 \u00b0C\") and reads Degraded at 55 \u00b0C or above (editable per drive), or when its bad-sector count grows, its health or state other than good/normal, or any fault reason. Bad sectors only warn when the count grows while the box is watching (a drive that has always had a few stays quiet). It uses the monitor's \"must last a while\" setting, so a brief spike stays quiet. A drive model Ubiquiti does not list (\"hddNotCompatible\") is ignored, as Protect's own screen does. A console that does not answer reads Unknown, never Failed. This reads one more page from the recorder (its own status, read-only)."
+      ]
+    },
+    {
       "version": "1.6.41",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.6.41/app-1.6.41.tar.gz",
       "sha256": "9757a2e70d1e29c6ee3808d331750e8a876059901848d84c63a6e901ef6ebbeb",
@@ -981,6 +994,16 @@
       }
     ],
     "unifi-protect": [
+      {
+        "version": "0.1.3",
+        "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-unifi-protect-0.1.3/module-unifi-protect-0.1.3.tar.gz",
+        "sha256": "be87a9a8bfcc3065ddb678a89c04098bf4ef820a72bbf895241bd043d1d297ef",
+        "signature": null,
+        "published": "2026-10-29T00:25:00Z",
+        "channels": [
+          "dev"
+        ]
+      },
       {
         "version": "0.1.2",
         "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-unifi-protect-0.1.2/module-unifi-protect-0.1.2.tar.gz",
