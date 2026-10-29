@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.7.14",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.7.14/app-1.7.14.tar.gz",
+      "sha256": "8bfe820b634a6f621b406954497d64f1b216c43ea6971659aa94045abb4ab2bc",
+      "signature": null,
+      "published": "2026-10-29T20:23:35Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "Remote-site alerting, tightened after the first real test. A paired site's link is now confirmed in 30 seconds instead of 60, and a link whose last good answer is more than 35 seconds old no longer keeps saying \"answering\". The lines under a site on the main screen now have live lights: the internet address and the gateway each light by whether they answer a ping from here, and \"Connects to\" by the link. An internet address is only trusted to prove a site down once it has answered a ping from here at least once (some firewalls never answer ping from outside), otherwise a silent link stays Unknown."
+      ]
+    },
+    {
       "version": "1.7.13",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.7.13/app-1.7.13.tar.gz",
       "sha256": "a1fdaddcc032f35b2ef62d1c8aff32728f33e1955948cd65d7ca0ab0455c15e8",
