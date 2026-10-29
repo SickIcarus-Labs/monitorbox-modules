@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.7.20",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.7.20/app-1.7.20.tar.gz",
+      "sha256": "d24e4f77a4ab595494d4b9371514c691e19e910708826368201af926dfcce8c9",
+      "signature": null,
+      "published": "2026-10-29T23:36:31Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "The brief \"SNMP: that device is still busy\" Unknown that appeared on a switch or the NAS since 1.7.12 is gone. A slow switch normally has a report, a counter read and a check going at once, and the limit of two let the check be turned away. The limit is now four, which still stops a device that has really hung from using every worker."
+      ]
+    },
+    {
       "version": "1.7.19",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.7.19/app-1.7.19.tar.gz",
       "sha256": "454fa24f58e38a5cada322dac78a59ae74df82a7463c5c107088b296736c7f42",
@@ -1169,6 +1182,16 @@
       }
     ],
     "snmp": [
+      {
+        "version": "0.3.9",
+        "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-snmp-0.3.9/module-snmp-0.3.9.tar.gz",
+        "sha256": "e29ca7b1e0b3c3cd80927529070b393d60ee49ecfb534349766f0285df868d6d",
+        "signature": null,
+        "published": "2026-10-29T23:36:31Z",
+        "channels": [
+          "dev"
+        ]
+      },
       {
         "version": "0.3.8",
         "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-snmp-0.3.8/module-snmp-0.3.8.tar.gz",
