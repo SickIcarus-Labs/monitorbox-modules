@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.7.12",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.7.12/app-1.7.12.tar.gz",
+      "sha256": "b7dc0d47a2a5cde932132f0db176dcac3b92d4e31bcb9a13bfebfaa31fc94a15",
+      "signature": null,
+      "published": "2026-10-29T19:08:41Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "A remote site that loses its internet now shows as down. The two sites tell each other their public (internet) addresses over the link, which they already poll every 10 seconds, and when the link goes silent each one judges it by pinging the other's public address from outside the tunnel. If the address still answers, the link shows Degraded (\"its internet is up, the link or MonitorBox there may be down\"). If it doesn't and this box's own internet is fine, it shows Down. If this box's own internet is down too, it stays Unknown, because it can't tell whose line it was. The address comes from the UniFi gateway when there is one; a gateway that reports a private address (double NAT, or a UniFi glitch) is treated as \"can't tell\": nothing is shared and nothing is guessed, and it is read again every minute. Without a UniFi gateway, one request to a public address page (Cloudflare's trace page) is made, at most every half hour. The address is shown in Settings, Sites, and in the check text. Sites on an older version simply show their address as \"not shared yet\" and keep the old Unknown behaviour. The sites also tell each other their gateway address; once a gateway has answered a ping from the other side while the link worked, a silent link whose internet is still up says which part failed: the gateway is silent too (\"the VPN between the sites is down\", shown red) or it answers (\"MonitorBox on that site may be down\"). A gateway that never answered is ignored, and so is one whose address is the same on both sites. Both sites need this version."
+      ]
+    },
+    {
       "version": "1.7.11",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.7.11/app-1.7.11.tar.gz",
       "sha256": "68e1498de15de352e82a7e86734de6a163e4eaa939b07641ca9a9528f08f676e",
