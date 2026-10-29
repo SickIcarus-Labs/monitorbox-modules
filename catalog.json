@@ -8,7 +8,8 @@
       "signature": null,
       "published": "2026-10-29T03:53:29Z",
       "channels": [
-        "dev"
+        "dev",
+        "beta"
       ],
       "changes": [
         "A module is installed only when it is needed. A new box starts with Wake-on-LAN only (nothing can detect that you want it); a module such as UniFi, Portainer, Scrypted, SNMP or UPS (NUT) installs itself the first time you add or test a device of its kind, and a restored backup fetches the modules its connections use. The bell, the Update counts, Update all and automatic updating cover only modules you already have, so Hello on dev (or a module for equipment you do not own) no longer shows up as \"ready to install\". Boxes that already have modules keep them, and installing by hand from the Updates page still works."
