@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.7.7",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.7.7/app-1.7.7.tar.gz",
+      "sha256": "99a62e2504f73a48d1caffaab1a8a5fdfd4dfabd32b908d703e5cfbff2a62938",
+      "signature": null,
+      "published": "2026-10-29T04:45:10Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "While a backup is being made, the Backups page shows a moving bar and a line saying so (\"Making the backup\u2026 This takes a few seconds.\", or for a full backup \"\u2026can take about half a minute.\"), and the backup buttons are switched off until it finishes. Before, the buttons looked dead for the whole wait."
+      ]
+    },
+    {
       "version": "1.7.6",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.7.6/app-1.7.6.tar.gz",
       "sha256": "0b404893edd4391c72ba186fc7765675aea74bb044f4b6e3c19b4c1954964f91",
