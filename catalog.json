@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.9.3",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.9.3/app-1.9.3.tar.gz",
+      "sha256": "b8f4e545f13df7ab83e3f85bddbc15658e95071217ef9cdc260fc3aa508a9d53",
+      "signature": null,
+      "published": "2026-10-30T21:20:46Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "The debug log now names the device on every module call (\"call snmp.counters for Goliath took 57 ms\"), so a slow call can be tied to the device that was slow. Only the device's name is logged, never its address or login."
+      ]
+    },
+    {
       "version": "1.9.2",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.9.2/app-1.9.2.tar.gz",
       "sha256": "3b1e19199921a7f6733ba5bfa160c83e2f83a1c0450f9e6e3d018b403fe618c3",
