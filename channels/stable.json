@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "channel": "stable",
-  "updated": "2026-10-30T17:12:14Z",
+  "updated": "2026-10-30T23:33:26Z",
   "app": {
-    "version": "1.8.4",
-    "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.8.4/app-1.8.4.tar.gz",
-    "sha256": "b38d8822a4a749b697505f51f21fea78fca4b2b28d880f8fa94bfff1631935de",
+    "version": "1.9.6",
+    "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.9.6/app-1.9.6.tar.gz",
+    "sha256": "898698674e594e2f2309fc12cfc02f46e553387e07cacab81c78291de965968f",
     "signature": null
   },
   "modules": {
@@ -28,15 +28,15 @@
       "signature": null
     },
     "snmp": {
-      "version": "0.3.11",
-      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-snmp-0.3.11/module-snmp-0.3.11.tar.gz",
-      "sha256": "500006b809c2ac45ac591e1d995da0ca5d8aca8be6449a61f7cf67c4d9ad2f6c",
+      "version": "0.3.12",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-snmp-0.3.12/module-snmp-0.3.12.tar.gz",
+      "sha256": "caecaec3cb93900813182e84d7a85e3d101b0ae664a5182bf72d92325603a895",
       "signature": null
     },
     "unifi-network": {
-      "version": "0.2.24",
-      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-unifi-network-0.2.24/module-unifi-network-0.2.24.tar.gz",
-      "sha256": "7d8155516fa73aad569f7ff6ed8e6758297082a72d7f92ca7ab15d40f15f3182",
+      "version": "0.2.25",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-unifi-network-0.2.25/module-unifi-network-0.2.25.tar.gz",
+      "sha256": "f87a42741439752f50fe1a3dc46119bbfc45824b461d6562d571410383b0fd92",
       "signature": null
     },
     "unifi-protect": {
