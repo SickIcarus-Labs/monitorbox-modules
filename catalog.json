@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.7.22",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.7.22/app-1.7.22.tar.gz",
+      "sha256": "34225e0c8c8673c5ecd212af30f1e6d8cea6e5a51e940ceed5419a30a1c676b2",
+      "signature": null,
+      "published": "2026-10-30T02:17:35Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "(with SNMP 0.3.10, Scrypted 0.2.3, Portainer 0.1.7, NUT 0.1.3, UniFi Network 0.2.23, UniFi Protect 0.1.4, #328) Small fixes found while writing the documentation. A VPN tunnel you paused on purpose in UniFi now shows as Degraded with the word \"paused\", not as Down. A UPS that reports both \"on battery\" and \"low battery\" is announced as the low battery. A garbled message can no longer stop the SNMP module. Portainer no longer follows a redirect with your access token; it tells you the address redirected. A Scrypted connection that asks for the certificate check is now really checked, even when another Scrypted connection does not ask. Error messages that said \"Use Re-detect\" now name the real button, \"Pick what to watch\"."
+      ]
+    },
+    {
       "version": "1.7.21",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.7.21/app-1.7.21.tar.gz",
       "sha256": "7ce9c2a318e4e0bc37b4cf00af70fc6bd4268129a3957669aba98fce4c90a4b1",
@@ -1144,6 +1157,16 @@
   "modules": {
     "nut": [
       {
+        "version": "0.1.3",
+        "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-nut-0.1.3/module-nut-0.1.3.tar.gz",
+        "sha256": "475f9d89d1504c01d42804e0b92ce3dd1855f36caad976ef8ea4c3e6e21c112f",
+        "signature": null,
+        "published": "2026-10-30T02:17:35Z",
+        "channels": [
+          "dev"
+        ]
+      },
+      {
         "version": "0.1.2",
         "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-nut-0.1.2/module-nut-0.1.2.tar.gz",
         "sha256": "afa6c13b380acfb7a26f8d1e1b07e8fcf5832eadc070346bced316ce7a4b678f",
@@ -1158,6 +1181,16 @@
     ],
     "portainer": [
       {
+        "version": "0.1.7",
+        "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-portainer-0.1.7/module-portainer-0.1.7.tar.gz",
+        "sha256": "fdafe5cc189da4c152951c22d5a94bb7f7bd5ceedfcf824351da7267cfb0dce5",
+        "signature": null,
+        "published": "2026-10-30T02:17:35Z",
+        "channels": [
+          "dev"
+        ]
+      },
+      {
         "version": "0.1.6",
         "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-portainer-0.1.6/module-portainer-0.1.6.tar.gz",
         "sha256": "afad7d05821f5897f501cbcb73b8e40b8849183e327736435890315483241640",
@@ -1171,6 +1204,16 @@
       }
     ],
     "scrypted": [
+      {
+        "version": "0.2.3",
+        "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-scrypted-0.2.3/module-scrypted-0.2.3.tar.gz",
+        "sha256": "4540ff4a33a82bac4209de6f565865ac7482cfe6a752be59133626e1a0ed6b4c",
+        "signature": null,
+        "published": "2026-10-30T02:17:35Z",
+        "channels": [
+          "dev"
+        ]
+      },
       {
         "version": "0.2.2",
         "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-scrypted-0.2.2/module-scrypted-0.2.2.tar.gz",
@@ -1197,6 +1240,16 @@
       }
     ],
     "snmp": [
+      {
+        "version": "0.3.10",
+        "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-snmp-0.3.10/module-snmp-0.3.10.tar.gz",
+        "sha256": "02eaee7b8369d9e8af18869528600db06a188146d85e40515c89a95f7c01d9fd",
+        "signature": null,
+        "published": "2026-10-30T02:17:35Z",
+        "channels": [
+          "dev"
+        ]
+      },
       {
         "version": "0.3.9",
         "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-snmp-0.3.9/module-snmp-0.3.9.tar.gz",
@@ -1340,6 +1393,16 @@
     ],
     "unifi-network": [
       {
+        "version": "0.2.23",
+        "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-unifi-network-0.2.23/module-unifi-network-0.2.23.tar.gz",
+        "sha256": "8aac50f4850526d5e7bced14af5db17686c7823e84e15004a814824c20ea3d5b",
+        "signature": null,
+        "published": "2026-10-30T02:17:35Z",
+        "channels": [
+          "dev"
+        ]
+      },
+      {
         "version": "0.2.22",
         "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-unifi-network-0.2.22/module-unifi-network-0.2.22.tar.gz",
         "sha256": "b76ada6cef8bd3face4897749b70c04612e04be34bea0d2b9e8d45f88519db7a",
@@ -1377,6 +1440,16 @@
       }
     ],
     "unifi-protect": [
+      {
+        "version": "0.1.4",
+        "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-unifi-protect-0.1.4/module-unifi-protect-0.1.4.tar.gz",
+        "sha256": "63d3e90e272629366bf072c8e20297bee39ae6a319a38fa0e9490a960a5df1c6",
+        "signature": null,
+        "published": "2026-10-30T02:17:35Z",
+        "channels": [
+          "dev"
+        ]
+      },
       {
         "version": "0.1.3",
         "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-unifi-protect-0.1.3/module-unifi-protect-0.1.3.tar.gz",
