@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.9.6",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.9.6/app-1.9.6.tar.gz",
+      "sha256": "898698674e594e2f2309fc12cfc02f46e553387e07cacab81c78291de965968f",
+      "signature": null,
+      "published": "2026-10-30T23:18:22Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "For finding why Settings sometimes will not load: the performance report now lists requests that are still waiting (a request that never finishes used to be missing from it), and the debug log notes any request that took over a second."
+      ]
+    },
+    {
       "version": "1.9.5",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.9.5/app-1.9.5.tar.gz",
       "sha256": "b710cfe2204ef25ee95fd706ae2d03e6bf7f5efa82803f01a448110681890307",
