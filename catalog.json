@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.8.1",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.8.1/app-1.8.1.tar.gz",
+      "sha256": "246cc9cce096be86d809361c7520e5100f5616f4ca3b2df58bb0442adaf456ed",
+      "signature": null,
+      "published": "2026-10-30T07:53:23Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "Fixes on the Logs page from the first real use. Tapping a line now visibly opens it (a highlighted row with the full date and time, level, source and entry number, and an \"Only <source>\" button); before, a line only grew when its text was long, so a short line looked like nothing happened. A filter you had just picked kept the page waiting behind the \"new entries\" button; it no longer does. New lines now wait only while a line is open, the search box is being typed in, or text in the list is selected. The first filter reads \"All (no debug)\" to say that debug lines need \"Include debug\"."
+      ]
+    },
+    {
       "version": "1.8.0",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.8.0/app-1.8.0.tar.gz",
       "sha256": "fc9ed5ab04657a4ba68b07d4eb2c84703d995b3d1cc1a0e9284bdee5eace9bd2",
