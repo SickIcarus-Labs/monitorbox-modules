@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.7.26",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.7.26/app-1.7.26.tar.gz",
+      "sha256": "efa1430cb61e1be5a330f2050cb14b2990133cb9428c4cc56ae6b591d83af507",
+      "signature": null,
+      "published": "2026-10-30T04:49:48Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "A diagnostic for a port that never finishes learning. MonitorBox now writes one line to `port-trace.log` (next to the port history) each time a port's history is started, thrown away or forgotten, with the counters at that moment. Names and numbers only; the file is cut back past 200 KB. Nothing else changes."
+      ]
+    },
+    {
       "version": "1.7.25",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.7.25/app-1.7.25.tar.gz",
       "sha256": "dc8d726418e47edf291e72ffd6ee32ccd98a6c1b1cbf43314306617fff1e9814",
