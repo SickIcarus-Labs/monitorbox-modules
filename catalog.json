@@ -8,7 +8,8 @@
       "signature": null,
       "published": "2026-10-30T00:12:27Z",
       "channels": [
-        "dev"
+        "dev",
+        "beta"
       ],
       "changes": [
         "The other site's tab now shows its \"(managed by)\" line expanded the first time it is opened. Before, it appeared only after tapping away and back, because the page asked the other site for its pairings at the next 10-second round."
@@ -1202,7 +1203,8 @@
         "signature": null,
         "published": "2026-10-29T23:36:31Z",
         "channels": [
-          "dev"
+          "dev",
+          "beta"
         ]
       },
       {
