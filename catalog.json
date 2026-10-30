@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.7.25",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.7.25/app-1.7.25.tar.gz",
+      "sha256": "dc8d726418e47edf291e72ffd6ee32ccd98a6c1b1cbf43314306617fff1e9814",
+      "signature": null,
+      "published": "2026-10-30T03:50:00Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "A port whose packet-drops counter shrinks on its own (some network-card drivers do this, for example Arrrrr3's eno3) no longer starts over. Only the drops carry on from where they were; the errors and link-flap history stay, and the port keeps its learning. The page still counts the occurrence. If errors or link flaps also fall, that is still treated as a restart and the history starts again."
+      ]
+    },
+    {
       "version": "1.7.24",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.7.24/app-1.7.24.tar.gz",
       "sha256": "5cd9f1beebe98bdfd33d8dc47d65d9f9a4ca16b420e4e0160e18b63d82fd1af8",
