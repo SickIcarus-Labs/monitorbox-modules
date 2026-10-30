@@ -8,7 +8,8 @@
       "signature": null,
       "published": "2026-10-30T23:18:22Z",
       "channels": [
-        "dev"
+        "dev",
+        "beta"
       ],
       "changes": [
         "For finding why Settings sometimes will not load: the performance report now lists requests that are still waiting (a request that never finishes used to be missing from it), and the debug log notes any request that took over a second."
@@ -1498,7 +1499,8 @@
         "signature": null,
         "published": "2026-10-30T18:40:22Z",
         "channels": [
-          "dev"
+          "dev",
+          "beta"
         ],
         "changes": [
           "Reads servers, NAS boxes and switches over SNMP, read-only: health, disks and volumes, and network ports (errors, drops and packet counts). Each device has its own queue of requests, so a slow device cannot hold up the others."
@@ -1675,7 +1677,8 @@
         "signature": null,
         "published": "2026-10-30T18:40:22Z",
         "channels": [
-          "dev"
+          "dev",
+          "beta"
         ],
         "changes": [
           "Reads your UniFi gateway, switches and access points, read-only: device health, temperatures, Wi-Fi, WAN, internet and LAN status, port errors and the Insights flows."
