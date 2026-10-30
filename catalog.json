@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.9.0",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.9.0/app-1.9.0.tar.gz",
+      "sha256": "e055c9d2d4f0e7a9f41339422acb20180f655b243da179a793f7cb7caf84f0be",
+      "signature": null,
+      "published": "2026-10-30T18:40:22Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "(with SNMP 0.3.12, UniFi Network 0.2.25, #315) Packet drops no longer raise the Port errors item when they are noise. A server's network card (Arrrrr3's eno3 discards about 650 frames a second the system has no use for) no longer counts its receive drops: a card that really loses frames shows receive errors, which are still counted, and its transmit drops still count. Everywhere else, drops count only when they are at least 0.1% of the packets in the same 15 minutes, when the device reports packet counts (SNMP and UniFi now read them); the line says the share. A device with no packet counts keeps the old rule. The port history now also keeps packet counts (a few more bytes per reading)."
+      ]
+    },
+    {
       "version": "1.8.4",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.8.4/app-1.8.4.tar.gz",
       "sha256": "b38d8822a4a749b697505f51f21fea78fca4b2b28d880f8fa94bfff1631935de",
@@ -1392,6 +1405,16 @@
     ],
     "snmp": [
       {
+        "version": "0.3.12",
+        "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-snmp-0.3.12/module-snmp-0.3.12.tar.gz",
+        "sha256": "caecaec3cb93900813182e84d7a85e3d101b0ae664a5182bf72d92325603a895",
+        "signature": null,
+        "published": "2026-10-30T18:40:22Z",
+        "channels": [
+          "dev"
+        ]
+      },
+      {
         "version": "0.3.11",
         "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-snmp-0.3.11/module-snmp-0.3.11.tar.gz",
         "sha256": "500006b809c2ac45ac591e1d995da0ca5d8aca8be6449a61f7cf67c4d9ad2f6c",
@@ -1555,6 +1578,16 @@
       }
     ],
     "unifi-network": [
+      {
+        "version": "0.2.25",
+        "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-unifi-network-0.2.25/module-unifi-network-0.2.25.tar.gz",
+        "sha256": "f87a42741439752f50fe1a3dc46119bbfc45824b461d6562d571410383b0fd92",
+        "signature": null,
+        "published": "2026-10-30T18:40:22Z",
+        "channels": [
+          "dev"
+        ]
+      },
       {
         "version": "0.2.24",
         "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-unifi-network-0.2.24/module-unifi-network-0.2.24.tar.gz",
