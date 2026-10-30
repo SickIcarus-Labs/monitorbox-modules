@@ -2,6 +2,22 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.8.0",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.8.0/app-1.8.0.tar.gz",
+      "sha256": "fc9ed5ab04657a4ba68b07d4eb2c84703d995b3d1cc1a0e9284bdee5eace9bd2",
+      "signature": null,
+      "published": "2026-10-30T07:08:23Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "A log of what MonitorBox itself did and saw. Settings, Advanced has a Logs row (\"All quiet\" or \"N errors in the last day\") that opens its own page: newest first, grouped by day, tap a line to open it, filter by level, source or search. New lines arrive at the top while you watch and never move the page once you scroll (a \"N new entries\" button appears instead). The menu has Download logs, Copy last 100 lines and a Debug switch that turns itself off after 24 hours. The normal log keeps 5 files of 1 MB for 14 days; debug keeps 5 files of 10 MB for 3 days, so neither can fill the SD card, and one noisy source is cut off for the minute and says so. Checks changing state, alerts sent, not delivered or given up, modules starting, stopping or timing out, backups, updates, sign-ins and pairing are all written. Passwords, tokens and web-address paths are never written. When MonitorBox itself fails (a module that will not start or keeps timing out, an alert that could not be delivered after every try, a backup that fails) the bell says so with a Logs link. The weekly full backup carries the normal log, never the debug log. This replaces the 1.7.26 `port-trace.log`: the port watch now writes its start, reset and forget lines to the log, and a one-line-per-round summary to debug."
+      ],
+      "highlights": [
+        "MonitorBox now keeps a log you can read: Settings, Advanced, Logs."
+      ]
+    },
+    {
       "version": "1.7.27",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.7.27/app-1.7.27.tar.gz",
       "sha256": "319d91090d890417d5d394d84d05380fa0ed4360ad57fe864edf3c2048a2c369",
