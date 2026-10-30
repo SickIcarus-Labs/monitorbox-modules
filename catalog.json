@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.8.4",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.8.4/app-1.8.4.tar.gz",
+      "sha256": "b38d8822a4a749b697505f51f21fea78fca4b2b28d880f8fa94bfff1631935de",
+      "signature": null,
+      "published": "2026-10-30T17:05:04Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "The log now names a port the way you know it (\"Bonus Room, Port 7\") when the port watch starts, resets, forgets or drops its readings, instead of an internal key with the end of a hardware address."
+      ]
+    },
+    {
       "version": "1.8.3",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.8.3/app-1.8.3.tar.gz",
       "sha256": "5b8f78b7176cfe9a8c76163984397edb234956ad32937f5d4295ffd7999be45a",
