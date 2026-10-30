@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.9.4",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.9.4/app-1.9.4.tar.gz",
+      "sha256": "7430542c90683afa84ddf53660f53eee2b49a02fa91b036f04e6f477b94dcd33",
+      "signature": null,
+      "published": "2026-10-30T22:28:06Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "Modules now have their own change notes. Settings, Versions shows **What changed** under a module update, the same as for MonitorBox itself. Each module has a short note on what it does to start with, and every later version adds a line."
+      ]
+    },
+    {
       "version": "1.9.3",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.9.3/app-1.9.3.tar.gz",
       "sha256": "b8f4e545f13df7ab83e3f85bddbc15658e95071217ef9cdc260fc3aa508a9d53",
@@ -1353,6 +1366,9 @@
           "dev",
           "beta",
           "stable"
+        ],
+        "changes": [
+          "Reads a UPS from a NUT server, read-only: mains power or battery, charge, runtime and load. It never triggers a shutdown."
         ]
       },
       {
@@ -1389,6 +1405,9 @@
           "dev",
           "beta",
           "stable"
+        ],
+        "changes": [
+          "Reads Portainer, read-only: the Docker environments it manages and whether each container is running properly, with suggestions for what to watch."
         ]
       },
       {
@@ -1415,6 +1434,9 @@
           "dev",
           "beta",
           "stable"
+        ],
+        "changes": [
+          "Reads Scrypted, read-only: whether it is answering, its cameras and doorbells and whether each is online, still pictures, and live video where the camera supports it."
         ]
       },
       {
@@ -1451,6 +1473,9 @@
         "published": "2026-10-30T18:40:22Z",
         "channels": [
           "dev"
+        ],
+        "changes": [
+          "Reads servers, NAS boxes and switches over SNMP, read-only: health, disks and volumes, and network ports (errors, drops and packet counts). Each device has its own queue of requests, so a slow device cannot hold up the others."
         ]
       },
       {
@@ -1625,6 +1650,9 @@
         "published": "2026-10-30T18:40:22Z",
         "channels": [
           "dev"
+        ],
+        "changes": [
+          "Reads your UniFi gateway, switches and access points, read-only: device health, temperatures, Wi-Fi, WAN, internet and LAN status, port errors and the Insights flows."
         ]
       },
       {
@@ -1697,6 +1725,9 @@
           "dev",
           "beta",
           "stable"
+        ],
+        "changes": [
+          "Reads UniFi Protect, read-only: every camera's state, the recorder and its recording space, each drive's temperature and health, and a still picture of each camera."
         ]
       },
       {
@@ -1767,6 +1798,9 @@
           "dev",
           "beta",
           "stable"
+        ],
+        "changes": [
+          "Adds the Wake button: switches on a machine set up to allow it, then watches for it to come up. It has no checks of its own."
         ]
       },
       {
@@ -1791,6 +1825,9 @@
         "published": "2026-10-28T16:38:26Z",
         "channels": [
           "dev"
+        ],
+        "changes": [
+          "A sample module for module authors. It shows how a module is installed, updated and asked to run a check."
         ]
       }
     ]
