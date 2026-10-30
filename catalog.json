@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.9.5",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.9.5/app-1.9.5.tar.gz",
+      "sha256": "b710cfe2204ef25ee95fd706ae2d03e6bf7f5efa82803f01a448110681890307",
+      "signature": null,
+      "published": "2026-10-30T22:52:48Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "The log's \"started\" line for a module now says which process it is, which process it stopped and who asked for the start. At every restart UniFi Network is started twice a second apart and its checks flip to Unknown for a few seconds in between; this shows where the second start comes from."
+      ]
+    },
+    {
       "version": "1.9.4",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.9.4/app-1.9.4.tar.gz",
       "sha256": "7430542c90683afa84ddf53660f53eee2b49a02fa91b036f04e6f477b94dcd33",
