@@ -8,7 +8,8 @@
       "signature": null,
       "published": "2026-10-30T17:05:04Z",
       "channels": [
-        "dev"
+        "dev",
+        "beta"
       ],
       "changes": [
         "The log now names a port the way you know it (\"Bonus Room, Port 7\") when the port watch starts, resets, forgets or drops its readings, instead of an internal key with the end of a hardware address."
@@ -1296,7 +1297,8 @@
         "signature": null,
         "published": "2026-10-30T02:40:10Z",
         "channels": [
-          "dev"
+          "dev",
+          "beta"
         ]
       },
       {
@@ -1330,7 +1332,8 @@
         "signature": null,
         "published": "2026-10-30T02:17:35Z",
         "channels": [
-          "dev"
+          "dev",
+          "beta"
         ]
       },
       {
@@ -1354,7 +1357,8 @@
         "signature": null,
         "published": "2026-10-30T02:17:35Z",
         "channels": [
-          "dev"
+          "dev",
+          "beta"
         ]
       },
       {
@@ -1390,7 +1394,8 @@
         "signature": null,
         "published": "2026-10-30T08:33:15Z",
         "channels": [
-          "dev"
+          "dev",
+          "beta"
         ]
       },
       {
@@ -1552,7 +1557,8 @@
         "signature": null,
         "published": "2026-10-30T03:39:10Z",
         "channels": [
-          "dev"
+          "dev",
+          "beta"
         ]
       },
       {
@@ -1610,7 +1616,8 @@
         "signature": null,
         "published": "2026-10-30T03:39:10Z",
         "channels": [
-          "dev"
+          "dev",
+          "beta"
         ]
       },
       {
@@ -1678,7 +1685,8 @@
         "signature": null,
         "published": "2026-10-30T02:40:10Z",
         "channels": [
-          "dev"
+          "dev",
+          "beta"
         ]
       },
       {

@@ -1,54 +1,54 @@
 {
   "schema": 1,
   "channel": "beta",
-  "updated": "2026-10-30T00:14:34Z",
+  "updated": "2026-10-30T17:11:48Z",
   "app": {
-    "version": "1.7.21",
-    "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.7.21/app-1.7.21.tar.gz",
-    "sha256": "7ce9c2a318e4e0bc37b4cf00af70fc6bd4268129a3957669aba98fce4c90a4b1",
+    "version": "1.8.4",
+    "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.8.4/app-1.8.4.tar.gz",
+    "sha256": "b38d8822a4a749b697505f51f21fea78fca4b2b28d880f8fa94bfff1631935de",
     "signature": null
   },
   "modules": {
     "nut": {
-      "version": "0.1.2",
-      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-nut-0.1.2/module-nut-0.1.2.tar.gz",
-      "sha256": "afa6c13b380acfb7a26f8d1e1b07e8fcf5832eadc070346bced316ce7a4b678f",
+      "version": "0.1.4",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-nut-0.1.4/module-nut-0.1.4.tar.gz",
+      "sha256": "3e612f9925b05c713cef112d7a11ebe4f636c4fd0e87cb7f7e5ff92f1110701e",
       "signature": null
     },
     "portainer": {
-      "version": "0.1.6",
-      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-portainer-0.1.6/module-portainer-0.1.6.tar.gz",
-      "sha256": "afad7d05821f5897f501cbcb73b8e40b8849183e327736435890315483241640",
+      "version": "0.1.7",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-portainer-0.1.7/module-portainer-0.1.7.tar.gz",
+      "sha256": "fdafe5cc189da4c152951c22d5a94bb7f7bd5ceedfcf824351da7267cfb0dce5",
       "signature": null
     },
     "scrypted": {
-      "version": "0.2.2",
-      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-scrypted-0.2.2/module-scrypted-0.2.2.tar.gz",
-      "sha256": "a4282a3ca02aed1278999eaba76908cbdb6716d7996ff7207a0befc90ebdcd76",
+      "version": "0.2.3",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-scrypted-0.2.3/module-scrypted-0.2.3.tar.gz",
+      "sha256": "4540ff4a33a82bac4209de6f565865ac7482cfe6a752be59133626e1a0ed6b4c",
       "signature": null
     },
     "snmp": {
-      "version": "0.3.9",
-      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-snmp-0.3.9/module-snmp-0.3.9.tar.gz",
-      "sha256": "e29ca7b1e0b3c3cd80927529070b393d60ee49ecfb534349766f0285df868d6d",
+      "version": "0.3.11",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-snmp-0.3.11/module-snmp-0.3.11.tar.gz",
+      "sha256": "500006b809c2ac45ac591e1d995da0ca5d8aca8be6449a61f7cf67c4d9ad2f6c",
       "signature": null
     },
     "unifi-network": {
-      "version": "0.2.22",
-      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-unifi-network-0.2.22/module-unifi-network-0.2.22.tar.gz",
-      "sha256": "b76ada6cef8bd3face4897749b70c04612e04be34bea0d2b9e8d45f88519db7a",
+      "version": "0.2.24",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-unifi-network-0.2.24/module-unifi-network-0.2.24.tar.gz",
+      "sha256": "7d8155516fa73aad569f7ff6ed8e6758297082a72d7f92ca7ab15d40f15f3182",
       "signature": null
     },
     "unifi-protect": {
-      "version": "0.1.3",
-      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-unifi-protect-0.1.3/module-unifi-protect-0.1.3.tar.gz",
-      "sha256": "be87a9a8bfcc3065ddb678a89c04098bf4ef820a72bbf895241bd043d1d297ef",
+      "version": "0.1.6",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-unifi-protect-0.1.6/module-unifi-protect-0.1.6.tar.gz",
+      "sha256": "0895c71088d8b0e9ad1369353a43026cd2f4ca932dccbdcfc28c6cfec28dddec",
       "signature": null
     },
     "wol": {
-      "version": "0.1.1",
-      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-wol-0.1.1/module-wol-0.1.1.tar.gz",
-      "sha256": "6701f8fe439125d1d85cf63a19bae70464c1c4994fb5b62999ced68973f5e2ea",
+      "version": "0.1.2",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-wol-0.1.2/module-wol-0.1.2.tar.gz",
+      "sha256": "980a2c05a327a77818990b905cccebb938cf2350660365454ee61f4a67ac8a5e",
       "signature": null
     }
   },
