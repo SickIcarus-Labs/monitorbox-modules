@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.8.2",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.8.2/app-1.8.2.tar.gz",
+      "sha256": "96246dca884405dc4a1ed9af9ec3ecaf504e31872d7cdb4792dc870bfc960eca",
+      "signature": null,
+      "published": "2026-10-30T08:33:15Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "(with SNMP 0.3.11, #330) Fixed a device with many checks flipping most of them to Unknown every round. On Goliath (about 40 checks) the SNMP module let only four calls run at once and turned the rest away at once as \"that device is still busy\", so about 20 checks went Unknown together and came back 15 seconds later, again and again (the new Logs page made it plain). Each device now has its own four workers and checks wait their turn; a call is turned away as busy only after waiting 10 seconds. A device that really stops answering still cannot hold up the others. The four-at-a-time limit came from #327."
+      ]
+    },
+    {
       "version": "1.8.1",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.8.1/app-1.8.1.tar.gz",
       "sha256": "246cc9cce096be86d809361c7520e5100f5616f4ca3b2df58bb0442adaf456ed",
@@ -1344,6 +1357,16 @@
       }
     ],
     "snmp": [
+      {
+        "version": "0.3.11",
+        "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-snmp-0.3.11/module-snmp-0.3.11.tar.gz",
+        "sha256": "500006b809c2ac45ac591e1d995da0ca5d8aca8be6449a61f7cf67c4d9ad2f6c",
+        "signature": null,
+        "published": "2026-10-30T08:33:15Z",
+        "channels": [
+          "dev"
+        ]
+      },
       {
         "version": "0.3.10",
         "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-snmp-0.3.10/module-snmp-0.3.10.tar.gz",
