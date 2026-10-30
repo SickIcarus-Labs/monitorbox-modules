@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.7.24",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.7.24/app-1.7.24.tar.gz",
+      "sha256": "5cd9f1beebe98bdfd33d8dc47d65d9f9a4ca16b420e4e0160e18b63d82fd1af8",
+      "signature": null,
+      "published": "2026-10-30T03:39:10Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "(with UniFi Network 0.2.24, UniFi Protect 0.1.6, #328) When the UniFi console stops answering, every UniFi and Protect check now says so at once (\"cannot reach the UniFi controller ... timed out\") instead of each one waiting out its own timeout behind the one before and reading \"the module did not answer\". On Oct 29 a console that went quiet for about six minutes turned a hundred checks Unknown with that confusing message. They are still Unknown, never Failed; the wording and the recovery time are what change (one real try every 10 seconds)."
+      ]
+    },
+    {
       "version": "1.7.23",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.7.23/app-1.7.23.tar.gz",
       "sha256": "ebc9dba1f4b45c81f10ecad5a96f8f242a0a93e557174e5327db724e13cddbbb",
@@ -1416,6 +1429,16 @@
     ],
     "unifi-network": [
       {
+        "version": "0.2.24",
+        "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-unifi-network-0.2.24/module-unifi-network-0.2.24.tar.gz",
+        "sha256": "7d8155516fa73aad569f7ff6ed8e6758297082a72d7f92ca7ab15d40f15f3182",
+        "signature": null,
+        "published": "2026-10-30T03:39:10Z",
+        "channels": [
+          "dev"
+        ]
+      },
+      {
         "version": "0.2.23",
         "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-unifi-network-0.2.23/module-unifi-network-0.2.23.tar.gz",
         "sha256": "8aac50f4850526d5e7bced14af5db17686c7823e84e15004a814824c20ea3d5b",
@@ -1463,6 +1486,16 @@
       }
     ],
     "unifi-protect": [
+      {
+        "version": "0.1.6",
+        "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-unifi-protect-0.1.6/module-unifi-protect-0.1.6.tar.gz",
+        "sha256": "0895c71088d8b0e9ad1369353a43026cd2f4ca932dccbdcfc28c6cfec28dddec",
+        "signature": null,
+        "published": "2026-10-30T03:39:10Z",
+        "channels": [
+          "dev"
+        ]
+      },
       {
         "version": "0.1.5",
         "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-unifi-protect-0.1.5/module-unifi-protect-0.1.5.tar.gz",
