@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.9.18",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.9.18/app-1.9.18.tar.gz",
+      "sha256": "d8eae5c577599b274d607406e356e3a6a56f2229db44bc3dab69adc81c20107b",
+      "signature": null,
+      "published": "2026-10-31T19:54:04Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "The move of DNS into the Internet card (1.9.17) now also moves DNS servers that check something else too, such as their Pi-hole admin page (Turnberry's did, so they stayed in their own card). The log now says when DNS items were moved, or why they could not be."
+      ]
+    },
+    {
       "version": "1.9.17",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.9.17/app-1.9.17.tar.gz",
       "sha256": "5d5c0635f35f15b33ff5d5caf23d09c78a9474b9a18539054a157f26fdf71dd5",
