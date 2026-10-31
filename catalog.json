@@ -2,6 +2,22 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.9.16",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.9.16/app-1.9.16.tar.gz",
+      "sha256": "da0e43b459e1954c3904f2c0565e0537f5d6d9dcab7303fdabf532ef98b85d82",
+      "signature": null,
+      "published": "2026-10-31T18:35:52Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "MonitorBox's web server could only hold 5 new connections waiting at once (the standard default). When a page asked for eight or nine things together while the Pi was busy, the extra connections were refused: through Caddy that showed as \"502\", and on its own as a page stuck loading. It now holds 128. On the owner's Pi the kernel had counted 14,697 refused connections."
+      ],
+      "highlights": [
+        "Fixed Settings and other pages sometimes failing to load through a proxy."
+      ]
+    },
+    {
       "version": "1.9.15",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.9.15/app-1.9.15.tar.gz",
       "sha256": "40b5c9c3074b4d9d28e305f2984e0e1bda5bb980f5dfd42b4e2065a5ec4feeb5",
