@@ -2,6 +2,23 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.9.20",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.9.20/app-1.9.20.tar.gz",
+      "sha256": "2f31b031aae7f6bc232034b79f77f249b983e24cd482c4862c3634eb3eeb4fa6",
+      "signature": null,
+      "published": "2026-10-31T23:34:42Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "Port errors and packet drops now give the real count and the window: \"errors rising (133 in the last 15 min: 133 receive, 0 transmit, about 1 in 56,000 packets)\" instead of \"about 532 an hour\", which read like a fault lasting the whole hour when it was a short burst. The share of packets reads as \"about 1 in N packets\". The same wording is used on the front page, the Port errors page, a switch's or server's detail (including the other end of the link) and in alerts. What raises the alert has not changed.",
+        "The log no longer says a module \"stopped unexpectedly\" when MonitorBox restarts for an update. A graph or check still finishing found the module MonitorBox had just stopped and started it again; nothing is started once MonitorBox is shutting down."
+      ],
+      "highlights": [
+        "Port errors now say how many were seen and when, not a scaled-up hourly rate."
+      ]
+    },
+    {
       "version": "1.9.19",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.9.19/app-1.9.19.tar.gz",
       "sha256": "42f43527ef08693601bce7d7002c9212f721603623bb6a1426d5ae6f7847704b",
