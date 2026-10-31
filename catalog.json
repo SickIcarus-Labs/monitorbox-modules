@@ -8,7 +8,8 @@
       "signature": null,
       "published": "2026-10-31T18:35:52Z",
       "channels": [
-        "dev"
+        "dev",
+        "beta"
       ],
       "changes": [
         "MonitorBox's web server could only hold 5 new connections waiting at once (the standard default). When a page asked for eight or nine things together while the Pi was busy, the extra connections were refused: through Caddy that showed as \"502\", and on its own as a page stuck loading. It now holds 128. On the owner's Pi the kernel had counted 14,697 refused connections."
