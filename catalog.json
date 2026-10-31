@@ -9,7 +9,8 @@
       "published": "2026-10-31T10:08:18Z",
       "channels": [
         "dev",
-        "beta"
+        "beta",
+        "stable"
       ],
       "changes": [
         "(with UniFi Network 0.2.27) Three fixes for short blips overnight. Web checks now wait up to 10 seconds for a page (was 5), so a service on a busy server, such as Radarr on Goliath during the nightly backup, is not marked Degraded. The UniFi flow log is read on its own lane, so status checks never wait behind it (UniFi Aggregation went Unknown for a minute at 3:32). And a port's history is kept when an error or drop count goes down a little (924 to 923); only a fall to less than half, as a restart does, starts the port again."
@@ -1804,7 +1805,8 @@
         "published": "2026-10-31T10:08:18Z",
         "channels": [
           "dev",
-          "beta"
+          "beta",
+          "stable"
         ],
         "changes": [
           "The flow log for Insights is read on its own lane, so a long flow search no longer makes the status checks wait (one could wait over 22 seconds and turn a device Unknown)."
