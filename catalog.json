@@ -8,7 +8,8 @@
       "signature": null,
       "published": "2026-10-31T23:34:42Z",
       "channels": [
-        "dev"
+        "dev",
+        "beta"
       ],
       "changes": [
         "Port errors and packet drops now give the real count and the window: \"errors rising (133 in the last 15 min: 133 receive, 0 transmit, about 1 in 56,000 packets)\" instead of \"about 532 an hour\", which read like a fault lasting the whole hour when it was a short burst. The share of packets reads as \"about 1 in N packets\". The same wording is used on the front page, the Port errors page, a switch's or server's detail (including the other end of the link) and in alerts. What raises the alert has not changed.",
