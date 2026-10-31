@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.9.11",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.9.11/app-1.9.11.tar.gz",
+      "sha256": "118c411d96b5cd91dd854bfa115e8ba8b512bfcd22acb04bcb812a5cffe5dec9",
+      "signature": null,
+      "published": "2026-10-31T01:42:20Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "Fixed a port starting over at \"learning\" when its error count dipped for a moment. UniFi sometimes reports a port's errors a little lower than before (402, then 325) while the port is busy; the port watch read that as the device restarting and threw away the port's history, three times in one evening on the WAN port. When the packet counts keep going up, the old figure is now held until the counter passes it, so nothing is lost and no errors are invented. A real restart, where the packet counts start over too, still starts the port again."
+      ]
+    },
+    {
       "version": "1.9.10",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.9.10/app-1.9.10.tar.gz",
       "sha256": "eea2ecd0aa980dfacf162c0fbf4507142368c0033f7a952fd5cb33b20b6ed782",
