@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.9.13",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.9.13/app-1.9.13.tar.gz",
+      "sha256": "d45432cda6035dd7e4b66a2359d4833fd0ff82735776ee5de02348dc02d90299",
+      "signature": null,
+      "published": "2026-10-31T02:44:57Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "(with SNMP 0.3.13) A NAS disk that is too warm now says why it is Degraded: \"status Good, 57 \u00b0C (hot, limit 55 \u00b0C)\". SSDs get a higher built-in limit, 70 \u00b0C instead of 55 \u00b0C, and say \"SSD\" on their line. Each disk can have its own limit: open the system, Edit monitoring, Disk temperature limits (empty uses the built-in one), the same as a UniFi Protect drive."
+      ]
+    },
+    {
       "version": "1.9.12",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.9.12/app-1.9.12.tar.gz",
       "sha256": "d151c2b5dfd46f9e9d00cb0ef4cd1f7954484cfccf5b54bc2d42be97506dfa81",
@@ -1573,6 +1586,19 @@
       }
     ],
     "snmp": [
+      {
+        "version": "0.3.13",
+        "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-snmp-0.3.13/module-snmp-0.3.13.tar.gz",
+        "sha256": "b976ae77d7007d4e6c52723172da44759ef8cb108f80348a60629bc7a8240a03",
+        "signature": null,
+        "published": "2026-10-31T02:44:57Z",
+        "channels": [
+          "dev"
+        ],
+        "changes": [
+          "A NAS disk that is too warm now says so (\"57 \u00b0C (hot, limit 55 \u00b0C)\"), instead of showing \"status Good\" while Degraded. An SSD gets a higher built-in limit (70 \u00b0C) than a hard drive (55 \u00b0C), and each disk can have its own limit."
+        ]
+      },
       {
         "version": "0.3.12",
         "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-snmp-0.3.12/module-snmp-0.3.12.tar.gz",
