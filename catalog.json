@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.9.15",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.9.15/app-1.9.15.tar.gz",
+      "sha256": "40b5c9c3074b4d9d28e305f2984e0e1bda5bb980f5dfd42b4e2065a5ec4feeb5",
+      "signature": null,
+      "published": "2026-10-31T15:49:42Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "Settings no longer sits on \"Loading settings\u2026\" for good. When a read gets no answer it is asked again; if that fails too, the page now says which request failed and how (\"versions: no answer in 12 s\") with a **Try again** button, and the same line goes into the log under \"browser\". The box never sees a request that is stuck in the browser, so this is how the cause gets on record."
+      ]
+    },
+    {
       "version": "1.9.14",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.9.14/app-1.9.14.tar.gz",
       "sha256": "aec7223b083e3b2fa3bbcf7e8dead671a322c65bd7df760ff29c94879a3697e7",
