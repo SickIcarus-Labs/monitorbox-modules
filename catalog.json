@@ -8,7 +8,8 @@
       "signature": null,
       "published": "2026-10-31T02:44:57Z",
       "channels": [
-        "dev"
+        "dev",
+        "beta"
       ],
       "changes": [
         "(with SNMP 0.3.13) A NAS disk that is too warm now says why it is Degraded: \"status Good, 57 \u00b0C (hot, limit 55 \u00b0C)\". SSDs get a higher built-in limit, 70 \u00b0C instead of 55 \u00b0C, and say \"SSD\" on their line. Each disk can have its own limit: open the system, Edit monitoring, Disk temperature limits (empty uses the built-in one), the same as a UniFi Protect drive."
@@ -1593,7 +1594,8 @@
         "signature": null,
         "published": "2026-10-31T02:44:57Z",
         "channels": [
-          "dev"
+          "dev",
+          "beta"
         ],
         "changes": [
           "A NAS disk that is too warm now says so (\"57 \u00b0C (hot, limit 55 \u00b0C)\"), instead of showing \"status Good\" while Degraded. An SSD gets a higher built-in limit (70 \u00b0C) than a hard drive (55 \u00b0C), and each disk can have its own limit."
