@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.9.17",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.9.17/app-1.9.17.tar.gz",
+      "sha256": "5d5c0635f35f15b33ff5d5caf23d09c78a9474b9a18539054a157f26fdf71dd5",
+      "signature": null,
+      "published": "2026-10-31T19:19:53Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "DNS servers now sit in the **Internet** card instead of a card of their own. New boxes set them up there, and a box set up earlier moves them there once by itself (the DNS servers and the DNS group only; anything else you filed under DNS stays put)."
+      ]
+    },
+    {
       "version": "1.9.16",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.9.16/app-1.9.16.tar.gz",
       "sha256": "da0e43b459e1954c3904f2c0565e0537f5d6d9dcab7303fdabf532ef98b85d82",
