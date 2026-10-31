@@ -9,7 +9,8 @@
       "published": "2026-10-31T19:54:04Z",
       "channels": [
         "dev",
-        "beta"
+        "beta",
+        "stable"
       ],
       "changes": [
         "The move of DNS into the Internet card (1.9.17) now also moves DNS servers that check something else too, such as their Pi-hole admin page (Turnberry's did, so they stayed in their own card). The log now says when DNS items were moved, or why they could not be."
