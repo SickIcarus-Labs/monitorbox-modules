@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.9.19",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.9.19/app-1.9.19.tar.gz",
+      "sha256": "42f43527ef08693601bce7d7002c9212f721603623bb6a1426d5ae6f7847704b",
+      "signature": null,
+      "published": "2026-10-31T23:24:15Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "Each module now starts once when MonitorBox restarts. The LAN sampler or the graphs could ask for UniFi Network or SNMP a moment before the start-up batch launched it, start their own copy, and then the batch started it again and stopped the first, so its checks went Unknown for a few seconds at every restart. They now wait for the batch, and the batch leaves a module alone that is already running."
+      ]
+    },
+    {
       "version": "1.9.18",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.9.18/app-1.9.18.tar.gz",
       "sha256": "d8eae5c577599b274d607406e356e3a6a56f2229db44bc3dab69adc81c20107b",
