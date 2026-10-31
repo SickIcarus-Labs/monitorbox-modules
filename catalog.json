@@ -8,7 +8,8 @@
       "signature": null,
       "published": "2026-10-31T01:58:52Z",
       "channels": [
-        "dev"
+        "dev",
+        "beta"
       ],
       "changes": [
         "Errors and packet drops that stay below the alert line are now shown instead of hidden. The Port errors page has a **Below the alert line** list, and the network map adds a grey line to the port, for example \"780 errors an hour (0.00015% of packets), below the alert line\". Nothing about alerting changes."
@@ -1757,7 +1758,8 @@
         "signature": null,
         "published": "2026-10-31T00:53:16Z",
         "channels": [
-          "dev"
+          "dev",
+          "beta"
         ],
         "changes": [
           "Waits up to 15 seconds for the console to answer (was 8), so a gateway busy routing a big download still gets read instead of turning everything Unknown."
@@ -1845,7 +1847,8 @@
         "signature": null,
         "published": "2026-10-31T00:53:16Z",
         "channels": [
-          "dev"
+          "dev",
+          "beta"
         ],
         "changes": [
           "Waits up to 15 seconds for the console to answer (was 8), so a gateway busy routing a big download still gets read instead of turning every camera Unknown."
