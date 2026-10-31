@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.9.10",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.9.10/app-1.9.10.tar.gz",
+      "sha256": "eea2ecd0aa980dfacf162c0fbf4507142368c0033f7a952fd5cb33b20b6ed782",
+      "signature": null,
+      "published": "2026-10-31T01:30:36Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "Port errors now count from 0.01% of the packets (1 in 10,000), down from 0.1%. That is about where a single download starts to slow, so a cable or module that is starting to fail is reported sooner, while a busy link with a few hundred errors an hour stays quiet. Packet drops stay at 0.1%."
+      ]
+    },
+    {
       "version": "1.9.9",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.9.9/app-1.9.9.tar.gz",
       "sha256": "1291b17d6037b9ddff50a8a86bb1e4ab4a8a7ee515d3db00761b0be6272b3266",
