@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.9.9",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.9.9/app-1.9.9.tar.gz",
+      "sha256": "1291b17d6037b9ddff50a8a86bb1e4ab4a8a7ee515d3db00761b0be6272b3266",
+      "signature": null,
+      "published": "2026-10-31T01:14:39Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "Things that cannot be checked because the same source is not answering (a UniFi console, a Portainer server) now show as one entry under Needs attention, such as \"UniFi Network\", listing what it affects, instead of one entry each. Check now on it checks all of them. Each item still keeps its own Unknown state, and the headline still counts every item."
+      ]
+    },
+    {
       "version": "1.9.8",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.9.8/app-1.9.8.tar.gz",
       "sha256": "bb8a498a13adee350c92c6746ef7ab6e75ad8fad7060a9e6c70d4cc693621bfa",
