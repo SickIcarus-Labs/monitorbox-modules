@@ -9,7 +9,8 @@
       "published": "2026-11-01T02:43:36Z",
       "channels": [
         "dev",
-        "beta"
+        "beta",
+        "stable"
       ],
       "changes": [
         "(image: launcher 1.0.4) The recovery page (shown only when MonitorBox itself will not start) now works only from your home network. Through your reverse proxy it shows no log lines or backup names and refuses restores and uploads, because it signs in with the password and the internet is passkey-only. Wrong passwords there are now slowed down like the normal sign-in. Re-pull the image to get it; MonitorBox tells you when."
