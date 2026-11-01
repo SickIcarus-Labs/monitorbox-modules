@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.9.23",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.9.23/app-1.9.23.tar.gz",
+      "sha256": "93254062664963352880e40ac563d260dcfda32ce1fd9efdfdb60f1fd3570b65",
+      "signature": null,
+      "published": "2026-11-01T02:43:36Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "(image: launcher 1.0.4) The recovery page (shown only when MonitorBox itself will not start) now works only from your home network. Through your reverse proxy it shows no log lines or backup names and refuses restores and uploads, because it signs in with the password and the internet is passkey-only. Wrong passwords there are now slowed down like the normal sign-in. Re-pull the image to get it; MonitorBox tells you when."
+      ]
+    },
+    {
       "version": "1.9.21",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.9.21/app-1.9.21.tar.gz",
       "sha256": "47b6f9de48364eeafe1ce3bc0b1c36d75afe3f2895a8f16c101e611f51dc30cd",
