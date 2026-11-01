@@ -2,6 +2,22 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.9.21",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.9.21/app-1.9.21.tar.gz",
+      "sha256": "47b6f9de48364eeafe1ce3bc0b1c36d75afe3f2895a8f16c101e611f51dc30cd",
+      "signature": null,
+      "published": "2026-11-01T02:33:53Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "Names that come from devices and other systems (container labels, camera ids, machine names, a managed site's name) are now always treated as plain text by the buttons that use them, so a crafted name can never run in your signed-in browser. A site tab now only passes on the kinds of answer a MonitorBox gives (data, images, logs, backups), never a web page of its own."
+      ],
+      "highlights": [
+        "Security fixes for boxes opened to the internet."
+      ]
+    },
+    {
       "version": "1.9.20",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.9.20/app-1.9.20.tar.gz",
       "sha256": "2f31b031aae7f6bc232034b79f77f249b983e24cd482c4862c3634eb3eeb4fa6",
