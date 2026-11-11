@@ -1920,6 +1920,19 @@
     ],
     "unifi-network": [
       {
+        "version": "0.2.28",
+        "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-unifi-network-0.2.28/module-unifi-network-0.2.28.tar.gz",
+        "sha256": "3a60de7de5c2cb128d61820dd0ea7f32136289997ad7f91e60e34049703d304b",
+        "signature": null,
+        "published": "2026-11-11T09:12:33Z",
+        "channels": [
+          "dev"
+        ],
+        "changes": [
+          "A VPN tunnel no longer reads Unknown when UniFi Network 11 also lists a Site Magic link with the same name (the link has no status); the tunnel UniFi reports on is the one watched, and Site Magic links are no longer offered as checks of their own."
+        ]
+      },
+      {
         "version": "0.2.27",
         "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-unifi-network-0.2.27/module-unifi-network-0.2.27.tar.gz",
         "sha256": "be57dfb792962e47b32e840fe314057e9b8c145872290bf08068df8f0fb98b5e",
