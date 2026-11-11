@@ -1927,7 +1927,8 @@
         "published": "2026-11-11T09:12:33Z",
         "channels": [
           "dev",
-          "beta"
+          "beta",
+          "stable"
         ],
         "changes": [
           "A VPN tunnel no longer reads Unknown when UniFi Network 11 also lists a Site Magic link with the same name (the link has no status); the tunnel UniFi reports on is the one watched, and Site Magic links are no longer offered as checks of their own."
