@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.9.24",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.9.24/app-1.9.24.tar.gz",
+      "sha256": "02e443ab45c108d9adc511207d0dc098842a490a893d99c140b61c479fefcf73",
+      "signature": null,
+      "published": "2026-11-14T18:35:28Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "(with UniFi Network 0.2.29) (tracker #339) [highlight: A slow UniFi console no longer turns every UniFi item Unknown.] On 2026-11-14 slow traffic questions (the flow log behind the Busiest client and the graph side panels) tied up the UniFi module and about 20 items went Unknown for four minutes. The module now keeps its device checks apart from traffic questions, which take turns and stop in time, sending the newest flows they have. The App asks the flow log once for everyone who wants it at the same moment, and a side panel no longer waits another 20 seconds for usage after the flow log timed out (50 seconds before). Settings, Advanced, Performance now also shows how long module calls queued and which kinds timed out."
+      ]
+    },
+    {
       "version": "1.9.23",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.9.23/app-1.9.23.tar.gz",
       "sha256": "93254062664963352880e40ac563d260dcfda32ce1fd9efdfdb60f1fd3570b65",
@@ -1919,6 +1932,19 @@
       }
     ],
     "unifi-network": [
+      {
+        "version": "0.2.29",
+        "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-unifi-network-0.2.29/module-unifi-network-0.2.29.tar.gz",
+        "sha256": "152fa87553638492d1442c125bf9bab96f706b6c421ebf1d7cefb41d08609457",
+        "signature": null,
+        "published": "2026-11-14T18:35:28Z",
+        "channels": [
+          "dev"
+        ],
+        "changes": [
+          "Slow traffic questions (the flow log and per-client usage) can no longer tie up the module so the device checks go Unknown: checks get threads of their own, traffic questions take turns on one, identical ones share an answer, and a busy module says so at once. A flow search now stops before MonitorBox gives up and sends the newest flows it has, and a flow page the console is slow to answer no longer makes every device check read \"cannot reach\" for 10 seconds."
+        ]
+      },
       {
         "version": "0.2.28",
         "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-unifi-network-0.2.28/module-unifi-network-0.2.28.tar.gz",
