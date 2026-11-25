@@ -2,6 +2,19 @@
   "schema": 1,
   "app": [
     {
+      "version": "1.10.0",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.10.0/app-1.10.0.tar.gz",
+      "sha256": "b73ad0d13c0477f53f2fee405bc92dd8351c901cf1601f7cc9c8193dd59dba1a",
+      "signature": null,
+      "published": "2026-11-25T15:38:41Z",
+      "channels": [
+        "dev"
+      ],
+      "changes": [
+        "(with Portainer 0.2.0) [highlight: MonitorBox now spots two Docker containers sharing a MAC address.] On November 25 two pairs of containers on Goliath's media network had the same MAC address, so their connections failed at random for hours while Docker said everything was healthy. A new item per Docker environment, **Docker MAC addresses**, now goes Down when two containers on one Docker network share a MAC (naming them and their addresses), and Degraded when a container's settings ask for a fixed MAC that could cause that later. It looks every 5 minutes, read-only, and never changes a container. Under **Edit monitoring** you can change how often it looks and list containers whose fixed MAC is on purpose (that never hides a real clash). New Portainer connections offer it ticked; on an existing one, open **Pick what to watch** and tick it under Environments. Alerts now also send an update when exactly what is wrong changes while it is still wrong, such as a third container joining a clash."
+      ]
+    },
+    {
       "version": "1.9.24",
       "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.9.24/app-1.9.24.tar.gz",
       "sha256": "02e443ab45c108d9adc511207d0dc098842a490a893d99c140b61c479fefcf73",
@@ -1670,6 +1683,19 @@
       }
     ],
     "portainer": [
+      {
+        "version": "0.2.0",
+        "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-portainer-0.2.0/module-portainer-0.2.0.tar.gz",
+        "sha256": "66025ed63b69ddd5f7d87c20049c7837974bde74a9c1909f091fa9c5c8c10586",
+        "signature": null,
+        "published": "2026-11-25T15:38:41Z",
+        "channels": [
+          "dev"
+        ],
+        "changes": [
+          "Watches for two containers sharing a MAC address on one Docker network, and for containers whose settings ask for a fixed MAC, read-only."
+        ]
+      },
       {
         "version": "0.1.7",
         "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-portainer-0.1.7/module-portainer-0.1.7.tar.gz",
