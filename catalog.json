@@ -8,7 +8,8 @@
       "signature": null,
       "published": "2026-11-25T22:12:22Z",
       "channels": [
-        "dev"
+        "dev",
+        "beta"
       ],
       "changes": [
         "On the main screen, each environment's Docker MAC addresses line now sits inside that environment's fold, under its Portainer environment line, instead of loose in the Services card. It is not counted as a service, but a clash still opens the fold by itself. An environment with no containers watched gets a fold of its own for its two lines. The Services list and **Remove all** treat it the same way, and in **Pick what to watch** an environment's \"of N services\" count no longer includes it."
@@ -1703,7 +1704,8 @@
         "signature": null,
         "published": "2026-11-25T15:38:41Z",
         "channels": [
-          "dev"
+          "dev",
+          "beta"
         ],
         "changes": [
           "Watches for two containers sharing a MAC address on one Docker network, and for containers whose settings ask for a fixed MAC, read-only."

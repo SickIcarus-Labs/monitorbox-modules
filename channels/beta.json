@@ -1,11 +1,11 @@
 {
   "schema": 1,
   "channel": "beta",
-  "updated": "2026-11-15T07:45:55Z",
+  "updated": "2026-11-27T00:39:43Z",
   "app": {
-    "version": "1.9.24",
-    "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.9.24/app-1.9.24.tar.gz",
-    "sha256": "02e443ab45c108d9adc511207d0dc098842a490a893d99c140b61c479fefcf73",
+    "version": "1.10.1",
+    "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/app-1.10.1/app-1.10.1.tar.gz",
+    "sha256": "5e9933842068d790e3361c38545b9b15c8b567ff1eecd896c84fa423100063f7",
     "signature": null
   },
   "modules": {
@@ -16,9 +16,9 @@
       "signature": null
     },
     "portainer": {
-      "version": "0.1.7",
-      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-portainer-0.1.7/module-portainer-0.1.7.tar.gz",
-      "sha256": "fdafe5cc189da4c152951c22d5a94bb7f7bd5ceedfcf824351da7267cfb0dce5",
+      "version": "0.2.0",
+      "url": "https://github.com/SickIcarus-Labs/monitorbox-modules/releases/download/module-portainer-0.2.0/module-portainer-0.2.0.tar.gz",
+      "sha256": "66025ed63b69ddd5f7d87c20049c7837974bde74a9c1909f091fa9c5c8c10586",
       "signature": null
     },
     "scrypted": {
